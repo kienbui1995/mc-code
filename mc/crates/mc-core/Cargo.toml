@@ -1,0 +1,24 @@
+[package]
+name = "mc-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+mc-provider = { path = "../mc-provider" }
+mc-tools = { path = "../mc-tools" }
+mc-config = { path = "../mc-config" }
+futures-core.workspace = true
+tokio-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+async-stream.workspace = true

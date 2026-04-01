@@ -1,2 +1,7 @@
 __pycache__/
 archive/
+mc/target/
+*.swp
+*.swo
+.DS_Store
+.magic-code/config.local.toml

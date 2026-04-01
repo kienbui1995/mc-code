@@ -1,0 +1,23 @@
+mod audit;
+mod bash;
+mod error;
+mod file_ops;
+mod hooks;
+mod mcp;
+mod permissions;
+mod registry;
+mod sandbox;
+mod search;
+mod spec;
+
+pub use audit::{AuditEntry, AuditLog};
+pub use bash::BashTool;
+pub use error::ToolError;
+pub use file_ops::{EditFileTool, ReadFileTool, WriteFileTool};
+pub use hooks::{Hook, HookEngine, HookEvent};
+pub use mcp::McpClient;
+pub use permissions::{PermissionMode, PermissionOutcome, PermissionPolicy, PermissionPrompter, PermissionRequest};
+pub use registry::ToolRegistry;
+pub use sandbox::Sandbox;
+pub use search::{GlobSearchTool, GrepSearchTool};
+pub use spec::ToolSpec;
