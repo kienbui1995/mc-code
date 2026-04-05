@@ -144,6 +144,7 @@ impl ConversationRuntime {
         &self.model
     }
 
+    #[allow(clippy::too_many_lines)]
     pub async fn run_turn(
         &mut self,
         provider: &dyn LlmProvider,
@@ -593,6 +594,7 @@ impl ConversationRuntime {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn build_request(&self) -> CompletionRequest {
         let mut messages: Vec<InputMessage> = Vec::new();
 

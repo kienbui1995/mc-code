@@ -330,7 +330,7 @@ fn msg_to_json(msg: &InputMessage) -> serde_json::Value {
         for b in &msg.content {
             match b {
                 ContentBlock::Text { text } => {
-                    parts.push(serde_json::json!({"type": "text", "text": text}))
+                    parts.push(serde_json::json!({"type": "text", "text": text}));
                 }
                 ContentBlock::Image { data, media_type } => parts.push(serde_json::json!({
                     "type": "image_url",

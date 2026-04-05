@@ -7,6 +7,7 @@ pub struct ToolSpec {
     pub input_schema: Value,
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn all_tool_specs() -> Vec<ToolSpec> {
     vec![
         ToolSpec {
