@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0 (unreleased)
+
+### New Features
+- **LLM-generated commit messages** — `/commit` sends staged diff to LLM for a conventional commit message
+- **Provider fallback** — `fallback_provider` / `fallback_model` config fields for automatic failover
+- **Session auto-save** — automatically saves session every 5 turns
+- **Terminal bell** — `\x07` bell on turn completion (audible notification)
+- **`/doctor` command** — check version, provider, API key, git, config validity
+- **README rewrite** — comprehensive documentation of all features (v0.1–v0.5)
+
+### Infrastructure
+- `ConversationRuntime::generate_commit_message()` for LLM-powered git commits
+- `RuntimeConfig` gains `fallback_provider`, `fallback_model` fields
+- Turn counter with periodic auto-save to `~/.local/share/magic-code/sessions/last.json`
+- 135 tests
+
 ## v0.4.0 (unreleased)
 
 ### New Features — Tools
