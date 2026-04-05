@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.0 (unreleased)
+
+### New Features
+- **Streaming bash output** — stdout/stderr from bash tool execution now streams line-by-line to the TUI in real-time instead of waiting for the command to finish. Long-running commands (e.g. `cargo build`, `npm install`) show progress as it happens.
+
+### Infrastructure
+- New `BashTool::execute_streaming` method using piped stdout/stderr with `tokio::io::BufReader`
+- New `ToolRegistry::execute_streaming` for tools that support incremental output
+- `ProviderEvent::ToolOutputDelta` variant for forwarding tool output through the event pipeline
+- `parallel_tools::execute_batch` accepts optional output sender for streaming
+- Runtime uses `tokio::select!` to drain tool output concurrently during batch execution
+
 ## v0.2.0 (unreleased)
 
 ### New Features

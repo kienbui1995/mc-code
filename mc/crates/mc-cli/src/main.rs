@@ -315,6 +315,9 @@ async fn run_tui(
                         "  ⟳ stream interrupted ({reason}), retrying ({attempt}/{max})..."
                     ));
                 }
+                UiMessage::ToolOutputDelta(t) => {
+                    app.handle_event(AppEvent::StreamDelta(t));
+                }
             }
         }
 
@@ -440,6 +443,8 @@ async fn run_tui(
                                                         { let _ = tx.try_send(UiMessage::StreamReset); }
                                                     mc_provider::ProviderEvent::RetryAttempt { attempt, max, ref reason } =>
                                                         { let _ = tx.try_send(UiMessage::RetryAttempt { attempt: *attempt, max: *max, reason: reason.clone() }); }
+                                                    mc_provider::ProviderEvent::ToolOutputDelta(ref t) =>
+                                                        { let _ = tx.try_send(UiMessage::ToolOutputDelta(t.clone())); }
                                                     mc_provider::ProviderEvent::MessageStop
                                                     | mc_provider::ProviderEvent::ThinkingDelta(_) => {}
                                                 }
@@ -650,9 +655,13 @@ async fn run_single(
             policy,
             &mut None,
             &mut |event| {
-                if let mc_provider::ProviderEvent::TextDelta(text) = event {
-                    let _ = write!(stdout, "{text}");
-                    let _ = stdout.flush();
+                match event {
+                    mc_provider::ProviderEvent::TextDelta(text)
+                    | mc_provider::ProviderEvent::ToolOutputDelta(text) => {
+                        let _ = write!(stdout, "{text}");
+                        let _ = stdout.flush();
+                    }
+                    _ => {}
                 }
             },
             &cancel,

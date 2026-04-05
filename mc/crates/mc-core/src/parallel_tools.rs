@@ -4,7 +4,7 @@ use std::time::Instant;
 use mc_tools::{
     AuditEntry, AuditLog, HookEngine, HookEvent, PermissionOutcome, PermissionPolicy, ToolRegistry,
 };
-use tokio::sync::Semaphore;
+use tokio::sync::{mpsc, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 pub struct ToolResult {
@@ -16,7 +16,7 @@ pub struct ToolResult {
 
 /// Execute multiple tools concurrently with a concurrency limit.
 /// Subagent calls are excluded (must be run sequentially by caller).
-#[allow(clippy::ref_option)]
+#[allow(clippy::too_many_arguments, clippy::ref_option)]
 pub async fn execute_batch(
     tools: Vec<(String, String, String)>, // (id, name, input_json)
     registry: &Arc<ToolRegistry>,
@@ -25,12 +25,13 @@ pub async fn execute_batch(
     policy: &PermissionPolicy,
     cancel: &CancellationToken,
     max_concurrent: usize,
+    output_tx: Option<&mpsc::UnboundedSender<String>>,
 ) -> Vec<ToolResult> {
     if tools.is_empty() {
         return Vec::new();
     }
     if tools.len() == 1 || max_concurrent <= 1 {
-        return execute_sequential(tools, registry, hook_engine, audit_log, policy, cancel).await;
+        return execute_sequential(tools, registry, hook_engine, audit_log, policy, cancel, output_tx).await;
     }
 
     let sem = Arc::new(Semaphore::new(max_concurrent));
@@ -43,6 +44,7 @@ pub async fn execute_batch(
         let audit = audit_log.clone();
         let pol = policy.clone();
         let cancel = cancel.clone();
+        let otx = output_tx.cloned();
 
         handles.push(tokio::spawn(async move {
             let _permit = sem.acquire().await.ok();
@@ -54,7 +56,7 @@ pub async fn execute_batch(
                     is_error: true,
                 };
             }
-            execute_one(&id, &name, &input, &reg, &hooks, &audit, &pol).await
+            execute_one(&id, &name, &input, &reg, &hooks, &audit, &pol, otx.as_ref()).await
         }));
     }
 
@@ -81,6 +83,7 @@ async fn execute_sequential(
     audit_log: &Option<Arc<AuditLog>>,
     policy: &PermissionPolicy,
     cancel: &CancellationToken,
+    output_tx: Option<&mpsc::UnboundedSender<String>>,
 ) -> Vec<ToolResult> {
     let mut results = Vec::with_capacity(tools.len());
     for (id, name, input) in tools {
@@ -94,12 +97,12 @@ async fn execute_sequential(
             break;
         }
         results
-            .push(execute_one(&id, &name, &input, registry, hook_engine, audit_log, policy).await);
+            .push(execute_one(&id, &name, &input, registry, hook_engine, audit_log, policy, output_tx).await);
     }
     results
 }
 
-#[allow(clippy::ref_option)]
+#[allow(clippy::too_many_arguments, clippy::ref_option)]
 async fn execute_one(
     id: &str,
     name: &str,
@@ -108,6 +111,7 @@ async fn execute_one(
     hook_engine: &Option<Arc<HookEngine>>,
     audit_log: &Option<Arc<AuditLog>>,
     policy: &PermissionPolicy,
+    output_tx: Option<&mpsc::UnboundedSender<String>>,
 ) -> ToolResult {
     // Pre-hook
     if let Some(ref engine) = hook_engine {
@@ -129,7 +133,12 @@ async fn execute_one(
         PermissionOutcome::Allow => {
             let input_val: serde_json::Value =
                 serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({"raw": input}));
-            match registry.execute(name, &input_val).await {
+            let res = if let Some(tx) = output_tx {
+                registry.execute_streaming(name, &input_val, tx).await
+            } else {
+                registry.execute(name, &input_val).await
+            };
+            match res {
                 Ok(out) => (out, false),
                 Err(e) => (e.to_string(), true),
             }
@@ -174,7 +183,7 @@ mod tests {
         let reg = Arc::new(ToolRegistry::new());
         let policy = PermissionPolicy::new(PermissionMode::Allow);
         let cancel = CancellationToken::new();
-        let results = execute_batch(vec![], &reg, &None, &None, &policy, &cancel, 4).await;
+        let results = execute_batch(vec![], &reg, &None, &None, &policy, &cancel, 4, None).await;
         assert!(results.is_empty());
     }
 
@@ -188,7 +197,7 @@ mod tests {
             "bash".into(),
             r#"{"command":"echo hi"}"#.into(),
         )];
-        let results = execute_batch(tools, &reg, &None, &None, &policy, &cancel, 4).await;
+        let results = execute_batch(tools, &reg, &None, &None, &policy, &cancel, 4, None).await;
         assert_eq!(results.len(), 1);
         assert!(results[0].output.contains("hi"));
     }
@@ -204,7 +213,7 @@ mod tests {
             "bash".into(),
             r#"{"command":"echo hi"}"#.into(),
         )];
-        let results = execute_batch(tools, &reg, &None, &None, &policy, &cancel, 4).await;
+        let results = execute_batch(tools, &reg, &None, &None, &policy, &cancel, 4, None).await;
         assert!(results[0].is_error);
     }
 }

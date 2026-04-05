@@ -4,6 +4,7 @@ mod context_resolver;
 mod memory;
 mod model_registry;
 mod parallel_tools;
+mod repo_map;
 mod retry;
 mod runtime;
 mod session;
@@ -18,6 +19,7 @@ pub use compact::{compact_session, estimate_tokens, should_compact, smart_compac
 pub use context_resolver::{ContextResolver, ResolvedContext};
 pub use memory::{Fact, MemoryStore};
 pub use model_registry::{ModelMeta, ModelRegistry};
+pub use repo_map::RepoMap;
 pub use retry::RetryPolicy;
 pub use runtime::{ConversationRuntime, LlmProvider, TurnResult};
 pub use session::{Block, ConversationMessage, ImageSource, Role, Session};

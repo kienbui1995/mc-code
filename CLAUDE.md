@@ -4,6 +4,47 @@
 
 magic-code: open-source TUI agentic AI coding agent. Built in Rust.
 
+## Current Version: v0.3.0 (in progress)
+
+### v0.3.0 Progress
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1 | (TBD — feature 1) | ❓ Unknown | Not discussed yet |
+| 2 | Streaming bash output | ✅ Done | stdout/stderr stream line-by-line to TUI in real-time |
+
+### v0.3.0 Feature 2 Details — Streaming Bash Output
+
+**What:** Instead of waiting for bash commands to finish, output streams line-by-line to TUI.
+
+**Files changed:**
+- `mc-provider/src/types.rs` — `ProviderEvent::ToolOutputDelta(String)` variant
+- `mc-tools/src/bash.rs` — `BashTool::execute_streaming()` with piped stdout/stderr + `BufReader::lines()`
+- `mc-tools/src/registry.rs` — `ToolRegistry::execute_streaming()` delegates to bash streaming
+- `mc-core/src/parallel_tools.rs` — `execute_batch/one/sequential` accept `Option<&UnboundedSender<String>>`
+- `mc-core/src/runtime.rs` — `run_turn` creates channel, `select!` loop drains chunks concurrently
+- `mc-tui/src/app.rs` — `UiMessage::ToolOutputDelta(String)` variant
+- `mc-cli/src/main.rs` — Forward events in TUI mode + pipe mode
+
+**Data flow:**
+```
+BashTool::execute_streaming → mpsc::UnboundedSender
+  → ToolRegistry::execute_streaming → parallel_tools::execute_one
+    → runtime select! loop → on_event(ProviderEvent::ToolOutputDelta)
+      → UiMessage::ToolOutputDelta → TUI renders as StreamDelta
+```
+
+**Tests added:** 4 new tests (streaming_captures_lines, streaming_captures_stderr, streaming_timeout_works, streaming_mixed_stdout_stderr)
+
+**Review fixes applied:**
+- stderr `select!` branch: added `stderr_done` guard to stop polling after EOF/error
+- Removed double timeout in `registry::execute_streaming` (BashTool handles its own timeout)
+
+### Release History
+- v0.1.0: Initial release (multi-provider, streaming, 7 tools, TUI, MCP, permissions)
+- v0.2.0 (unreleased): Extended thinking, image support, long-term memory, @-mentions, undo/rollback, conversation branching, parallel tools, tool caching, prompt caching, dynamic token budget, mid-stream retry, context pressure warning. 9 tools, 123 tests.
+- v0.3.0 (in progress): Streaming bash output. 131 tests.
+
 ## Repository Layout
 
 ```
@@ -59,7 +100,7 @@ mc-config → (standalone)
 
 ```bash
 cd mc
-cargo test --workspace          # 123 tests
+cargo test --workspace          # 131 tests
 cargo clippy --workspace --all-targets  # zero warnings required
 cargo fmt --all -- --check      # format check
 cargo build --release           # release build
@@ -129,7 +170,7 @@ CI enforces: `RUSTFLAGS=-Dwarnings` — all warnings are errors.
 - `Session` — message history (with optional branch metadata), serializable to JSON
 - `Block` — content unit: Text, ToolUse, ToolResult, Image, Thinking
 - `ContentBlock` — provider-level content (always base64 for images)
-- `ProviderEvent` — streaming events: TextDelta, ThinkingDelta, ToolUse, Usage, MessageStop, RetryAttempt, StreamReset
+- `ProviderEvent` — streaming events: TextDelta, ThinkingDelta, ToolUse, Usage, MessageStop, RetryAttempt, StreamReset, ToolOutputDelta
 - `ToolRegistry` — tool dispatch with sandbox, timeout, MCP support (Arc-wrapped)
 - `PermissionPolicy` — controls which tools can execute
 - `TokenBudget` — dynamic max_tokens based on context window usage
@@ -140,10 +181,11 @@ CI enforces: `RUSTFLAGS=-Dwarnings` — all warnings are errors.
 ### Tool Execution Flow
 1. LLM returns tool_use blocks
 2. Runtime splits: subagent/memory → sequential, rest → parallel batch
-3. Parallel batch: `parallel_tools::execute_batch()` with semaphore (max 4)
-4. Each tool: pre-hook → permission check → cache check → execute → cache store → audit → post-hook
+3. Parallel batch: `parallel_tools::execute_batch()` with semaphore (max 4), optional streaming output sender
+4. Each tool: pre-hook → permission check → cache check → execute (streaming for bash) → cache store → audit → post-hook
 5. Write tools (write_file/edit_file): undo snapshot before execution, cache invalidation after
-6. Results stored as tool_result messages in session
+6. Streaming bash output: chunks forwarded via `ProviderEvent::ToolOutputDelta` → TUI renders in real-time
+7. Results stored as tool_result messages in session
 
 ## Do / Don't
 
