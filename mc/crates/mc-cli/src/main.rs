@@ -216,13 +216,21 @@ async fn run_tui(
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let _ = disable_raw_mode();
-        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        let _ = execute!(
+            io::stdout(),
+            crossterm::event::DisableMouseCapture,
+            LeaveAlternateScreen
+        );
         original_hook(info);
     }));
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        crossterm::event::EnableMouseCapture
+    )?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -322,116 +330,125 @@ async fn run_tui(
         }
 
         if event::poll(std::time::Duration::from_millis(30))? {
-            if let Event::Key(key) = event::read()? {
-                if app.permission_pending.is_some() {
-                    match key.code {
-                        KeyCode::Char('y' | 'Y') | KeyCode::Enter => {
-                            if let Some(ref tx) = perm_response_tx {
-                                let _ = tx.try_send(true);
-                            }
-                            app.permission_pending = None;
-                        }
-                        KeyCode::Char('a' | 'A') => {
-                            if let Some((ref tool, _)) = app.permission_pending {
-                                app.always_allowed.insert(tool.clone());
-                            }
-                            if let Some(ref tx) = perm_response_tx {
-                                let _ = tx.try_send(true);
-                            }
-                            app.permission_pending = None;
-                        }
-                        KeyCode::Char('n' | 'N') | KeyCode::Esc => {
-                            if let Some(ref tx) = perm_response_tx {
-                                let _ = tx.try_send(false);
-                            }
-                            app.permission_pending = None;
-                        }
+            match event::read()? {
+                Event::Mouse(mouse) => {
+                    use crossterm::event::MouseEventKind;
+                    match mouse.kind {
+                        MouseEventKind::ScrollUp => app.scroll_up(3),
+                        MouseEventKind::ScrollDown => app.scroll_down(3),
                         _ => {}
                     }
-                    continue;
                 }
-                match key {
-                    event::KeyEvent {
-                        code: KeyCode::Char('c'),
-                        modifiers,
-                        ..
-                    } if modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Some(ref cancel) = turn_cancel {
-                            cancel.cancel();
-                            app.handle_event(AppEvent::StreamDelta("\n[cancelled]".into()));
-                            app.handle_event(AppEvent::StreamDone);
-                            turn_cancel = None;
-                        } else {
-                            break;
+                Event::Key(key) => {
+                    if app.permission_pending.is_some() {
+                        match key.code {
+                            KeyCode::Char('y' | 'Y') | KeyCode::Enter => {
+                                if let Some(ref tx) = perm_response_tx {
+                                    let _ = tx.try_send(true);
+                                }
+                                app.permission_pending = None;
+                            }
+                            KeyCode::Char('a' | 'A') => {
+                                if let Some((ref tool, _)) = app.permission_pending {
+                                    app.always_allowed.insert(tool.clone());
+                                }
+                                if let Some(ref tx) = perm_response_tx {
+                                    let _ = tx.try_send(true);
+                                }
+                                app.permission_pending = None;
+                            }
+                            KeyCode::Char('n' | 'N') | KeyCode::Esc => {
+                                if let Some(ref tx) = perm_response_tx {
+                                    let _ = tx.try_send(false);
+                                }
+                                app.permission_pending = None;
+                            }
+                            _ => {}
                         }
+                        continue;
                     }
-                    event::KeyEvent {
-                        code: KeyCode::Char('u'),
-                        modifiers,
-                        ..
-                    } if modifiers.contains(KeyModifiers::CONTROL) => app.input.clear(),
-                    event::KeyEvent {
-                        code: KeyCode::Char('w'),
-                        modifiers,
-                        ..
-                    } if modifiers.contains(KeyModifiers::CONTROL) => app.input.delete_word(),
-                    event::KeyEvent {
-                        code: KeyCode::PageUp,
-                        ..
-                    } => app.scroll_up(10),
-                    event::KeyEvent {
-                        code: KeyCode::PageDown,
-                        ..
-                    } => app.scroll_down(10),
-                    event::KeyEvent {
-                        code: KeyCode::Home,
-                        modifiers,
-                        ..
-                    } if modifiers.contains(KeyModifiers::CONTROL) => app.scroll_home(),
-                    event::KeyEvent {
-                        code: KeyCode::End,
-                        modifiers,
-                        ..
-                    } if modifiers.contains(KeyModifiers::CONTROL) => app.scroll_end(),
-                    event::KeyEvent {
-                        code: KeyCode::Up, ..
-                    } => app.history_up(),
-                    event::KeyEvent {
-                        code: KeyCode::Down,
-                        ..
-                    } => app.history_down(),
-                    event::KeyEvent {
-                        code: KeyCode::Enter,
-                        modifiers,
-                        ..
-                    } if modifiers.contains(KeyModifiers::SHIFT) => app.input.insert_newline(),
-                    event::KeyEvent {
-                        code: KeyCode::Enter,
-                        ..
-                    } => {
-                        if let Some(evt) = app.submit_input() {
-                            match evt {
-                                AppEvent::UserSubmit(text) => {
-                                    app.handle_event(AppEvent::UserSubmit(text.clone()));
-                                    let cancel = CancellationToken::new();
-                                    turn_cancel = Some(cancel.clone());
-                                    let tx = ui_tx.clone();
-                                    let rt = Arc::clone(&runtime);
-                                    let prov = Arc::clone(&provider);
-                                    let pol = policy.clone();
-                                    let (ptx, prx) = std::sync::mpsc::sync_channel::<bool>(1);
-                                    perm_response_tx = Some(ptx);
-                                    let prompter_tx = ui_tx.clone();
-                                    tokio::spawn(async move {
-                                        let mut prompter: Option<
-                                            Box<dyn mc_tools::PermissionPrompter>,
-                                        > = Some(Box::new(TuiPrompter {
-                                            ui_tx: prompter_tx,
-                                            response_rx: prx,
-                                        }));
-                                        let result = {
-                                            let mut runtime = rt.lock().await;
-                                            runtime.run_turn(&*prov, &text, &pol, &mut prompter, &mut |ev| {
+                    match key {
+                        event::KeyEvent {
+                            code: KeyCode::Char('c'),
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => {
+                            if let Some(ref cancel) = turn_cancel {
+                                cancel.cancel();
+                                app.handle_event(AppEvent::StreamDelta("\n[cancelled]".into()));
+                                app.handle_event(AppEvent::StreamDone);
+                                turn_cancel = None;
+                            } else {
+                                break;
+                            }
+                        }
+                        event::KeyEvent {
+                            code: KeyCode::Char('u'),
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => app.input.clear(),
+                        event::KeyEvent {
+                            code: KeyCode::Char('w'),
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => app.input.delete_word(),
+                        event::KeyEvent {
+                            code: KeyCode::PageUp,
+                            ..
+                        } => app.scroll_up(10),
+                        event::KeyEvent {
+                            code: KeyCode::PageDown,
+                            ..
+                        } => app.scroll_down(10),
+                        event::KeyEvent {
+                            code: KeyCode::Home,
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => app.scroll_home(),
+                        event::KeyEvent {
+                            code: KeyCode::End,
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => app.scroll_end(),
+                        event::KeyEvent {
+                            code: KeyCode::Up, ..
+                        } => app.history_up(),
+                        event::KeyEvent {
+                            code: KeyCode::Down,
+                            ..
+                        } => app.history_down(),
+                        event::KeyEvent {
+                            code: KeyCode::Enter,
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::SHIFT) => app.input.insert_newline(),
+                        event::KeyEvent {
+                            code: KeyCode::Enter,
+                            ..
+                        } => {
+                            if let Some(evt) = app.submit_input() {
+                                match evt {
+                                    AppEvent::UserSubmit(text) => {
+                                        app.handle_event(AppEvent::UserSubmit(text.clone()));
+                                        let cancel = CancellationToken::new();
+                                        turn_cancel = Some(cancel.clone());
+                                        let tx = ui_tx.clone();
+                                        let rt = Arc::clone(&runtime);
+                                        let prov = Arc::clone(&provider);
+                                        let pol = policy.clone();
+                                        let (ptx, prx) = std::sync::mpsc::sync_channel::<bool>(1);
+                                        perm_response_tx = Some(ptx);
+                                        let prompter_tx = ui_tx.clone();
+                                        tokio::spawn(async move {
+                                            let mut prompter: Option<
+                                                Box<dyn mc_tools::PermissionPrompter>,
+                                            > = Some(Box::new(TuiPrompter {
+                                                ui_tx: prompter_tx,
+                                                response_rx: prx,
+                                            }));
+                                            let result = {
+                                                let mut runtime = rt.lock().await;
+                                                runtime.run_turn(&*prov, &text, &pol, &mut prompter, &mut |ev| {
                                                 match ev {
                                                     mc_provider::ProviderEvent::TextDelta(t) =>
                                                         { let _ = tx.try_send(UiMessage::Delta(t.clone())); }
@@ -449,40 +466,47 @@ async fn run_tui(
                                                     | mc_provider::ProviderEvent::ThinkingDelta(_) => {}
                                                 }
                                             }, &cancel).await
-                                        };
-                                        match result {
-                                            Ok(_) => {
-                                                let _ = tx.try_send(UiMessage::Done);
+                                            };
+                                            match result {
+                                                Ok(_) => {
+                                                    let _ = tx.try_send(UiMessage::Done);
+                                                }
+                                                Err(e) => {
+                                                    let _ = tx
+                                                        .try_send(UiMessage::Error(e.to_string()));
+                                                }
                                             }
-                                            Err(e) => {
-                                                let _ =
-                                                    tx.try_send(UiMessage::Error(e.to_string()));
-                                            }
-                                        }
-                                    });
+                                        });
+                                    }
+                                    other => app.handle_event(other),
                                 }
-                                other => app.handle_event(other),
                             }
                         }
+                        event::KeyEvent {
+                            code: KeyCode::Backspace,
+                            ..
+                        } => app.input.backspace(),
+                        event::KeyEvent {
+                            code: KeyCode::Tab, ..
+                        } => {
+                            app.tab_complete();
+                        }
+                        event::KeyEvent {
+                            code: KeyCode::Left,
+                            ..
+                        } => app.input.move_left(),
+                        event::KeyEvent {
+                            code: KeyCode::Right,
+                            ..
+                        } => app.input.move_right(),
+                        event::KeyEvent {
+                            code: KeyCode::Char(c),
+                            ..
+                        } => app.input.insert(c),
+                        _ => {}
                     }
-                    event::KeyEvent {
-                        code: KeyCode::Backspace,
-                        ..
-                    } => app.input.backspace(),
-                    event::KeyEvent {
-                        code: KeyCode::Left,
-                        ..
-                    } => app.input.move_left(),
-                    event::KeyEvent {
-                        code: KeyCode::Right,
-                        ..
-                    } => app.input.move_right(),
-                    event::KeyEvent {
-                        code: KeyCode::Char(c),
-                        ..
-                    } => app.input.insert(c),
-                    _ => {}
                 }
+                _ => {}
             }
         }
 
@@ -562,6 +586,16 @@ async fn run_tui(
             });
         }
 
+        if app.cost_total_requested {
+            app.cost_total_requested = false;
+            if let Ok(rt) = runtime.try_lock() {
+                let (i, o, c) = rt.cumulative_cost();
+                app.output_lines.push(format!(
+                    "All-time cost: ${c:.4} ({i} input + {o} output tokens)"
+                ));
+            }
+        }
+
         // Handle /memory command
         if let Some(cmd) = app.memory_command.take() {
             if let Ok(_rt) = runtime.try_lock() {
@@ -615,7 +649,11 @@ async fn run_tui(
     }
 
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(),
+        crossterm::event::DisableMouseCapture,
+        LeaveAlternateScreen
+    )?;
     Ok(())
 }
 

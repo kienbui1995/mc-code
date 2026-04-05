@@ -1,6 +1,7 @@
 mod branch;
 mod compact;
 mod context_resolver;
+mod cost;
 mod memory;
 mod model_registry;
 mod parallel_tools;
@@ -17,6 +18,7 @@ mod usage;
 pub use branch::{BranchInfo, BranchManager};
 pub use compact::{compact_session, estimate_tokens, should_compact, smart_compact};
 pub use context_resolver::{ContextResolver, ResolvedContext};
+pub use cost::CostTracker;
 pub use memory::{Fact, MemoryStore};
 pub use model_registry::{ModelMeta, ModelRegistry};
 pub use repo_map::RepoMap;

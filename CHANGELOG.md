@@ -4,6 +4,9 @@
 
 ### New Features
 - **Streaming bash output** — stdout/stderr from bash tool execution now streams line-by-line to the TUI in real-time instead of waiting for the command to finish. Long-running commands (e.g. `cargo build`, `npm install`) show progress as it happens.
+- **Cost tracking persistence** — per-turn usage persisted to `~/.local/share/magic-code/usage.jsonl`. `/cost --total` shows cumulative cost across all sessions.
+- **Mouse scroll support** — scroll wheel up/down in TUI output area
+- **Tab completion for slash commands** — press Tab to auto-complete `/he` → `/help`, or show matching options
 
 ### Infrastructure
 - New `BashTool::execute_streaming` method using piped stdout/stderr with `tokio::io::BufReader`
@@ -11,6 +14,8 @@
 - `ProviderEvent::ToolOutputDelta` variant for forwarding tool output through the event pipeline
 - `parallel_tools::execute_batch` accepts optional output sender for streaming
 - Runtime uses `tokio::select!` to drain tool output concurrently during batch execution
+- New `CostTracker` in mc-core for persistent usage tracking
+- 132 tests (was 123)
 
 ## v0.2.0 (unreleased)
 
