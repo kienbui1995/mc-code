@@ -137,6 +137,7 @@ impl ToolRegistry {
         Ok(self.truncate_output(result))
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn execute_inner(&self, name: &str, input: &Value) -> Result<String, ToolError> {
         match name {
             "bash" => {
@@ -218,6 +219,14 @@ impl ToolRegistry {
             "web_search" => {
                 let query = str_field(input, "query")?;
                 WebSearchTool::execute(&query).await
+            }
+            _ if name.starts_with("plugin_") => {
+                let plugin_input = input.get("input").and_then(|v| v.as_str()).unwrap_or("");
+                let workspace = self
+                    .sandbox
+                    .as_ref()
+                    .map_or_else(|| PathBuf::from("."), |s| s.root().to_path_buf());
+                crate::plugin::execute_plugin(&workspace, name, plugin_input).await
             }
             _ => {
                 // Check MCP tools: name format is mcp_{server}_{tool}

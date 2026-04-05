@@ -5,6 +5,7 @@ mod file_ops;
 mod hooks;
 mod mcp;
 mod permissions;
+mod plugin;
 mod registry;
 mod sandbox;
 mod search;
@@ -20,6 +21,7 @@ pub use mcp::McpClient;
 pub use permissions::{
     PermissionMode, PermissionOutcome, PermissionPolicy, PermissionPrompter, PermissionRequest,
 };
+pub use plugin::{discover_plugins, execute_plugin};
 pub use registry::ToolRegistry;
 pub use sandbox::Sandbox;
 pub use search::{GlobSearchTool, GrepSearchTool};

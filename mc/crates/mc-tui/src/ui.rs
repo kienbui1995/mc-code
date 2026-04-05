@@ -169,6 +169,11 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
             )
         } else if app.waiting {
             Span::styled("⟳ thinking...", Style::default().fg(Color::Yellow))
+        } else if app.ttft_ms > 0 {
+            Span::styled(
+                format!("ready (ttft {}ms, {}ms)", app.ttft_ms, app.turn_time_ms),
+                Style::default().fg(Color::Green),
+            )
         } else {
             Span::styled("ready", Style::default().fg(Color::Green))
         },

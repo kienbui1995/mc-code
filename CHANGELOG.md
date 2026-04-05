@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.6.0 (unreleased)
+
+### New Features
+- **`/template` command** — pre-built prompts: review, refactor, test, explain, document, optimize, security
+- **Plugin system** — user scripts in `.magic-code/tools/*.sh` auto-discovered as tools (`plugin_*`)
+- **`/review`** — show all file changes (git diff HEAD) for review
+- **`/retry`** — re-submit last user input
+- **`/pin`** — pin important messages to survive compaction
+- **`/theme`** — toggle dark/light theme
+- **Latency metrics** — time-to-first-token + total turn time displayed in status bar
+- **Terminal bell** — audible notification on turn completion
+
+### Infrastructure
+- Plugin discovery: `mc-tools/src/plugin.rs` scans `.magic-code/tools/` for `.sh`/`.py` scripts
+- `UiMessage::Done` now carries `ttft_ms` and `total_ms` latency data
+- `ConversationRuntime::generate_commit_message()` uses LLM for conventional commit messages
+- 137 tests (was 135)
+
 ## v0.5.0 (unreleased)
 
 ### New Features

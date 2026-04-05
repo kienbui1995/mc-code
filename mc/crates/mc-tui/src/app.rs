@@ -20,7 +20,10 @@ pub enum UiMessage {
         input: u32,
         output: u32,
     },
-    Done,
+    Done {
+        ttft_ms: u64,
+        total_ms: u64,
+    },
     Error(String),
     /// Permission prompt: tool name, input summary. TUI should respond via `permission_response`.
     PermissionPrompt {
@@ -93,6 +96,20 @@ pub struct App {
     /// Dry-run mode: show tool calls without executing.
     pub dry_run: bool,
     pub doctor_requested: bool,
+    /// Review file changes requested.
+    pub review_requested: bool,
+    /// Retry last turn requested.
+    pub retry_requested: bool,
+    /// Pinned message indices (survive compaction).
+    pub pinned_messages: Vec<usize>,
+    /// Last user input (for /retry).
+    pub last_user_input: Option<String>,
+    /// Time-to-first-token in ms (updated each turn).
+    pub ttft_ms: u64,
+    /// Total turn time in ms.
+    pub turn_time_ms: u64,
+    /// Color theme: "dark" (default), "light".
+    pub theme: String,
 }
 
 impl App {
@@ -137,6 +154,13 @@ impl App {
             search_query: None,
             dry_run: false,
             doctor_requested: false,
+            review_requested: false,
+            retry_requested: false,
+            pinned_messages: Vec::new(),
+            last_user_input: None,
+            ttft_ms: 0,
+            turn_time_ms: 0,
+            theme: "dark".into(),
         }
     }
 
@@ -342,6 +366,55 @@ impl App {
                 ));
             }
             "/doctor" => self.doctor_requested = true,
+            "/review" => self.review_requested = true,
+            "/retry" => {
+                if let Some(ref input) = self.last_user_input.clone() {
+                    self.output_lines.push(format!("⟳ Retrying: {input}"));
+                    self.retry_requested = true;
+                } else {
+                    self.output_lines.push("Nothing to retry.".into());
+                }
+            }
+            "/pin" => {
+                let idx = self.output_lines.len().saturating_sub(1);
+                self.pinned_messages.push(idx);
+                self.output_lines
+                    .push(format!("📌 Pinned message at line {idx}"));
+            }
+            "/theme" => {
+                self.theme = if self.theme == "dark" {
+                    "light".into()
+                } else {
+                    "dark".into()
+                };
+                self.output_lines.push(format!("Theme: {}", self.theme));
+            }
+            "/template" => {
+                if let Some(name) = parts.get(1) {
+                    let prompt = match *name {
+                        "review" => "Review the recent code changes. Check for bugs, security issues, performance problems, and style. Be specific about line numbers.",
+                        "refactor" => "Refactor the code I'm about to show you. Improve readability, reduce duplication, and follow best practices. Show the changes as diffs.",
+                        "test" => "Write comprehensive tests for the code I'm about to show you. Cover edge cases, error paths, and happy paths.",
+                        "explain" => "Explain this code in detail. What does it do, how does it work, and what are the key design decisions?",
+                        "document" => "Add documentation to this code. Include doc comments, inline comments for complex logic, and a module-level overview.",
+                        "optimize" => "Analyze this code for performance. Identify bottlenecks and suggest optimizations with benchmarks.",
+                        "security" => "Audit this code for security vulnerabilities. Check for injection, auth issues, data leaks, and unsafe patterns.",
+                        _ => {
+                            self.output_lines.push(format!("Unknown template: {name}. Available: review, refactor, test, explain, document, optimize, security"));
+                            return;
+                        }
+                    };
+                    self.output_lines.push(format!("📋 Template: {name}"));
+                    self.output_lines.push(format!("  {prompt}"));
+                    self.input.set(prompt);
+                } else {
+                    self.output_lines.push(
+                        "Templates: review, refactor, test, explain, document, optimize, security"
+                            .into(),
+                    );
+                    self.output_lines.push("Usage: /template <name>".into());
+                }
+            }
             _ => {
                 self.output_lines.push(format!("Unknown command: {cmd}"));
             }
@@ -358,6 +431,7 @@ impl App {
         if trimmed.starts_with('/') {
             Some(AppEvent::SlashCommand(trimmed))
         } else {
+            self.last_user_input = Some(trimmed.clone());
             Some(AppEvent::UserSubmit(trimmed))
         }
     }
@@ -389,6 +463,11 @@ impl App {
         "/summary",
         "/search",
         "/doctor",
+        "/template",
+        "/review",
+        "/retry",
+        "/pin",
+        "/theme",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
