@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 /// Lightweight codebase index: file tree + extracted symbols.
 /// Injected into system prompt so LLM knows the project structure.
