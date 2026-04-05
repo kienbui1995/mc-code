@@ -84,6 +84,11 @@ impl InputHistory {
         self.cursor = self.entries.len();
     }
 
+    #[must_use]
+    pub fn entries(&self) -> &[String] {
+        &self.entries
+    }
+
     fn save(&self) {
         if let Some(ref path) = self.path {
             if let Some(parent) = path.parent() {

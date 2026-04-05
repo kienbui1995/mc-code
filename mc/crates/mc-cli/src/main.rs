@@ -709,6 +709,64 @@ async fn run_tui(
             ));
         }
 
+        // Handle /tokens
+        if app.tokens_requested {
+            app.tokens_requested = false;
+            if let Ok(rt) = runtime.try_lock() {
+                let msg_count = rt.session.messages.len();
+                let est = mc_core::estimate_tokens(&rt.session);
+                let ctx = mc_core::ModelRegistry::default().context_window(&app.model);
+                app.output_lines.push(format!(
+                    "Tokens: {est} estimated ({} messages), context window: {ctx}, usage: {}%",
+                    msg_count,
+                    (est as u64 * 100) / u64::from(ctx.max(1))
+                ));
+                app.output_lines.push(format!(
+                    "  Session: {}↓ input + {}↑ output = {} total",
+                    app.total_input_tokens,
+                    app.total_output_tokens,
+                    app.total_input_tokens + app.total_output_tokens
+                ));
+            }
+        }
+
+        // Handle /context
+        if app.context_requested {
+            app.context_requested = false;
+            if let Ok(rt) = runtime.try_lock() {
+                app.output_lines.push("Context window contents:".into());
+                app.output_lines
+                    .push(format!("  System prompt: {} chars", rt.model().len()));
+                app.output_lines
+                    .push(format!("  Messages: {}", rt.session.messages.len()));
+                app.output_lines.push("  Tools: 11 registered".into());
+                let est = mc_core::estimate_tokens(&rt.session);
+                app.output_lines.push(format!("  Estimated tokens: {est}"));
+            }
+        }
+
+        // Handle clipboard (/copy) — write to system clipboard via xclip/pbcopy
+        if let Some(ref text) = app.clipboard.take() {
+            let cmd = if cfg!(target_os = "macos") {
+                "pbcopy"
+            } else {
+                "xclip -selection clipboard"
+            };
+            let mut child = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(cmd)
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .ok();
+            if let Some(ref mut c) = child {
+                use std::io::Write;
+                if let Some(ref mut stdin) = c.stdin {
+                    let _ = stdin.write_all(text.as_bytes());
+                }
+                let _ = c.wait();
+            }
+        }
+
         // Handle /review — show git diff of session changes
         if app.review_requested {
             app.review_requested = false;

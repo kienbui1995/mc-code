@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.7.0 (unreleased)
+
+### New Features
+- **`/copy`** — copy last assistant response to system clipboard (pbcopy/xclip)
+- **`/version`** — show version, OS, architecture
+- **`/history`** — display last 20 input history entries
+- **`/tokens`** — detailed token breakdown (estimated, session, context window usage %)
+- **`/context`** — show what's in context window (messages, tools, system prompt, estimated tokens)
+- **`/alias`** — define custom command aliases (`/alias r review` → `/r` expands to `review`)
+- **Graceful shutdown** — session auto-saved on exit via panic hook + normal exit path
+
+### Infrastructure
+- `InputHistory::entries()` public accessor for history display
+- Binary already optimized: LTO + strip + codegen-units=1 in release profile
+- 137 tests
+
 ## v0.6.0 (unreleased)
 
 ### New Features
