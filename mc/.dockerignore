@@ -1,0 +1,11 @@
+target/
+.git/
+*.md
+!README.md
+.kiro/
+.magic-code/
+*.swp
+*.swo
+.DS_Store
+__pycache__/
+*.pyc

@@ -2,7 +2,13 @@ use std::time::Duration;
 
 use crate::error::ProviderError;
 use crate::sse::SseParser;
-use crate::types::{ModelInfo, CompletionRequest, ProviderEvent, AnthropicStreamEvent, AnthropicDelta, TokenUsage, AnthropicOutputBlock, AnthropicRequest, InputMessage, AnthropicInputMessage, MessageRole, ContentBlock, AnthropicContentBlock, AnthropicToolResultContent, ToolDefinition, AnthropicToolDef, ToolChoice, AnthropicToolChoice};
+use crate::types::{
+    AnthropicContentBlock, AnthropicDelta, AnthropicImageSource, AnthropicInputMessage,
+    AnthropicOutputBlock, AnthropicRequest, AnthropicStreamEvent, AnthropicSystemBlock,
+    AnthropicThinking, AnthropicToolChoice, AnthropicToolDef, AnthropicToolResultContent,
+    CacheControl, CompletionRequest, ContentBlock, InputMessage, MessageRole, ModelInfo,
+    ProviderEvent, TokenUsage, ToolChoice, ToolDefinition,
+};
 
 const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
@@ -22,8 +28,8 @@ pub struct AnthropicProvider {
 impl AnthropicProvider {
     pub fn from_env() -> Result<Self, ProviderError> {
         let api_key = read_env_key("ANTHROPIC_API_KEY")?;
-        let base_url = std::env::var("ANTHROPIC_BASE_URL")
-            .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
+        let base_url =
+            std::env::var("ANTHROPIC_BASE_URL").unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
 
         Ok(Self {
             http: reqwest::Client::new(),
@@ -35,7 +41,7 @@ impl AnthropicProvider {
         })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_config(api_key: String, base_url: Option<String>, max_retries: u32) -> Self {
         Self {
             http: reqwest::Client::new(),
@@ -47,7 +53,7 @@ impl AnthropicProvider {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn model_info(model: &str) -> ModelInfo {
         let context_window = match model {
             m if m.contains("opus") => 200_000,
@@ -63,10 +69,7 @@ impl AnthropicProvider {
     }
 
     /// Stream a completion request, yielding events as they arrive.
-    pub fn stream(
-        &self,
-        request: &CompletionRequest,
-    ) -> crate::ProviderStream {
+    pub fn stream(&self, request: &CompletionRequest) -> crate::ProviderStream {
         let wire = Self::to_wire_request(request);
         let http = self.http.clone();
         let api_key = self.api_key.clone();
@@ -115,21 +118,46 @@ impl AnthropicProvider {
     }
 
     fn to_wire_request(req: &CompletionRequest) -> AnthropicRequest {
+        let system = req.system_prompt.as_ref().map(|text| {
+            vec![AnthropicSystemBlock {
+                r#type: "text".into(),
+                text: text.clone(),
+                cache_control: Some(CacheControl {
+                    r#type: "ephemeral".into(),
+                }),
+            }]
+        });
+
+        let tools = if req.tools.is_empty() {
+            None
+        } else {
+            let mut wire_tools: Vec<AnthropicToolDef> =
+                req.tools.iter().map(to_wire_tool).collect();
+            // Mark last tool with cache_control for prompt caching
+            if let Some(last) = wire_tools.last_mut() {
+                last.cache_control = Some(CacheControl {
+                    r#type: "ephemeral".into(),
+                });
+            }
+            Some(wire_tools)
+        };
+
+        let thinking = req.thinking_budget.map(|budget| AnthropicThinking {
+            r#type: "enabled".into(),
+            budget_tokens: budget,
+        });
+
         AnthropicRequest {
             model: req.model.clone(),
             max_tokens: req.max_tokens,
-            system: req.system_prompt.clone(),
+            system,
             messages: req.messages.iter().map(to_wire_message).collect(),
-            tools: if req.tools.is_empty() {
-                None
-            } else {
-                Some(req.tools.iter().map(to_wire_tool).collect())
-            },
+            tools,
             tool_choice: req.tool_choice.as_ref().map(to_wire_tool_choice),
+            thinking,
             stream: true,
         }
     }
-
 }
 
 /// Process a single SSE event into a vec of provider events.
@@ -156,6 +184,11 @@ fn process_sse_event_vec(
             AnthropicDelta::InputJsonDelta { partial_json } => {
                 if let Some((_, _, input)) = pending_tool.as_mut() {
                     input.push_str(&partial_json);
+                }
+            }
+            AnthropicDelta::ThinkingDelta { thinking } => {
+                if !thinking.is_empty() {
+                    out.push(ProviderEvent::ThinkingDelta(thinking));
                 }
             }
         },
@@ -192,6 +225,11 @@ fn push_output_block(
         }
         AnthropicOutputBlock::ToolUse { id, name, input } => {
             *pending_tool = Some((id, name, input.to_string()));
+        }
+        AnthropicOutputBlock::Thinking { thinking } => {
+            if !thinking.is_empty() {
+                events.push(ProviderEvent::ThinkingDelta(thinking));
+            }
         }
     }
 }
@@ -307,6 +345,16 @@ fn to_wire_content(block: &ContentBlock) -> AnthropicContentBlock {
             }],
             is_error: *is_error,
         },
+        ContentBlock::Image { data, media_type } => AnthropicContentBlock::Image {
+            source: AnthropicImageSource {
+                r#type: "base64".into(),
+                media_type: media_type.clone(),
+                data: data.clone(),
+            },
+        },
+        ContentBlock::Thinking { text } => AnthropicContentBlock::Thinking {
+            thinking: text.clone(),
+        },
     }
 }
 
@@ -315,6 +363,7 @@ fn to_wire_tool(tool: &ToolDefinition) -> AnthropicToolDef {
         name: tool.name.clone(),
         description: Some(tool.description.clone()),
         input_schema: tool.input_schema.clone(),
+        cache_control: None,
     }
 }
 

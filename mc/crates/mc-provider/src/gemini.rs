@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use crate::error::ProviderError;
 use crate::types::{
-    CompletionRequest, ContentBlock, MessageRole, ModelInfo, ProviderEvent,
-    TokenUsage, ToolChoice,
+    CompletionRequest, ContentBlock, MessageRole, ModelInfo, ProviderEvent, TokenUsage, ToolChoice,
 };
 
 const DEFAULT_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
@@ -32,10 +31,14 @@ impl GeminiProvider {
 
     #[must_use]
     pub fn model_info(model: &str) -> ModelInfo {
-        ModelInfo { name: model.into(), provider: "gemini".into(), context_window: 1_000_000 }
+        ModelInfo {
+            name: model.into(),
+            provider: "gemini".into(),
+            context_window: 1_000_000,
+        }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn stream(&self, request: &CompletionRequest) -> crate::ProviderStream {
         let body = build_body(request);
         let url = format!(
@@ -133,6 +136,10 @@ fn build_body(req: &CompletionRequest) -> serde_json::Value {
             ContentBlock::ToolResult { tool_use_id: _, output, .. } => {
                 serde_json::json!({"functionResponse": {"name": "tool", "response": {"result": output}}})
             }
+            ContentBlock::Image { data, media_type } => {
+                serde_json::json!({"inlineData": {"mimeType": media_type, "data": data}})
+            }
+            ContentBlock::Thinking { .. } => serde_json::json!({}), // Gemini doesn't support thinking blocks
         }).collect();
 
         contents.push(serde_json::json!({"role": role, "parts": parts}));
@@ -152,20 +159,26 @@ fn build_body(req: &CompletionRequest) -> serde_json::Value {
     }
 
     if !req.tools.is_empty() {
-        let decls: Vec<serde_json::Value> = req.tools.iter().map(|t| {
-            serde_json::json!({
-                "name": t.name,
-                "description": t.description,
-                "parameters": t.input_schema,
+        let decls: Vec<serde_json::Value> = req
+            .tools
+            .iter()
+            .map(|t| {
+                serde_json::json!({
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.input_schema,
+                })
             })
-        }).collect();
+            .collect();
         body["tools"] = serde_json::json!([{"functionDeclarations": decls}]);
 
         if let Some(ref choice) = req.tool_choice {
             body["toolConfig"] = match choice {
                 ToolChoice::Auto => serde_json::json!({"functionCallingConfig": {"mode": "AUTO"}}),
                 ToolChoice::Any => serde_json::json!({"functionCallingConfig": {"mode": "ANY"}}),
-                ToolChoice::Tool { name } => serde_json::json!({"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}}),
+                ToolChoice::Tool { name } => {
+                    serde_json::json!({"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}})
+                }
             };
         }
     }
@@ -187,7 +200,12 @@ async fn send_with_retry(
                 let status = r.status().as_u16();
                 let text = r.text().await.unwrap_or_default();
                 let retryable = matches!(status, 429 | 500 | 502 | 503);
-                let err = ProviderError::Api { status, error_type: None, message: text, retryable };
+                let err = ProviderError::Api {
+                    status,
+                    error_type: None,
+                    message: text,
+                    retryable,
+                };
                 if retryable && attempt < max_retries {
                     last_err = Some(err);
                     tokio::time::sleep(Duration::from_millis(200 * (1u64 << attempt))).await;
@@ -240,6 +258,7 @@ mod tests {
                 input_schema: serde_json::json!({"type": "object"}),
             }],
             tool_choice: Some(ToolChoice::Auto),
+            thinking_budget: None,
         };
         let body = build_body(&req);
         assert!(body.get("systemInstruction").is_some());

@@ -11,6 +11,7 @@ pub struct CompletionRequest {
     pub messages: Vec<InputMessage>,
     pub tools: Vec<ToolDefinition>,
     pub tool_choice: Option<ToolChoice>,
+    pub thinking_budget: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -28,9 +29,26 @@ pub enum MessageRole {
 
 #[derive(Debug, Clone)]
 pub enum ContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: String },
-    ToolResult { tool_use_id: String, output: String, is_error: bool },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: String,
+    },
+    ToolResult {
+        tool_use_id: String,
+        output: String,
+        is_error: bool,
+    },
+    Image {
+        data: String,
+        media_type: String,
+    },
+    Thinking {
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -50,9 +68,21 @@ pub enum ToolChoice {
 #[derive(Debug, Clone)]
 pub enum ProviderEvent {
     TextDelta(String),
-    ToolUse { id: String, name: String, input: String },
+    ToolUse {
+        id: String,
+        name: String,
+        input: String,
+    },
     Usage(TokenUsage),
     MessageStop,
+    RetryAttempt {
+        attempt: u32,
+        max: u32,
+        reason: String,
+    },
+    /// TUI should discard partial output from the current stream attempt.
+    StreamReset,
+    ThinkingDelta(String),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -64,7 +94,7 @@ pub struct TokenUsage {
 }
 
 impl TokenUsage {
-    #[must_use] 
+    #[must_use]
     pub fn total(&self) -> u32 {
         self.input_tokens + self.output_tokens
     }
@@ -85,12 +115,33 @@ pub(crate) struct AnthropicRequest {
     pub max_tokens: u32,
     pub messages: Vec<AnthropicInputMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
+    pub system: Option<Vec<AnthropicSystemBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<AnthropicToolDef>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<AnthropicToolChoice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<AnthropicThinking>,
     pub stream: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct AnthropicThinking {
+    pub r#type: String,
+    pub budget_tokens: u32,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct AnthropicSystemBlock {
+    pub r#type: String,
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct CacheControl {
+    pub r#type: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -102,14 +153,33 @@ pub(crate) struct AnthropicInputMessage {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnthropicContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
     ToolResult {
         tool_use_id: String,
         content: Vec<AnthropicToolResultContent>,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         is_error: bool,
     },
+    Image {
+        source: AnthropicImageSource,
+    },
+    Thinking {
+        thinking: String,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct AnthropicImageSource {
+    pub r#type: String,
+    pub media_type: String,
+    pub data: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -124,6 +194,8 @@ pub(crate) struct AnthropicToolDef {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub input_schema: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
 }
 
 #[derive(Debug, Serialize)]
@@ -146,8 +218,17 @@ pub(crate) struct AnthropicResponse {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnthropicOutputBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
+    Thinking {
+        thinking: String,
+    },
 }
 
 #[allow(clippy::struct_field_names)]
@@ -174,7 +255,9 @@ pub(crate) enum AnthropicStreamEvent {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum AnthropicDelta {
     TextDelta { text: String },
     InputJsonDelta { partial_json: String },
+    ThinkingDelta { thinking: String },
 }

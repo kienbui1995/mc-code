@@ -97,5 +97,28 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["task"]
             }),
         },
+        ToolSpec {
+            name: "memory_read".into(),
+            description: "Read project facts from long-term memory. Omit key to list all facts.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "key": { "type": "string", "description": "Fact key to read. Omit to list all." }
+                }
+            }),
+        },
+        ToolSpec {
+            name: "memory_write".into(),
+            description: "Save a project fact to long-term memory (persists across sessions). Set delete=true to remove.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "key": { "type": "string", "description": "Fact key" },
+                    "value": { "type": "string", "description": "Fact value" },
+                    "delete": { "type": "boolean", "description": "Set true to delete this key" }
+                },
+                "required": ["key"]
+            }),
+        },
     ]
 }

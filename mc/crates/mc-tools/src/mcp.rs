@@ -33,12 +33,14 @@ impl McpClient {
         }
 
         let mut child = cmd.spawn().map_err(ToolError::Io)?;
-        let stdin = child.stdin.take().ok_or_else(|| {
-            ToolError::ExecutionFailed("failed to open MCP stdin".into())
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            ToolError::ExecutionFailed("failed to open MCP stdout".into())
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| ToolError::ExecutionFailed("failed to open MCP stdin".into()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| ToolError::ExecutionFailed("failed to open MCP stdout".into()))?;
 
         let mut client = Self {
             child,
@@ -81,8 +83,14 @@ impl McpClient {
         if let Some(result) = resp.get("result") {
             if let Some(tool_list) = result.get("tools").and_then(|t| t.as_array()) {
                 for tool in tool_list {
-                    let name = tool.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
-                    let desc = tool.get("description").and_then(|d| d.as_str()).unwrap_or("");
+                    let name = tool
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("unknown");
+                    let desc = tool
+                        .get("description")
+                        .and_then(|d| d.as_str())
+                        .unwrap_or("");
                     let schema = tool
                         .get("inputSchema")
                         .cloned()
@@ -148,7 +156,9 @@ impl McpClient {
                 .await
                 .map_err(ToolError::Io)?;
             if n == 0 {
-                return Err(ToolError::ExecutionFailed("MCP server closed stdout".into()));
+                return Err(ToolError::ExecutionFailed(
+                    "MCP server closed stdout".into(),
+                ));
             }
             let trimmed = line.trim();
             if trimmed.is_empty() {

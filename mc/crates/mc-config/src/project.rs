@@ -17,7 +17,7 @@ pub struct InstructionFile {
 }
 
 impl ProjectContext {
-    #[must_use] 
+    #[must_use]
     pub fn discover(cwd: &Path) -> Self {
         let instruction_files = discover_instruction_files(cwd);
         let git_status = read_git_status(cwd);
@@ -32,19 +32,17 @@ impl ProjectContext {
     }
 }
 
-const INSTRUCTION_FILE_NAMES: &[&str] = &[
-    "MAGIC_CODE.md",
-    "AGENTS.md",
-    "CLAUDE.md",
-    ".cursorrules",
-];
+const INSTRUCTION_FILE_NAMES: &[&str] =
+    &["MAGIC_CODE.md", "AGENTS.md", "CLAUDE.md", ".cursorrules"];
 
 fn discover_instruction_files(cwd: &Path) -> Vec<InstructionFile> {
     INSTRUCTION_FILE_NAMES
         .iter()
         .filter_map(|name| {
             let path = cwd.join(name);
-            std::fs::read_to_string(&path).ok().map(|content| InstructionFile { path, content })
+            std::fs::read_to_string(&path)
+                .ok()
+                .map(|content| InstructionFile { path, content })
         })
         .collect()
 }

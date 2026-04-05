@@ -20,7 +20,7 @@ impl InputHistory {
     }
 
     /// Load history from file. Non-fatal if missing.
-    #[must_use] 
+    #[must_use]
     pub fn load_from(path: PathBuf) -> Self {
         let entries: Vec<String> = std::fs::read_to_string(&path)
             .ok()

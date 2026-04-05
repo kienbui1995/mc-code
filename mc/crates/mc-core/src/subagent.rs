@@ -1,12 +1,11 @@
-use mc_provider::{
-    CompletionRequest, InputMessage, ProviderError, ProviderEvent,
-    ToolChoice, ToolDefinition,
-};
 use mc_provider::types::{ContentBlock, MessageRole};
+use mc_provider::{
+    CompletionRequest, InputMessage, ProviderError, ProviderEvent, ToolChoice, ToolDefinition,
+};
 use mc_tools::{PermissionOutcome, PermissionPolicy, ToolRegistry};
 
 use crate::runtime::LlmProvider;
-use crate::session::ConversationMessage;
+use crate::session::{Block, ConversationMessage, Role};
 
 const MAX_CONCURRENT_SUBAGENTS: usize = 4;
 const MAX_SUBAGENT_ITERATIONS: usize = 8;
@@ -21,7 +20,11 @@ pub struct SubagentSpawner {
 impl SubagentSpawner {
     #[must_use]
     pub fn new(model: String, max_tokens: u32) -> Self {
-        Self { model, max_tokens, active_count: 0 }
+        Self {
+            model,
+            max_tokens,
+            active_count: 0,
+        }
     }
 
     /// Run a subagent with its own isolated context (no recursive subagent).
@@ -30,6 +33,7 @@ impl SubagentSpawner {
         provider: &dyn LlmProvider,
         task_prompt: &str,
         system_prompt: &str,
+        tool_registry: &ToolRegistry,
     ) -> Result<String, ProviderError> {
         if self.active_count >= MAX_CONCURRENT_SUBAGENTS {
             return Ok("[subagent limit reached, task queued]".to_string());
@@ -44,14 +48,21 @@ impl SubagentSpawner {
             self.max_tokens,
             system_prompt,
             task_prompt,
-        ).await;
+            tool_registry,
+        )
+        .await;
 
         self.active_count -= 1;
 
         match result {
             Ok(output) => {
                 if output.len() > 500 {
-                    let end = output.char_indices().map(|(i,_)|i).take_while(|&i| i <= 500).last().unwrap_or(output.len());
+                    let end = output
+                        .char_indices()
+                        .map(|(i, _)| i)
+                        .take_while(|&i| i <= 500)
+                        .last()
+                        .unwrap_or(output.len());
                     Ok(format!("{}... [truncated]", &output[..end]))
                 } else {
                     Ok(output)
@@ -74,13 +85,15 @@ async fn run_simple_agent(
     max_tokens: u32,
     system_prompt: &str,
     user_input: &str,
+    tool_registry: &ToolRegistry,
 ) -> Result<String, ProviderError> {
     let policy = PermissionPolicy::new(mc_tools::PermissionMode::Allow);
     let mut messages: Vec<ConversationMessage> = vec![ConversationMessage::user(user_input)];
     let mut output = String::new();
 
-    // Tool specs without subagent (no recursion)
-    let tools: Vec<ToolDefinition> = ToolRegistry::specs()
+    // Tool specs without subagent (no recursion), including MCP tools from parent
+    let tools: Vec<ToolDefinition> = tool_registry
+        .all_specs()
         .iter()
         .filter(|s| s.name != "subagent")
         .map(|s| ToolDefinition {
@@ -98,6 +111,7 @@ async fn run_simple_agent(
             messages: messages.iter().map(msg_to_input).collect(),
             tools: tools.clone(),
             tool_choice: Some(ToolChoice::Auto),
+            thinking_budget: None,
         };
 
         let mut stream = provider.stream(&request);
@@ -130,14 +144,19 @@ async fn run_simple_agent(
                 PermissionOutcome::Allow => {
                     let input_val: serde_json::Value = serde_json::from_str(&input)
                         .unwrap_or_else(|_| serde_json::json!({"raw": input}));
-                    match ToolRegistry::execute(&name, &input_val).await {
+                    match tool_registry.execute(&name, &input_val).await {
                         Ok(out) => (out, false),
                         Err(e) => (e.to_string(), true),
                     }
                 }
                 PermissionOutcome::Deny { reason } => (reason, true),
             };
-            messages.push(ConversationMessage::tool_result(&id, &name, &tool_output, is_error));
+            messages.push(ConversationMessage::tool_result(
+                &id,
+                &name,
+                &tool_output,
+                is_error,
+            ));
         }
     }
 
@@ -145,32 +164,35 @@ async fn run_simple_agent(
 }
 
 fn msg_to_input(msg: &ConversationMessage) -> InputMessage {
-    match msg.role.as_str() {
-        "assistant" if msg.tool_name.is_some() => InputMessage {
-            role: MessageRole::Assistant,
-            content: vec![ContentBlock::ToolUse {
-                id: msg.tool_use_id.clone().unwrap_or_default(),
-                name: msg.tool_name.clone().unwrap_or_default(),
-                input: msg.content.clone(),
-            }],
-        },
-        "assistant" => InputMessage {
-            role: MessageRole::Assistant,
-            content: vec![ContentBlock::Text { text: msg.content.clone() }],
-        },
-        "tool" => InputMessage {
-            role: MessageRole::Tool,
-            content: vec![ContentBlock::ToolResult {
-                tool_use_id: msg.tool_use_id.clone().unwrap_or_default(),
-                output: msg.content.clone(),
-                is_error: msg.is_error.unwrap_or(false),
-            }],
-        },
-        _ => InputMessage {
-            role: MessageRole::User,
-            content: vec![ContentBlock::Text { text: msg.content.clone() }],
-        },
-    }
+    let role = match msg.role {
+        Role::User => MessageRole::User,
+        Role::Assistant => MessageRole::Assistant,
+        Role::Tool => MessageRole::Tool,
+    };
+    let content = msg
+        .blocks
+        .iter()
+        .filter_map(|b| match b {
+            Block::Text { text } => Some(ContentBlock::Text { text: text.clone() }),
+            Block::ToolUse { id, name, input } => Some(ContentBlock::ToolUse {
+                id: id.clone(),
+                name: name.clone(),
+                input: input.clone(),
+            }),
+            Block::ToolResult {
+                tool_use_id,
+                output,
+                is_error,
+                ..
+            } => Some(ContentBlock::ToolResult {
+                tool_use_id: tool_use_id.clone(),
+                output: output.clone(),
+                is_error: *is_error,
+            }),
+            Block::Image { .. } | Block::Thinking { .. } => None, // subagents don't handle images/thinking
+        })
+        .collect();
+    InputMessage { role, content }
 }
 
 #[cfg(test)]

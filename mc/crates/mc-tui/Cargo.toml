@@ -6,7 +6,6 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-mc-core = { path = "../mc-core" }
 crossterm.workspace = true
 ratatui.workspace = true
 serde.workspace = true

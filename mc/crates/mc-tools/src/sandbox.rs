@@ -59,7 +59,9 @@ fn normalize(path: &Path) -> PathBuf {
     let mut parts = Vec::new();
     for component in path.components() {
         match component {
-            std::path::Component::ParentDir => { parts.pop(); }
+            std::path::Component::ParentDir => {
+                parts.pop();
+            }
             std::path::Component::CurDir => {}
             c => parts.push(c.as_os_str().to_owned()),
         }

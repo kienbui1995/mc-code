@@ -3,7 +3,7 @@ name = "magic-code"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+publish = true
 description.workspace = true
 repository.workspace = true
 keywords = ["ai", "coding", "tui", "agent", "llm"]
@@ -21,6 +21,7 @@ mc-tools = { path = "../mc-tools" }
 mc-config = { path = "../mc-config" }
 anyhow.workspace = true
 clap.workspace = true
+clap_complete = "4"
 crossterm.workspace = true
 ratatui.workspace = true
 tokio.workspace = true

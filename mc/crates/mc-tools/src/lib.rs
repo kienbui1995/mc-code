@@ -16,7 +16,9 @@ pub use error::ToolError;
 pub use file_ops::{EditFileTool, ReadFileTool, WriteFileTool};
 pub use hooks::{Hook, HookEngine, HookEvent};
 pub use mcp::McpClient;
-pub use permissions::{PermissionMode, PermissionOutcome, PermissionPolicy, PermissionPrompter, PermissionRequest};
+pub use permissions::{
+    PermissionMode, PermissionOutcome, PermissionPolicy, PermissionPrompter, PermissionRequest,
+};
 pub use registry::ToolRegistry;
 pub use sandbox::Sandbox;
 pub use search::{GlobSearchTool, GrepSearchTool};

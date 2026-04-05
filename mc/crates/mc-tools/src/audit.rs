@@ -3,6 +3,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 
+const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024; // 10MB
+
 /// Append-only audit log for tool executions.
 pub struct AuditLog {
     path: PathBuf,
@@ -26,15 +28,24 @@ impl AuditLog {
     /// Default location: `~/.local/share/magic-code/audit.jsonl`
     #[must_use]
     pub fn default_path() -> Option<PathBuf> {
-        std::env::var_os("HOME").map(|h| {
-            PathBuf::from(h)
-                .join(".local/share/magic-code/audit.jsonl")
-        })
+        std::env::var_os("HOME")
+            .map(|h| PathBuf::from(h).join(".local/share/magic-code/audit.jsonl"))
     }
 
     pub fn log(&self, entry: &AuditEntry) {
         if let Some(parent) = self.path.parent() {
             let _ = fs::create_dir_all(parent);
+        }
+        // Rotate if too large
+        if let Ok(meta) = fs::metadata(&self.path) {
+            if meta.len() > MAX_LOG_SIZE {
+                let _ = fs::remove_file(self.path.with_extension("jsonl.2"));
+                let _ = fs::rename(
+                    self.path.with_extension("jsonl.1"),
+                    self.path.with_extension("jsonl.2"),
+                );
+                let _ = fs::rename(&self.path, self.path.with_extension("jsonl.1"));
+            }
         }
         let line = serde_json::json!({
             "tool": entry.tool,
@@ -44,7 +55,11 @@ impl AuditLog {
             "ms": entry.duration_ms,
             "allowed": entry.allowed,
         });
-        let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&self.path) else {
+        let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)
+        else {
             return;
         };
         let _ = writeln!(file, "{line}");
@@ -58,7 +73,11 @@ impl AuditLog {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max { s.to_string() } else { format!("{}...", &s[..max]) }
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max])
+    }
 }
 
 #[cfg(test)]

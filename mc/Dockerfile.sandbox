@@ -1,0 +1,17 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      git ca-certificates python3 nodejs npm curl && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY target/release/magic-code /usr/local/bin/magic-code
+
+RUN useradd -m sandbox
+USER sandbox
+WORKDIR /home/sandbox/workspace
+RUN git config --global init.defaultBranch main && \
+    git config --global user.email "sandbox@mc" && \
+    git config --global user.name "sandbox"
+
+ENTRYPOINT ["magic-code"]

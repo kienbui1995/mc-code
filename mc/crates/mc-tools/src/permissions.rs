@@ -19,7 +19,7 @@ pub enum PermissionOutcome {
     Deny { reason: String },
 }
 
-pub trait PermissionPrompter {
+pub trait PermissionPrompter: Send {
     fn decide(&mut self, request: &PermissionRequest) -> PermissionOutcome;
 }
 
@@ -32,7 +32,10 @@ pub struct PermissionPolicy {
 impl PermissionPolicy {
     #[must_use]
     pub fn new(default_mode: PermissionMode) -> Self {
-        Self { default_mode, tool_modes: BTreeMap::new() }
+        Self {
+            default_mode,
+            tool_modes: BTreeMap::new(),
+        }
     }
 
     #[must_use]
@@ -41,14 +44,18 @@ impl PermissionPolicy {
         self
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn authorize(
         &self,
         tool_name: &str,
         input_summary: &str,
         prompter: Option<&mut dyn PermissionPrompter>,
     ) -> PermissionOutcome {
-        let mode = self.tool_modes.get(tool_name).copied().unwrap_or(self.default_mode);
+        let mode = self
+            .tool_modes
+            .get(tool_name)
+            .copied()
+            .unwrap_or(self.default_mode);
         match mode {
             PermissionMode::Allow => PermissionOutcome::Allow,
             PermissionMode::Deny => PermissionOutcome::Deny {
@@ -81,26 +88,41 @@ mod tests {
     #[test]
     fn allow_mode_passes() {
         let policy = PermissionPolicy::new(PermissionMode::Allow);
-        assert_eq!(policy.authorize("bash", "ls", None), PermissionOutcome::Allow);
+        assert_eq!(
+            policy.authorize("bash", "ls", None),
+            PermissionOutcome::Allow
+        );
     }
 
     #[test]
     fn deny_mode_blocks() {
         let policy = PermissionPolicy::new(PermissionMode::Deny);
-        assert!(matches!(policy.authorize("bash", "rm -rf", None), PermissionOutcome::Deny { .. }));
+        assert!(matches!(
+            policy.authorize("bash", "rm -rf", None),
+            PermissionOutcome::Deny { .. }
+        ));
     }
 
     #[test]
     fn prompt_mode_delegates() {
         let policy = PermissionPolicy::new(PermissionMode::Prompt);
-        assert_eq!(policy.authorize("bash", "ls", Some(&mut AllowAll)), PermissionOutcome::Allow);
+        assert_eq!(
+            policy.authorize("bash", "ls", Some(&mut AllowAll)),
+            PermissionOutcome::Allow
+        );
     }
 
     #[test]
     fn tool_override() {
         let policy = PermissionPolicy::new(PermissionMode::Allow)
             .with_tool_mode("bash", PermissionMode::Deny);
-        assert!(matches!(policy.authorize("bash", "ls", None), PermissionOutcome::Deny { .. }));
-        assert_eq!(policy.authorize("read_file", "x", None), PermissionOutcome::Allow);
+        assert!(matches!(
+            policy.authorize("bash", "ls", None),
+            PermissionOutcome::Deny { .. }
+        ));
+        assert_eq!(
+            policy.authorize("read_file", "x", None),
+            PermissionOutcome::Allow
+        );
     }
 }

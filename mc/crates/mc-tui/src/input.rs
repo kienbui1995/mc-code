@@ -15,15 +15,22 @@ impl InputBuffer {
     }
 
     pub fn backspace(&mut self) {
-        if self.cursor == 0 { return; }
-        let prev = self.buffer[..self.cursor].char_indices().last().map_or(0, |(i, _)| i);
+        if self.cursor == 0 {
+            return;
+        }
+        let prev = self.buffer[..self.cursor]
+            .char_indices()
+            .last()
+            .map_or(0, |(i, _)| i);
         self.buffer.drain(prev..self.cursor);
         self.cursor = prev;
     }
 
     /// Delete the previous word (Ctrl+W).
     pub fn delete_word(&mut self) {
-        if self.cursor == 0 { return; }
+        if self.cursor == 0 {
+            return;
+        }
         let before = &self.buffer[..self.cursor];
         // Skip trailing whitespace, then skip non-whitespace
         let trimmed = before.trim_end();
@@ -34,7 +41,10 @@ impl InputBuffer {
 
     pub fn move_left(&mut self) {
         if self.cursor > 0 {
-            self.cursor = self.buffer[..self.cursor].char_indices().last().map_or(0, |(i, _)| i);
+            self.cursor = self.buffer[..self.cursor]
+                .char_indices()
+                .last()
+                .map_or(0, |(i, _)| i);
         }
     }
 
@@ -47,10 +57,14 @@ impl InputBuffer {
     }
 
     #[must_use]
-    pub fn as_str(&self) -> &str { &self.buffer }
+    pub fn as_str(&self) -> &str {
+        &self.buffer
+    }
 
     #[must_use]
-    pub fn cursor_pos(&self) -> usize { self.cursor }
+    pub fn cursor_pos(&self) -> usize {
+        self.cursor
+    }
 
     pub fn take(&mut self) -> String {
         self.cursor = 0;
@@ -68,7 +82,9 @@ impl InputBuffer {
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool { self.buffer.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.buffer.is_empty()
+    }
 }
 
 #[cfg(test)]
