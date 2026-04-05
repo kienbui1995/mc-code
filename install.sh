@@ -1,9 +1,9 @@
 #!/bin/sh
 # Install magic-code
-# Usage: curl -fsSL https://raw.githubusercontent.com/kienbui1995/magic-code/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh | sh
 set -e
 
-REPO="kienbui1995/magic-code"
+REPO="kienbui1995/mc-code"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
 # Detect platform

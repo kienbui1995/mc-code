@@ -25,15 +25,16 @@
 ## Install
 
 ```bash
-# One-line install
-curl -fsSL https://raw.githubusercontent.com/kienbui1995/magic-code/main/install.sh | sh
+# One-line install (recommended)
+curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh | sh
 
-# Or with Cargo
-cargo install magic-code
+# Or download directly
+# Linux: magic-code-linux-x86_64.tar.gz
+# macOS: magic-code-macos-aarch64.tar.gz
+# → https://github.com/kienbui1995/mc-code/releases/latest
 
-# Or build from source
-git clone https://github.com/kienbui1995/magic-code
-cd magic-code/mc && cargo build --release
+# Or with Cargo (from source)
+cargo install --git https://github.com/kienbui1995/mc-code magic-code
 ```
 
 ## Quick Start
