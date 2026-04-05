@@ -2,12 +2,16 @@
 
 Open-source TUI agentic AI coding agent. Built in Rust.
 
+[![CI](https://github.com/kienbui1995/magic-code/actions/workflows/ci.yml/badge.svg)](https://github.com/kienbui1995/magic-code/actions/workflows/ci.yml)
+
+[![demo](https://asciinema.org/a/placeholder.svg)](docs/demo.cast)
+
 ## Features
 
 - **Multi-provider** — Anthropic, OpenAI, Gemini, Ollama, LiteLLM, any OpenAI-compatible endpoint
 - **True streaming** — tokens render as they arrive, cancel anytime with Ctrl+C
 - **Agentic** — LLM autonomously selects tools, executes them, iterates until done
-- **7 built-in tools** — bash, read/write/edit file, glob, grep, subagent delegation
+- **9 built-in tools** — bash, read/write/edit file, glob, grep, subagent, memory read/write
 - **TUI** — real terminal app with syntax highlighting, markdown rendering, scroll, input history
 - **MCP support** — connect external tool servers via config
 - **Smart compaction** — LLM-based context summarization when approaching token limits
@@ -20,11 +24,23 @@ Open-source TUI agentic AI coding agent. Built in Rust.
 ## Install
 
 ```bash
+# Homebrew (macOS/Linux)
+brew tap kienbui1995/magic-code
+brew install magic-code
+
+# Cargo (crates.io)
+cargo install magic-code
+
 # From source
 git clone https://github.com/kienbui1995/magic-code
 cd magic-code/mc
 cargo build --release
 cp target/release/magic-code ~/.local/bin/
+
+# Shell completions
+magic-code --completions bash >> ~/.bashrc
+magic-code --completions zsh >> ~/.zshrc
+magic-code --completions fish > ~/.config/fish/completions/magic-code.fish
 ```
 
 ## Usage
@@ -76,8 +92,16 @@ magic-code -v "hello"
 | `/cost` | Session cost estimate |
 | `/plan` | Toggle plan mode (think, don't execute) |
 | `/compact` | Force context compaction |
+| `/undo` | Revert last turn's file changes |
 | `/save <name>` | Save session |
 | `/load <name>` | Load session |
+| `/image <path>` | Attach image to next prompt |
+| `/memory` | List project memory facts |
+| `/thinking` | Toggle thinking display |
+| `/fork` | Fork conversation at current point |
+| `/branches` | List all branches |
+| `/switch <name>` | Switch to branch |
+| `/branch delete <name>` | Delete branch |
 
 ## Configuration
 
@@ -131,8 +155,8 @@ match_tools = ["bash"]
 ```
 mc-cli          Binary. CLI parsing, provider dispatch.
 mc-tui          TUI. ratatui + crossterm. Markdown, syntax highlighting.
-mc-core         Conversation runtime. Streaming, compaction, subagents.
-mc-provider     LLM providers. Anthropic, Gemini, OpenAI-compatible.
+mc-core         Runtime, memory, undo, branching, parallel tools, caching.
+mc-provider     LLM providers. Anthropic, Gemini, OpenAI-compat. Prompt caching, thinking, images.
 mc-tools        Tool execution. Async bash, file ops, MCP, permissions.
 mc-config       TOML config. Layered merge, project context discovery.
 ```

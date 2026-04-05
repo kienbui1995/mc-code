@@ -68,7 +68,7 @@ Works with any LLM that supports tool calling:
 ## Features
 
 - **True streaming** — tokens render as they arrive
-- **7 tools** — bash, read/write/edit file, glob, grep, subagent
+- **9 tools** — bash, read/write/edit file, glob, grep, subagent, memory read/write
 - **TUI** — syntax highlighting, markdown, scroll, input history
 - **MCP** — connect external tool servers
 - **Smart compaction** — LLM summarizes context when approaching limits
@@ -76,6 +76,15 @@ Works with any LLM that supports tool calling:
 - **Audit log** — every tool call logged
 - **Sessions** — save, load, resume
 - **Cost tracking** — live estimate in status bar
+- **Extended thinking** — Anthropic reasoning blocks streamed separately
+- **Image support** — send screenshots/diagrams to LLM via `/image`
+- **Long-term memory** — persistent project facts across sessions
+- **@-mentions** — `@src/main.rs fix this` auto-includes file content
+- **Undo** — `/undo` reverts last turn's file changes
+- **Branching** — fork conversations, switch between branches
+- **Parallel tools** — concurrent execution with semaphore
+- **Prompt caching** — up to 90% input cost savings (Anthropic)
+- **Dynamic token budget** — auto-adjusts response size based on context
 
 ## Configuration
 
@@ -119,13 +128,13 @@ args = ["-y", "@modelcontextprotocol/server-github"]
 ```
 mc-cli       → Binary, CLI dispatch
 mc-tui       → TUI (ratatui, syntect)
-mc-core      → Runtime, compaction, subagents
-mc-provider  → Anthropic, Gemini, OpenAI-compat
+mc-core      → Runtime, compaction, subagents, memory, undo, branching, parallel tools
+mc-provider  → Anthropic, Gemini, OpenAI-compat (with prompt caching, thinking, images)
 mc-tools     → Async tools, MCP, permissions
 mc-config    → TOML config, project context
 ```
 
-82 tests. 5,600 LOC Rust. Zero unsafe.
+123 tests. ~7,500 LOC Rust. Zero unsafe.
 
 ## License
 

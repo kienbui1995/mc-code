@@ -1,5 +1,9 @@
-use mc_core::*;
-use mc_provider::{CompletionRequest, ProviderEvent, ProviderStream};
+use mc_core::{
+    compact_session, should_compact, ConversationMessage, ConversationRuntime, LlmProvider,
+    ModelRegistry, Role, Session,
+};
+use mc_provider::{CompletionRequest, ProviderEvent, ProviderStream, TokenUsage};
+use mc_tools::{PermissionMode, PermissionPolicy};
 use tokio_util::sync::CancellationToken;
 
 /// A mock provider that returns canned responses.
@@ -55,11 +59,18 @@ async fn simple_text_response() {
 
     let mut collected = String::new();
     let result = runtime
-        .run_turn(&provider, "hi", &policy, &mut |ev| {
-            if let ProviderEvent::TextDelta(t) = ev {
-                collected.push_str(t);
-            }
-        }, &cancel)
+        .run_turn(
+            &provider,
+            "hi",
+            &policy,
+            &mut None,
+            &mut |ev| {
+                if let ProviderEvent::TextDelta(t) = ev {
+                    collected.push_str(t);
+                }
+            },
+            &cancel,
+        )
         .await
         .unwrap();
 
@@ -94,7 +105,14 @@ async fn tool_call_and_result() {
     let mut runtime = ConversationRuntime::new("test".into(), 100, "be helpful".into());
 
     let result = runtime
-        .run_turn(&provider, "run echo hello", &policy, &mut |_| {}, &cancel)
+        .run_turn(
+            &provider,
+            "run echo hello",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
         .await
         .unwrap();
 
@@ -116,7 +134,7 @@ async fn cancellation_stops_turn() {
 
     let mut runtime = ConversationRuntime::new("test".into(), 100, "test".into());
     let result = runtime
-        .run_turn(&provider, "hi", &policy, &mut |_| {}, &cancel)
+        .run_turn(&provider, "hi", &policy, &mut None, &mut |_| {}, &cancel)
         .await
         .unwrap();
 
@@ -138,7 +156,7 @@ async fn session_save_load_preserves_state() {
     let loaded = Session::load(&path).unwrap();
     assert_eq!(loaded.messages.len(), 2);
     assert_eq!(loaded.input_tokens, 42);
-    assert_eq!(loaded.messages[0].content, "hello");
+    assert!(loaded.messages[0].contains_text("hello"));
 
     std::fs::remove_file(path).ok();
 }
@@ -165,7 +183,14 @@ async fn permission_deny_blocks_tool() {
     let mut runtime = ConversationRuntime::new("test".into(), 100, "test".into());
 
     let result = runtime
-        .run_turn(&provider, "delete everything", &policy, &mut |_| {}, &cancel)
+        .run_turn(
+            &provider,
+            "delete everything",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
         .await
         .unwrap();
 
@@ -176,7 +201,7 @@ async fn permission_deny_blocks_tool() {
         .session
         .messages
         .iter()
-        .any(|m| m.role == "tool" && m.content.contains("denied"));
+        .any(|m| m.role == Role::Tool && m.contains_text("denied"));
     assert!(denied);
 }
 
@@ -199,12 +224,14 @@ fn model_registry_covers_all_providers() {
 fn compaction_works_end_to_end() {
     let mut session = Session::default();
     for i in 0..50 {
+        session.messages.push(ConversationMessage::user(format!(
+            "question {i} with some padding text to increase size"
+        )));
         session
             .messages
-            .push(ConversationMessage::user(format!("question {i} with some padding text to increase size")));
-        session
-            .messages
-            .push(ConversationMessage::assistant(format!("answer {i} with detailed explanation")));
+            .push(ConversationMessage::assistant(format!(
+                "answer {i} with detailed explanation"
+            )));
     }
     assert_eq!(session.messages.len(), 100);
 
@@ -213,5 +240,5 @@ fn compaction_works_end_to_end() {
 
     compact_session(&mut session, 4);
     assert_eq!(session.messages.len(), 5); // 1 summary + 4 preserved
-    assert!(session.messages[0].content.contains("compacted"));
+    assert!(session.messages[0].contains_text("compacted"));
 }

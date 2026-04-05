@@ -16,9 +16,25 @@ pub enum AppEvent {
 pub enum UiMessage {
     Delta(String),
     ToolCall(String),
-    Usage { input: u32, output: u32 },
+    Usage {
+        input: u32,
+        output: u32,
+    },
     Done,
     Error(String),
+    /// Permission prompt: tool name, input summary. TUI should respond via `permission_response`.
+    PermissionPrompt {
+        tool: String,
+        input: String,
+    },
+    /// Stream failed, TUI should discard partial output from current attempt.
+    StreamReset,
+    /// Retry in progress after stream failure.
+    RetryAttempt {
+        attempt: u32,
+        max: u32,
+        reason: String,
+    },
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -31,25 +47,38 @@ pub struct App {
     pub model: String,
     pub total_input_tokens: u32,
     pub total_output_tokens: u32,
+    pub session_cost: f64,
     pub should_quit: bool,
     pub plan_mode: bool,
     pub compact_requested: bool,
     pub save_requested: Option<String>,
     pub load_requested: Option<String>,
+    pub undo_requested: bool,
     /// Whether user has manually scrolled up (disables auto-scroll).
     auto_scroll: bool,
     /// Terminal height for scroll calculations.
     pub viewport_height: u16,
+    /// Pending permission prompt (tool, input).
+    pub permission_pending: Option<(String, String)>,
+    /// User's response to permission prompt: Some(true) = allow, Some(false) = deny.
+    pub permission_response: Option<bool>,
+    /// Tools always allowed (user pressed 'A').
+    pub always_allowed: std::collections::HashSet<String>,
+    /// Pending image attachment path.
+    pub image_pending: Option<String>,
+    /// Pending memory command.
+    pub memory_command: Option<String>,
+    /// Toggle thinking display.
+    pub thinking_toggle: bool,
+    /// Pending branch command.
+    pub branch_command: Option<String>,
 }
 
 impl App {
     #[must_use]
     pub fn new(model: String) -> Self {
         let history_path = std::env::var_os("HOME")
-            .map(|h| {
-                std::path::PathBuf::from(h)
-                    .join(".local/share/magic-code/history")
-            });
+            .map(|h| std::path::PathBuf::from(h).join(".local/share/magic-code/history"));
         let history = history_path.map_or_else(|| InputHistory::new(1000), InputHistory::load_from);
 
         Self {
@@ -61,13 +90,22 @@ impl App {
             model,
             total_input_tokens: 0,
             total_output_tokens: 0,
+            session_cost: 0.0,
             should_quit: false,
             plan_mode: false,
             compact_requested: false,
             save_requested: None,
             load_requested: None,
+            undo_requested: false,
             auto_scroll: true,
             viewport_height: 20,
+            permission_pending: None,
+            permission_response: None,
+            always_allowed: std::collections::HashSet::new(),
+            image_pending: None,
+            memory_command: None,
+            thinking_toggle: false,
+            branch_command: None,
         }
     }
 
@@ -132,7 +170,7 @@ impl App {
             "/help" => {
                 self.output_lines.push(String::new());
                 self.output_lines.push(
-                    "Commands: /help /quit /status /cost /compact /save <name> /load <name> /plan"
+                    "Commands: /help /quit /status /cost /plan /compact /undo /save /load /image /memory /thinking /fork /branches /switch"
                         .into(),
                 );
             }
@@ -159,19 +197,16 @@ impl App {
                 ));
             }
             "/compact" => {
-                self.output_lines
-                    .push("Compaction requested.".into());
+                self.output_lines.push("Compaction requested.".into());
                 self.compact_requested = true;
             }
+            "/undo" => {
+                self.undo_requested = true;
+            }
             "/cost" => {
-                let cost = mc_core::ModelRegistry::default().estimate_cost(
-                    &self.model,
-                    self.total_input_tokens,
-                    self.total_output_tokens,
-                );
                 self.output_lines.push(format!(
-                    "Session cost: ${cost:.4} ({} input + {} output tokens)",
-                    self.total_input_tokens, self.total_output_tokens
+                    "Session cost: ${:.4} ({} input + {} output tokens)",
+                    self.session_cost, self.total_input_tokens, self.total_output_tokens
                 ));
             }
             "/save" => {
@@ -185,6 +220,43 @@ impl App {
                 self.output_lines
                     .push(format!("Session load requested: {name}"));
                 self.load_requested = Some(name.to_string());
+            }
+            "/image" => {
+                if let Some(path) = parts.get(1) {
+                    self.output_lines.push(format!("  🖼 image: {path}"));
+                    self.image_pending = Some(path.to_string());
+                } else {
+                    self.output_lines
+                        .push("Usage: /image <path> [prompt]".into());
+                }
+            }
+            "/memory" => {
+                self.memory_command = Some(parts.get(1).unwrap_or(&"list").to_string());
+            }
+            "/thinking" => {
+                self.thinking_toggle = true;
+            }
+            "/fork" => {
+                self.branch_command = Some("fork".into());
+            }
+            "/branches" => {
+                self.branch_command = Some("list".into());
+            }
+            "/switch" => {
+                if let Some(name) = parts.get(1) {
+                    self.branch_command = Some(format!("switch {name}"));
+                } else {
+                    self.output_lines
+                        .push("Usage: /switch <branch-name>".into());
+                }
+            }
+            "/branch" => {
+                if let Some(args) = parts.get(1) {
+                    self.branch_command = Some(args.to_string());
+                } else {
+                    self.output_lines
+                        .push("Usage: /branch delete <name>".into());
+                }
             }
             _ => {
                 self.output_lines.push(format!("Unknown command: {cmd}"));

@@ -1,0 +1,13 @@
+{"version": 2, "width": 105, "height": 51, "timestamp": 1775117509, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
+[0.001503, "o", "# magic-code demo\r\n\r\n"]
+[1.00288, "o", "$ magic-code \"Read Cargo.toml and tell me the version\"\r\n"]
+[4.119111, "o", "0.1.0"]
+[4.123291, "o", "\r\n[tools: read_file]\r\n[tokens: 1541↓ 15↑ | 2 iters]\r\n"]
+[4.127746, "o", "\r\n"]
+[6.129643, "o", "$ magic-code \"Create a hello.py that prints hello world\"\r\n"]
+[11.927757, "o", "Hello World!"]
+[11.928854, "o", "\r\n[tools: write_file, write_file, bash]\r\n[tokens: 1267↓ 21↑ | 4 iters]\r\n"]
+[11.932821, "o", "\r\n"]
+[13.935065, "o", "$ cat /tmp/mc-demo-hello.py\r\n"]
+[13.93656, "o", "cat: /tmp/mc-demo-hello.py"]
+[13.936713, "o", ": No such file or directory\r\n"]

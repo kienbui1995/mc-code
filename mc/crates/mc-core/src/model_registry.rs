@@ -23,9 +23,18 @@ impl Default for ModelRegistry {
         };
 
         // Anthropic
-        models.insert("claude-opus-4-20250514".into(), m(200_000, true, 15.0, 75.0));
-        models.insert("claude-sonnet-4-20250514".into(), m(200_000, true, 3.0, 15.0));
-        models.insert("claude-haiku-3-5-20241022".into(), m(200_000, true, 0.8, 4.0));
+        models.insert(
+            "claude-opus-4-20250514".into(),
+            m(200_000, true, 15.0, 75.0),
+        );
+        models.insert(
+            "claude-sonnet-4-20250514".into(),
+            m(200_000, true, 3.0, 15.0),
+        );
+        models.insert(
+            "claude-haiku-3-5-20241022".into(),
+            m(200_000, true, 0.8, 4.0),
+        );
 
         // OpenAI
         models.insert("gpt-4o".into(), m(128_000, true, 2.5, 10.0));
@@ -49,25 +58,24 @@ impl Default for ModelRegistry {
 }
 
 impl ModelRegistry {
-    #[must_use] 
+    #[must_use]
     pub fn context_window(&self, model: &str) -> u32 {
-        self.lookup(model)
-            .map_or(128_000, |m| m.context_window)
+        self.lookup(model).map_or(128_000, |m| m.context_window)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn supports_tools(&self, model: &str) -> bool {
         self.lookup(model).is_none_or(|m| m.supports_tools)
     }
 
     /// Returns (`input_cost`, `output_cost`) per million tokens.
-    #[must_use] 
+    #[must_use]
     pub fn cost_per_mtok(&self, model: &str) -> (f64, f64) {
         self.lookup(model).map_or((0.0, 0.0), |m| m.cost_per_mtok)
     }
 
     /// Estimate cost in USD for given token counts.
-    #[must_use] 
+    #[must_use]
     pub fn estimate_cost(&self, model: &str, input_tokens: u32, output_tokens: u32) -> f64 {
         let (ic, oc) = self.cost_per_mtok(model);
         f64::from(input_tokens) * ic / 1_000_000.0 + f64::from(output_tokens) * oc / 1_000_000.0
@@ -77,7 +85,10 @@ impl ModelRegistry {
         self.models.get(model).or_else(|| {
             // Fuzzy match: "claude-sonnet-4-20250514" should match if user passes "claude-sonnet-4-20250514"
             // Also try prefix match for versioned models
-            self.models.iter().find(|(k, _)| model.starts_with(k.as_str())).map(|(_, v)| v)
+            self.models
+                .iter()
+                .find(|(k, _)| model.starts_with(k.as_str()))
+                .map(|(_, v)| v)
         })
     }
 }

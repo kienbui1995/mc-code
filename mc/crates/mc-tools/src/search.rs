@@ -16,22 +16,34 @@ impl GlobSearchTool {
             .filter_map(Result::ok)
             .map(|p| p.display().to_string())
             .collect();
-        Ok(format!("Found {} files:\n{}", paths.len(), paths.join("\n")))
+        Ok(format!(
+            "Found {} files:\n{}",
+            paths.len(),
+            paths.join("\n")
+        ))
     }
 }
 
 impl GrepSearchTool {
-    pub fn execute(pattern: &str, path: Option<&str>, file_glob: Option<&str>) -> Result<String, ToolError> {
+    pub fn execute(
+        pattern: &str,
+        path: Option<&str>,
+        file_glob: Option<&str>,
+    ) -> Result<String, ToolError> {
         let re = regex::Regex::new(pattern)
             .map_err(|e| ToolError::InvalidInput(format!("invalid regex: {e}")))?;
 
         let base = Path::new(path.unwrap_or("."));
         let glob_pattern = file_glob.unwrap_or("*");
-        let glob_matcher = glob::Pattern::new(glob_pattern)
-            .map_err(|e| ToolError::InvalidInput(e.to_string()))?;
+        let glob_matcher =
+            glob::Pattern::new(glob_pattern).map_err(|e| ToolError::InvalidInput(e.to_string()))?;
 
         let mut results = Vec::new();
-        for entry in walkdir::WalkDir::new(base).max_depth(10).into_iter().filter_map(Result::ok) {
+        for entry in walkdir::WalkDir::new(base)
+            .max_depth(10)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
             if !entry.file_type().is_file() {
                 continue;
             }
@@ -55,7 +67,11 @@ impl GrepSearchTool {
         if results.is_empty() {
             Ok("No matches found.".to_string())
         } else {
-            Ok(format!("{} matches:\n{}", results.len(), results.join("\n")))
+            Ok(format!(
+                "{} matches:\n{}",
+                results.len(),
+                results.join("\n")
+            ))
         }
     }
 }
@@ -83,7 +99,11 @@ mod tests {
     fn grep_finds_matches() {
         let dir = format!("/tmp/mc-grep-{}", std::process::id());
         fs::create_dir_all(&dir).unwrap();
-        fs::write(format!("{dir}/test.txt"), "hello world\nfoo bar\nhello again").unwrap();
+        fs::write(
+            format!("{dir}/test.txt"),
+            "hello world\nfoo bar\nhello again",
+        )
+        .unwrap();
 
         let out = GrepSearchTool::execute("hello", Some(&dir), Some("*.txt")).unwrap();
         assert!(out.contains("2 matches"));

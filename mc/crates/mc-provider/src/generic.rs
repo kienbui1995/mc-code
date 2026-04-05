@@ -50,8 +50,8 @@ impl GenericProvider {
     /// Create for local Ollama.
     #[must_use]
     pub fn ollama() -> Self {
-        let host = std::env::var("OLLAMA_HOST")
-            .unwrap_or_else(|_| "http://localhost:11434".to_string());
+        let host =
+            std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
         Self::new(host, None)
     }
 
@@ -64,10 +64,7 @@ impl GenericProvider {
         }
     }
 
-    pub fn stream(
-        &self,
-        request: &CompletionRequest,
-    ) -> crate::ProviderStream {
+    pub fn stream(&self, request: &CompletionRequest) -> crate::ProviderStream {
         tracing::debug!(
             model = %request.model,
             base_url = %self.base_url,
@@ -153,7 +150,6 @@ impl GenericProvider {
             yield ProviderEvent::MessageStop;
         })
     }
-
 }
 
 async fn send_with_retry_generic(
@@ -176,7 +172,12 @@ async fn send_with_retry_generic(
                 let status = r.status().as_u16();
                 let text = r.text().await.unwrap_or_default();
                 let retryable = matches!(status, 429 | 500 | 502 | 503 | 504);
-                let err = ProviderError::Api { status, error_type: None, message: text, retryable };
+                let err = ProviderError::Api {
+                    status,
+                    error_type: None,
+                    message: text,
+                    retryable,
+                };
                 if retryable && attempt < max_retries {
                     last_err = Some(err);
                     tokio::time::sleep(Duration::from_millis(200 * (1u64 << attempt))).await;
@@ -206,9 +207,18 @@ fn flush_pending_tools_vec(
 ) -> Vec<ProviderEvent> {
     let mut indices: Vec<_> = pending.keys().copied().collect();
     indices.sort_unstable();
-    indices.iter().filter_map(|idx| {
-        pending.remove(idx).map(|(id, name, args)| ProviderEvent::ToolUse { id, name, input: args })
-    }).collect()
+    indices
+        .iter()
+        .filter_map(|idx| {
+            pending
+                .remove(idx)
+                .map(|(id, name, args)| ProviderEvent::ToolUse {
+                    id,
+                    name,
+                    input: args,
+                })
+        })
+        .collect()
 }
 
 fn build_request_body(req: &CompletionRequest) -> serde_json::Value {
@@ -224,24 +234,29 @@ fn build_request_body(req: &CompletionRequest) -> serde_json::Value {
         "max_tokens": req.max_tokens,
         "messages": messages,
         "stream": true,
+        "stream_options": {"include_usage": true},
     });
 
     if !req.tools.is_empty() {
-        body["tools"] = serde_json::json!(
-            req.tools.iter().map(|t| serde_json::json!({
+        body["tools"] = serde_json::json!(req
+            .tools
+            .iter()
+            .map(|t| serde_json::json!({
                 "type": "function",
                 "function": {
                     "name": t.name,
                     "description": t.description,
                     "parameters": t.input_schema,
                 }
-            })).collect::<Vec<_>>()
-        );
+            }))
+            .collect::<Vec<_>>());
         if let Some(choice) = &req.tool_choice {
             body["tool_choice"] = match choice {
                 ToolChoice::Auto => serde_json::json!("auto"),
                 ToolChoice::Any => serde_json::json!("required"),
-                ToolChoice::Tool { name } => serde_json::json!({"type": "function", "function": {"name": name}}),
+                ToolChoice::Tool { name } => {
+                    serde_json::json!({"type": "function", "function": {"name": name}})
+                }
             };
         }
     }
@@ -256,23 +271,37 @@ fn msg_to_json(msg: &InputMessage) -> serde_json::Value {
     };
 
     if msg.role == MessageRole::Tool {
-        if let Some(ContentBlock::ToolResult { tool_use_id, output, .. }) = msg.content.first() {
+        if let Some(ContentBlock::ToolResult {
+            tool_use_id,
+            output,
+            ..
+        }) = msg.content.first()
+        {
             return serde_json::json!({"role": "tool", "tool_call_id": tool_use_id, "content": output});
         }
     }
 
     if msg.role == MessageRole::Assistant {
-        let tool_uses: Vec<_> = msg.content.iter().filter_map(|b| match b {
-            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({
-                "id": id, "type": "function", "function": {"name": name, "arguments": input}
-            })),
-            _ => None,
-        }).collect();
-        if !tool_uses.is_empty() {
-            let text: String = msg.content.iter().filter_map(|b| match b {
-                ContentBlock::Text { text } => Some(text.as_str()),
+        let tool_uses: Vec<_> = msg
+            .content
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({
+                    "id": id, "type": "function", "function": {"name": name, "arguments": input}
+                })),
                 _ => None,
-            }).collect::<Vec<_>>().join("");
+            })
+            .collect();
+        if !tool_uses.is_empty() {
+            let text: String = msg
+                .content
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("");
             return serde_json::json!({
                 "role": "assistant",
                 "content": if text.is_empty() { serde_json::Value::Null } else { serde_json::json!(text) },
@@ -281,10 +310,38 @@ fn msg_to_json(msg: &InputMessage) -> serde_json::Value {
         }
     }
 
-    let text: String = msg.content.iter().filter_map(|b| match b {
-        ContentBlock::Text { text } => Some(text.as_str()),
-        _ => None,
-    }).collect::<Vec<_>>().join("");
+    let has_image = msg
+        .content
+        .iter()
+        .any(|b| matches!(b, ContentBlock::Image { .. }));
+
+    let text: String = msg
+        .content
+        .iter()
+        .filter_map(|b| match b {
+            ContentBlock::Text { text } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("");
+
+    if has_image {
+        let mut parts: Vec<serde_json::Value> = Vec::new();
+        for b in &msg.content {
+            match b {
+                ContentBlock::Text { text } => {
+                    parts.push(serde_json::json!({"type": "text", "text": text}))
+                }
+                ContentBlock::Image { data, media_type } => parts.push(serde_json::json!({
+                    "type": "image_url",
+                    "image_url": {"url": format!("data:{media_type};base64,{data}")}
+                })),
+                _ => {}
+            }
+        }
+        return serde_json::json!({"role": role, "content": parts});
+    }
+
     serde_json::json!({"role": role, "content": text})
 }
 
@@ -309,6 +366,7 @@ mod tests {
                 input_schema: serde_json::json!({"type": "object"}),
             }],
             tool_choice: Some(ToolChoice::Auto),
+            thinking_budget: None,
         };
         let body = build_request_body(&req);
         assert_eq!(body["messages"][0]["role"], "system");

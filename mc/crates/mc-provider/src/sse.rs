@@ -76,9 +76,9 @@ fn parse_frame(frame: &str) -> Result<Option<AnthropicStreamEvent>, ProviderErro
         return Ok(None);
     }
 
-    serde_json::from_str(&payload).map(Some).map_err(|e| {
-        ProviderError::InvalidSse(format!("failed to parse SSE payload: {e}"))
-    })
+    serde_json::from_str(&payload)
+        .map(Some)
+        .map_err(|e| ProviderError::InvalidSse(format!("failed to parse SSE payload: {e}")))
 }
 
 #[cfg(test)]
@@ -91,8 +91,13 @@ mod tests {
             "event: content_block_delta\n",
             "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}"
         );
-        let event = parse_frame(frame).expect("should parse").expect("should have event");
-        assert!(matches!(event, AnthropicStreamEvent::ContentBlockDelta { .. }));
+        let event = parse_frame(frame)
+            .expect("should parse")
+            .expect("should have event");
+        assert!(matches!(
+            event,
+            AnthropicStreamEvent::ContentBlockDelta { .. }
+        ));
     }
 
     #[test]
@@ -104,16 +109,16 @@ mod tests {
         assert!(parser.push(part1).expect("push 1").is_empty());
         let events = parser.push(part2).expect("push 2");
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], AnthropicStreamEvent::MessageStop { .. }));
+        assert!(matches!(
+            events[0],
+            AnthropicStreamEvent::MessageStop { .. }
+        ));
     }
 
     #[test]
     fn ignores_ping_and_done() {
         let mut parser = SseParser::default();
-        let payload = concat!(
-            "event: ping\ndata: {}\n\n",
-            "data: [DONE]\n\n",
-        );
+        let payload = concat!("event: ping\ndata: {}\n\n", "data: [DONE]\n\n",);
         let events = parser.push(payload.as_bytes()).expect("should parse");
         assert!(events.is_empty());
     }

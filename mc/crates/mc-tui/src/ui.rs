@@ -20,7 +20,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(5),   // output
+            Constraint::Min(5),    // output
             Constraint::Length(3), // input
             Constraint::Length(1), // status bar
         ])
@@ -47,7 +47,11 @@ fn draw_output(frame: &mut Frame, app: &App, area: Rect) {
         } else {
             ((app.scroll_offset as usize + visible) * 100 / total_lines).min(100)
         };
-        format!(" {}/{} ({pct}%) ", app.scroll_offset as usize + visible, total_lines)
+        format!(
+            " {}/{} ({pct}%) ",
+            app.scroll_offset as usize + visible,
+            total_lines
+        )
     } else {
         String::new()
     };
@@ -86,11 +90,44 @@ fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
-    let cost = mc_core::ModelRegistry::default().estimate_cost(
-        &app.model,
-        app.total_input_tokens,
-        app.total_output_tokens,
-    );
+    // Show permission prompt if pending
+    if let Some((ref tool, ref input)) = app.permission_pending {
+        let prompt = Line::from(vec![
+            Span::styled(
+                " ⚠ Allow ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("{tool}: "),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                if input.len() > 60 {
+                    format!("{}...", &input[..57])
+                } else {
+                    input.clone()
+                },
+                Style::default().fg(Color::Gray),
+            ),
+            Span::styled(
+                " [Y/n/A] ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]);
+        frame.render_widget(
+            Paragraph::new(prompt).style(Style::default().bg(Color::DarkGray)),
+            area,
+        );
+        return;
+    }
+
+    let cost = app.session_cost;
     let status = Line::from(vec![
         Span::styled(
             format!(" {} ", app.model),
@@ -108,7 +145,12 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
         ),
         Span::raw(" │ "),
         if app.plan_mode {
-            Span::styled("PLAN", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))
+            Span::styled(
+                "PLAN",
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            )
         } else if app.waiting {
             Span::styled("⟳ thinking...", Style::default().fg(Color::Yellow))
         } else {
@@ -117,6 +159,11 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
         Span::raw(" │ "),
         Span::styled(
             "^C cancel  PgUp/PgDn scroll",
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::raw(" │ "),
+        Span::styled(
+            concat!("v", env!("CARGO_PKG_VERSION")),
             Style::default().fg(Color::DarkGray),
         ),
     ]);

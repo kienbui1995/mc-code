@@ -25,7 +25,7 @@ pub enum ProviderError {
 }
 
 impl ProviderError {
-    #[must_use] 
+    #[must_use]
     pub fn is_retryable(&self) -> bool {
         match self {
             Self::Http(e) => e.is_connect() || e.is_timeout() || e.is_request(),

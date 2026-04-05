@@ -40,9 +40,7 @@ impl HookEngine {
                 continue;
             }
             if let Some(name) = tool_name {
-                if !hook.match_tools.is_empty()
-                    && !hook.match_tools.iter().any(|m| m == name)
-                {
+                if !hook.match_tools.is_empty() && !hook.match_tools.iter().any(|m| m == name) {
                     continue;
                 }
             }
@@ -81,7 +79,9 @@ mod tests {
             command: "true".into(),
             match_tools: vec!["bash".into()],
         }]);
-        assert!(engine.fire(&HookEvent::PostToolCall, Some("bash"), &[]).is_ok());
+        assert!(engine
+            .fire(&HookEvent::PostToolCall, Some("bash"), &[])
+            .is_ok());
     }
 
     #[test]
@@ -92,7 +92,9 @@ mod tests {
             match_tools: vec!["bash".into()],
         }]);
         // Should skip because tool is "read_file", not "bash"
-        assert!(engine.fire(&HookEvent::PostToolCall, Some("read_file"), &[]).is_ok());
+        assert!(engine
+            .fire(&HookEvent::PostToolCall, Some("read_file"), &[])
+            .is_ok());
     }
 
     #[test]
@@ -113,6 +115,12 @@ mod tests {
             command: "test -n \"$MC_TOOL_NAME\"".into(),
             match_tools: Vec::new(),
         }]);
-        assert!(engine.fire(&HookEvent::PostToolCall, Some("bash"), &[("tool_name", "bash")]).is_ok());
+        assert!(engine
+            .fire(
+                &HookEvent::PostToolCall,
+                Some("bash"),
+                &[("tool_name", "bash")]
+            )
+            .is_ok());
     }
 }

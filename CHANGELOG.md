@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.2.0 (unreleased)
+
+### New Features
+- **Extended thinking** — Anthropic thinking/reasoning blocks streamed and stored in session
+- **Image support** — Send images to LLM via `/image` command (Anthropic, OpenAI, Gemini)
+- **Long-term memory** — Persistent project facts in `.magic-code/memory.json`, LLM can read/write via `memory_read`/`memory_write` tools
+- **@-mentions** — `@src/main.rs fix this` auto-reads file content into prompt
+- **Undo/rollback** — `/undo` reverts last turn's file changes (per-turn snapshots, max 10)
+- **Conversation branching** — Fork, switch, list, delete conversation branches
+- **Parallel tool execution** — Multiple tools run concurrently (semaphore, max 4)
+- **Tool result caching** — Read-only tools (glob, grep, read_file) cached with 30s TTL
+
+### Improvements
+- **Prompt caching** — Anthropic `cache_control` on system prompt + tool definitions (up to 90% input cost savings)
+- **Dynamic token budget** — `max_tokens` auto-adjusts based on context window usage
+- **Mid-stream retry** — Exponential backoff on stream failures with `StreamReset` + `RetryAttempt` events
+- **Context pressure warning** — Logs warning when session history exceeds 90% of available context
+
+### Infrastructure
+- 9 tools (was 7): added `memory_read`, `memory_write`
+- 123 tests (was 82)
+- Runtime internals use `Arc<T>` for concurrent tool execution
+- Session backward compatible: new branch fields use `#[serde(default)]`
+- New config sections: `[retry]`, `[memory]`, `[thinking]`
+
 ## v0.1.0 (2025-04-01)
 
 Initial release.

@@ -8,7 +8,11 @@ pub struct WriteFileTool;
 pub struct EditFileTool;
 
 impl ReadFileTool {
-    pub fn execute(path: &str, offset: Option<usize>, limit: Option<usize>) -> Result<String, ToolError> {
+    pub fn execute(
+        path: &str,
+        offset: Option<usize>,
+        limit: Option<usize>,
+    ) -> Result<String, ToolError> {
         let content = fs::read_to_string(path).map_err(ToolError::Io)?;
         let lines: Vec<&str> = content.lines().collect();
         let start = offset.unwrap_or(0).min(lines.len());

@@ -34,8 +34,12 @@ impl ConfigLoader {
 fn dirs_global_config() -> PathBuf {
     std::env::var_os("MAGIC_CODE_CONFIG_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("XDG_CONFIG_HOME").map(|p| PathBuf::from(p).join("magic-code")))
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config").join("magic-code")))
+        .or_else(|| {
+            std::env::var_os("XDG_CONFIG_HOME").map(|p| PathBuf::from(p).join("magic-code"))
+        })
+        .or_else(|| {
+            std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config").join("magic-code"))
+        })
         .unwrap_or_else(|| PathBuf::from(".config").join("magic-code"))
 }
 
@@ -73,7 +77,11 @@ mod tests {
         let dir = temp_dir("override");
         let mc = dir.join(".magic-code");
         fs::create_dir_all(&mc).unwrap();
-        fs::write(mc.join("config.toml"), "[default]\nmodel = \"claude-opus-4-20250514\"\n").unwrap();
+        fs::write(
+            mc.join("config.toml"),
+            "[default]\nmodel = \"claude-opus-4-20250514\"\n",
+        )
+        .unwrap();
         let config = ConfigLoader::new(&dir).load().unwrap();
         assert_eq!(config.model, "claude-opus-4-20250514");
         fs::remove_dir_all(dir).ok();
@@ -85,7 +93,11 @@ mod tests {
         let mc = dir.join(".magic-code");
         fs::create_dir_all(&mc).unwrap();
         fs::write(mc.join("config.toml"), "[default]\nmodel = \"opus\"\n").unwrap();
-        fs::write(mc.join("config.local.toml"), "[default]\nmodel = \"haiku\"\n").unwrap();
+        fs::write(
+            mc.join("config.local.toml"),
+            "[default]\nmodel = \"haiku\"\n",
+        )
+        .unwrap();
         let config = ConfigLoader::new(&dir).load().unwrap();
         assert_eq!(config.model, "haiku");
         fs::remove_dir_all(dir).ok();
