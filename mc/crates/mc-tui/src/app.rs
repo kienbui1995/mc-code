@@ -35,6 +35,8 @@ pub enum UiMessage {
         max: u32,
         reason: String,
     },
+    /// Streaming tool output (e.g. bash stdout/stderr lines arriving in real-time).
+    ToolOutputDelta(String),
 }
 
 #[allow(clippy::struct_excessive_bools)]

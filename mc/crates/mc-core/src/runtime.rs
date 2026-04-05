@@ -15,6 +15,7 @@ use mc_tools::{
 
 use crate::context_resolver::ContextResolver;
 use crate::memory::MemoryStore;
+use crate::repo_map::RepoMap;
 use crate::model_registry::ModelRegistry;
 use crate::retry::RetryPolicy;
 use crate::session::{Block, ConversationMessage, Role, Session};
@@ -72,6 +73,7 @@ pub struct ConversationRuntime {
     pending_image: Option<(String, String)>, // (path, media_type)
     thinking_budget: Option<u32>,
     context_resolver: Option<ContextResolver>,
+    repo_map: Option<String>,
     undo_manager: UndoManager,
     tool_cache: ToolCache,
 }
@@ -101,6 +103,7 @@ impl ConversationRuntime {
             pending_image: None,
             thinking_budget: None,
             context_resolver: None,
+            repo_map: None,
             undo_manager: UndoManager::new(10),
             tool_cache: ToolCache::default(),
         }
@@ -132,6 +135,14 @@ impl ConversationRuntime {
     }
     pub fn set_context_resolver(&mut self, resolver: ContextResolver) {
         self.context_resolver = Some(resolver);
+    }
+
+    /// Build and set repo map from workspace root.
+    pub fn set_repo_map(&mut self, root: &std::path::Path) {
+        let map = RepoMap::build(root);
+        if map.file_count() > 0 {
+            self.repo_map = Some(map.to_prompt_section());
+        }
     }
 
     /// Undo the last turn's file changes.
@@ -233,17 +244,44 @@ impl ConversationRuntime {
                 }
             }
 
-            // Execute parallel batch
-            let batch_results = crate::parallel_tools::execute_batch(
-                parallel,
-                &self.tool_registry,
-                &self.hook_engine,
-                &self.audit_log,
-                permission_policy,
-                cancel,
-                4,
-            )
-            .await;
+            // Execute parallel batch with streaming output
+            let (tool_output_tx, mut tool_output_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+            let batch_results = {
+                let batch_fut = crate::parallel_tools::execute_batch(
+                    parallel,
+                    &self.tool_registry,
+                    &self.hook_engine,
+                    &self.audit_log,
+                    permission_policy,
+                    cancel,
+                    4,
+                    Some(&tool_output_tx),
+                );
+                tokio::pin!(batch_fut);
+                let mut done = false;
+                let mut results = Vec::new();
+                loop {
+                    tokio::select! {
+                        biased;
+                        chunk = tool_output_rx.recv(), if !done => {
+                            if let Some(c) = chunk {
+                                on_event(&ProviderEvent::ToolOutputDelta(c));
+                            }
+                        }
+                        r = &mut batch_fut, if !done => {
+                            results = r;
+                            done = true;
+                        }
+                    }
+                    if done { break; }
+                }
+                results
+            };
+            // batch_fut and tool_output_tx borrow are now dropped
+            drop(tool_output_tx);
+            while let Ok(c) = tool_output_rx.try_recv() {
+                on_event(&ProviderEvent::ToolOutputDelta(c));
+            }
             for r in batch_results {
                 tool_calls.push(r.name.clone());
                 self.session.messages.push(ConversationMessage::tool_result(
@@ -356,7 +394,8 @@ impl ConversationRuntime {
                         }
                         ProviderEvent::MessageStop
                         | ProviderEvent::RetryAttempt { .. }
-                        | ProviderEvent::StreamReset => {}
+                        | ProviderEvent::StreamReset
+                        | ProviderEvent::ToolOutputDelta(_) => {}
                     }
                 }
                 Some(Err(e)) => return Err(e),
@@ -700,7 +739,7 @@ impl ConversationRuntime {
             (
                 tools,
                 Some(ToolChoice::Auto),
-                format!("{}{}", self.system_prompt, memory_section),
+                format!("{}{}{}", self.system_prompt, memory_section, self.repo_map.as_deref().unwrap_or("")),
             )
         };
 

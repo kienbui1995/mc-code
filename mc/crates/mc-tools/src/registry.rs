@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use serde_json::Value;
+use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 
 use crate::bash::BashTool;
@@ -91,6 +92,38 @@ impl ToolRegistry {
             })??;
 
         // Truncate large outputs
+        Ok(self.truncate_output(result))
+    }
+
+    /// Like `execute`, but streams output chunks for tools that support it (currently bash).
+    pub async fn execute_streaming(
+        &self,
+        name: &str,
+        input: &Value,
+        output_tx: &mpsc::UnboundedSender<String>,
+    ) -> Result<String, ToolError> {
+        tracing::debug!(tool = name, "executing tool (streaming)");
+
+        let result = if name == "bash" {
+            let cmd = str_field(input, "command")?;
+            let timeout = input
+                .get("timeout")
+                .and_then(Value::as_u64)
+                .map(Duration::from_millis);
+            // BashTool::execute_streaming has its own timeout handling
+            BashTool::execute_streaming(&cmd, timeout.or(Some(self.tool_timeout)), output_tx)
+                .await?
+        } else {
+            tokio::time::timeout(self.tool_timeout, self.execute_inner(name, input))
+                .await
+                .map_err(|_| {
+                    ToolError::ExecutionFailed(format!(
+                        "tool '{name}' timed out after {}s",
+                        self.tool_timeout.as_secs()
+                    ))
+                })??
+        };
+
         Ok(self.truncate_output(result))
     }
 

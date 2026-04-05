@@ -83,6 +83,8 @@ pub enum ProviderEvent {
     /// TUI should discard partial output from the current stream attempt.
     StreamReset,
     ThinkingDelta(String),
+    /// Streaming tool output (e.g. bash stdout/stderr lines arriving in real-time).
+    ToolOutputDelta(String),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
