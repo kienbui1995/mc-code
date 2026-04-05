@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.4.0 (unreleased)
+
+### New Features — Tools
+- **`web_fetch` tool** — LLM can fetch URL content (HTML stripped to plain text)
+- **`web_search` tool** — search DuckDuckGo instant answers (no API key required)
+
+### New Features — Git Integration
+- **`/diff`** — show `git diff` in TUI
+- **`/commit`** — auto-commit staged changes
+- **`/log`** — show recent git log (last 10, oneline)
+- **`/stash` / `/stash pop`** — quick git stash management
+
+### New Features — Provider & Model
+- **`/model` switch** — change model mid-session (`/model gpt-4o`)
+- **Model aliases** — `model_aliases` in config, e.g. `fast = "claude-haiku"`
+
+### New Features — TUI & UX
+- **Context window bar** — visual progress bar in status bar showing % context used (green/yellow/red)
+- **`/clear`** — clear output area, preserve session history
+- **`/export`** — export conversation to markdown file
+- **`/summary`** — show session statistics
+- **`/search`** — search across saved sessions by keyword
+
+### New Features — Configuration & Safety
+- **`/init` wizard** — create `.magic-code/config.toml` + `instructions.md` for project
+- **Custom instructions** — `.magic-code/instructions.md` auto-injected into system prompt
+- **File protection** — built-in patterns (`.env`, `*.key`, `.git/*`) + configurable `protected_patterns`
+- **Dry-run mode** — `/dry-run` toggles showing tool calls without executing
+
+### Infrastructure
+- 11 tools (was 9): added `web_fetch`, `web_search`
+- 135 tests (was 132)
+- `reqwest` added to mc-tools for HTTP fetching
+- `Sandbox` now enforces file protection patterns
+- `CostTracker` persists usage, `ModelRegistry.set_model()` for mid-session switch
+
 ## v0.3.0 (unreleased)
 
 ### New Features

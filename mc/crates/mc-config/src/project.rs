@@ -32,8 +32,13 @@ impl ProjectContext {
     }
 }
 
-const INSTRUCTION_FILE_NAMES: &[&str] =
-    &["MAGIC_CODE.md", "AGENTS.md", "CLAUDE.md", ".cursorrules"];
+const INSTRUCTION_FILE_NAMES: &[&str] = &[
+    "MAGIC_CODE.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".cursorrules",
+    ".magic-code/instructions.md",
+];
 
 fn discover_instruction_files(cwd: &Path) -> Vec<InstructionFile> {
     INSTRUCTION_FILE_NAMES

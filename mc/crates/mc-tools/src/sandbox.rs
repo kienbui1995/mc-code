@@ -5,12 +5,30 @@ use crate::error::ToolError;
 /// Validates that file operations stay within the project root.
 pub struct Sandbox {
     root: PathBuf,
+    pub(crate) protected: Vec<String>,
 }
 
 impl Sandbox {
     #[must_use]
     pub fn new(root: PathBuf) -> Self {
-        Self { root }
+        Self {
+            root,
+            protected: vec![
+                ".env".into(),
+                ".env.*".into(),
+                ".git/*".into(),
+                "*.pem".into(),
+                "*.key".into(),
+                "id_rsa*".into(),
+            ],
+        }
+    }
+
+    /// Add extra protected patterns from config.
+    #[must_use]
+    pub fn with_protected(mut self, patterns: Vec<String>) -> Self {
+        self.protected.extend(patterns);
+        self
     }
 
     /// Check if a path is within the sandbox. Resolves `..` and symlinks.
@@ -25,6 +43,18 @@ impl Sandbox {
         let resolved = resolve_path(&target);
 
         if resolved.starts_with(&self.root) {
+            // Check protected patterns
+            let rel = resolved
+                .strip_prefix(&self.root)
+                .unwrap_or(&resolved)
+                .to_string_lossy();
+            for pat in &self.protected {
+                if glob_match(pat, &rel) {
+                    return Err(ToolError::PermissionDenied(format!(
+                        "path '{path}' matches protected pattern '{pat}'"
+                    )));
+                }
+            }
             Ok(resolved)
         } else {
             Err(ToolError::PermissionDenied(format!(
@@ -52,6 +82,17 @@ fn resolve_path(path: &Path) -> PathBuf {
     }
     // Fallback: normalize manually
     normalize(path)
+}
+
+/// Simple glob matching: `*` matches any chars in a segment, `*/*` matches path separators.
+fn glob_match(pattern: &str, path: &str) -> bool {
+    if pattern.contains('/') || pattern.contains('*') {
+        // Use glob crate for proper matching
+        glob::Pattern::new(pattern).is_ok_and(|p| p.matches(path))
+    } else {
+        // Exact filename match
+        path == pattern || path.ends_with(&format!("/{pattern}"))
+    }
 }
 
 /// Simple path normalization (resolve `.` and `..` without filesystem access).

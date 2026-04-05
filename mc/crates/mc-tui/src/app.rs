@@ -50,6 +50,8 @@ pub struct App {
     pub total_input_tokens: u32,
     pub total_output_tokens: u32,
     pub session_cost: f64,
+    /// Context window usage percentage (0-100).
+    pub context_usage_pct: u8,
     pub should_quit: bool,
     pub plan_mode: bool,
     pub compact_requested: bool,
@@ -76,6 +78,20 @@ pub struct App {
     pub thinking_toggle: bool,
     /// Pending branch command.
     pub branch_command: Option<String>,
+    /// Git command requested.
+    pub git_command: Option<String>,
+    /// Model switch requested.
+    pub model_switch: Option<String>,
+    /// Export conversation requested.
+    pub export_requested: bool,
+    /// Init wizard requested.
+    pub init_requested: bool,
+    /// Summary requested.
+    pub summary_requested: bool,
+    /// Session search query.
+    pub search_query: Option<String>,
+    /// Dry-run mode: show tool calls without executing.
+    pub dry_run: bool,
 }
 
 impl App {
@@ -95,6 +111,7 @@ impl App {
             total_input_tokens: 0,
             total_output_tokens: 0,
             session_cost: 0.0,
+            context_usage_pct: 0,
             should_quit: false,
             plan_mode: false,
             compact_requested: false,
@@ -111,6 +128,13 @@ impl App {
             memory_command: None,
             thinking_toggle: false,
             branch_command: None,
+            git_command: None,
+            model_switch: None,
+            export_requested: false,
+            init_requested: false,
+            summary_requested: false,
+            search_query: None,
+            dry_run: false,
         }
     }
 
@@ -176,7 +200,7 @@ impl App {
             "/help" => {
                 self.output_lines.push(String::new());
                 self.output_lines.push(
-                    "Commands: /help /quit /status /cost /plan /compact /undo /save /load /image /memory /thinking /fork /branches /switch"
+                    "Commands: /help /quit /status /cost /plan /compact /undo /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init"
                         .into(),
                 );
             }
@@ -268,6 +292,53 @@ impl App {
                         .push("Usage: /branch delete <name>".into());
                 }
             }
+            "/diff" => self.git_command = Some("diff".into()),
+            "/log" => self.git_command = Some("log".into()),
+            "/commit" => self.git_command = Some("commit".into()),
+            "/stash" => {
+                if parts.get(1) == Some(&"pop") {
+                    self.git_command = Some("stash_pop".into());
+                } else {
+                    self.git_command = Some("stash".into());
+                }
+            }
+            "/clear" => {
+                self.output_lines.clear();
+                self.output_lines
+                    .push("Output cleared. Session history preserved.".into());
+                self.scroll_offset = 0;
+            }
+            "/export" => self.export_requested = true,
+            "/model" => {
+                if let Some(name) = parts.get(1) {
+                    self.model_switch = Some(name.to_string());
+                } else {
+                    self.output_lines.push(format!(
+                        "Current model: {}. Usage: /model <name>",
+                        self.model
+                    ));
+                }
+            }
+            "/init" => self.init_requested = true,
+            "/summary" => self.summary_requested = true,
+            "/search" => {
+                if let Some(q) = parts.get(1) {
+                    self.search_query = Some(q.to_string());
+                } else {
+                    self.output_lines.push("Usage: /search <keyword>".into());
+                }
+            }
+            "/dry-run" => {
+                self.dry_run = !self.dry_run;
+                self.output_lines.push(format!(
+                    "Dry-run mode: {}",
+                    if self.dry_run {
+                        "ON (tools shown but not executed)"
+                    } else {
+                        "OFF"
+                    }
+                ));
+            }
             _ => {
                 self.output_lines.push(format!("Unknown command: {cmd}"));
             }
@@ -304,6 +375,16 @@ impl App {
         "/fork",
         "/branches",
         "/switch",
+        "/diff",
+        "/log",
+        "/commit",
+        "/stash",
+        "/clear",
+        "/export",
+        "/model",
+        "/init",
+        "/summary",
+        "/search",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.

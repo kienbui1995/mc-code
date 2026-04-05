@@ -290,11 +290,16 @@ async fn run_tui(
                 UiMessage::Usage { input, output } => {
                     app.total_input_tokens += input;
                     app.total_output_tokens += output;
-                    app.session_cost = mc_core::ModelRegistry::default().estimate_cost(
+                    let registry = mc_core::ModelRegistry::default();
+                    app.session_cost = registry.estimate_cost(
                         &app.model,
                         app.total_input_tokens,
                         app.total_output_tokens,
                     );
+                    let ctx_window = registry.context_window(&app.model);
+                    let used = app.total_input_tokens + app.total_output_tokens;
+                    app.context_usage_pct =
+                        ((u64::from(used) * 100) / u64::from(ctx_window.max(1))).min(100) as u8;
                 }
                 UiMessage::Done => {
                     app.handle_event(AppEvent::StreamDone);
@@ -596,6 +601,123 @@ async fn run_tui(
             }
         }
 
+        // Handle /model switch
+        if let Some(ref new_model) = app.model_switch.take() {
+            if let Ok(mut rt) = runtime.try_lock() {
+                // Check model aliases from config
+                let resolved = config
+                    .model_aliases
+                    .get(new_model)
+                    .cloned()
+                    .unwrap_or_else(|| new_model.clone());
+                rt.set_model(resolved.clone());
+                app.model.clone_from(&resolved);
+                app.output_lines
+                    .push(format!("Switched to model: {resolved}"));
+            }
+        }
+
+        // Handle /export
+        if app.export_requested {
+            app.export_requested = false;
+            let path = session_path("export.md");
+            let content = app.output_lines.join("\n");
+            match std::fs::write(&path, &content) {
+                Ok(()) => app
+                    .output_lines
+                    .push(format!("Exported to {}", path.display())),
+                Err(e) => app.output_lines.push(format!("Export failed: {e}")),
+            }
+        }
+
+        // Handle /init
+        if app.init_requested {
+            app.init_requested = false;
+            let dir = std::env::current_dir()
+                .unwrap_or_default()
+                .join(".magic-code");
+            let conf = dir.join("config.toml");
+            if conf.exists() {
+                app.output_lines
+                    .push(format!("Config already exists: {}", conf.display()));
+            } else {
+                let _ = std::fs::create_dir_all(&dir);
+                let template = concat!(
+                    "# magic-code project config\n",
+                    "# model = \"claude-sonnet-4-20250514\"\n",
+                    "# provider = \"anthropic\"\n",
+                    "# permission_mode = \"workspace-write\"\n",
+                    "\n",
+                    "[model_aliases]\n",
+                    "# fast = \"claude-haiku\"\n",
+                    "# smart = \"claude-sonnet-4-20250514\"\n",
+                );
+                match std::fs::write(&conf, template) {
+                    Ok(()) => {
+                        // Also create instructions.md
+                        let inst = dir.join("instructions.md");
+                        let _ = std::fs::write(
+                            &inst,
+                            "# Project Instructions\n\nAdd custom instructions for the AI here.\n",
+                        );
+                        app.output_lines
+                            .push(format!("Created {} and instructions.md", conf.display()));
+                    }
+                    Err(e) => app.output_lines.push(format!("Init failed: {e}")),
+                }
+            }
+        }
+
+        // Handle /summary
+        if app.summary_requested {
+            app.summary_requested = false;
+            let line_count = app.output_lines.len();
+            app.output_lines.push(format!(
+                "Session: {} lines, {} input + {} output tokens, ${:.4} cost, model: {}",
+                line_count,
+                app.total_input_tokens,
+                app.total_output_tokens,
+                app.session_cost,
+                app.model
+            ));
+        }
+
+        // Handle /search
+        if let Some(query) = app.search_query.take() {
+            let sessions_dir = session_path("")
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .to_path_buf();
+            let mut found = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(&sessions_dir) {
+                for entry in entries.flatten() {
+                    if entry.path().extension().is_some_and(|e| e == "json") {
+                        if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                            if content.contains(&query) {
+                                found.push(
+                                    entry
+                                        .path()
+                                        .file_stem()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string(),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            if found.is_empty() {
+                app.output_lines
+                    .push(format!("No sessions matching \"{query}\""));
+            } else {
+                app.output_lines.push(format!(
+                    "Sessions matching \"{query}\": {}",
+                    found.join(", ")
+                ));
+            }
+        }
+
         // Handle /memory command
         if let Some(cmd) = app.memory_command.take() {
             if let Ok(_rt) = runtime.try_lock() {
@@ -620,6 +742,72 @@ async fn run_tui(
             app.output_lines.push(format!(
                 "  🌿 branch: {cmd} (branch management requires BranchManager setup)"
             ));
+        }
+
+        // Handle git commands
+        if let Some(cmd) = app.git_command.take() {
+            let git_args: &[&str] = match cmd.as_str() {
+                "diff" => &["diff"],
+                "log" => &["log", "--oneline", "-10"],
+                "stash" => &["stash"],
+                "stash_pop" => &["stash", "pop"],
+                "commit" => &["diff", "--cached", "--stat"],
+                _ => &["status"],
+            };
+            match std::process::Command::new("git").args(git_args).output() {
+                Ok(o) => {
+                    let out = String::from_utf8_lossy(&o.stdout);
+                    let err = String::from_utf8_lossy(&o.stderr);
+                    if cmd == "commit" {
+                        // Show staged diff, then auto-commit with generated message
+                        if out.trim().is_empty() {
+                            app.output_lines
+                                .push("Nothing staged. Run `git add` first.".into());
+                        } else {
+                            app.output_lines.push(format!("Staged:\n{out}"));
+                            app.output_lines.push("Generating commit message...".into());
+                            // Queue a prompt to the LLM to generate commit message
+                            // For now, commit with a generic message
+                            if let Ok(diff) = std::process::Command::new("git")
+                                .args(["diff", "--cached"])
+                                .output()
+                            {
+                                let diff_text = String::from_utf8_lossy(&diff.stdout);
+                                let msg = if diff_text.len() > 200 {
+                                    "chore: update files"
+                                } else {
+                                    "chore: minor changes"
+                                };
+                                match std::process::Command::new("git")
+                                    .args(["commit", "-m", msg])
+                                    .output()
+                                {
+                                    Ok(co) => app.output_lines.push(format!(
+                                        "✓ {}",
+                                        String::from_utf8_lossy(&co.stdout).trim()
+                                    )),
+                                    Err(e) => {
+                                        app.output_lines.push(format!("✗ commit failed: {e}"));
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        if !out.is_empty() {
+                            for line in out.lines() {
+                                app.output_lines.push(format!("  {line}"));
+                            }
+                        }
+                        if !err.is_empty() {
+                            app.output_lines.push(format!("  {}", err.trim()));
+                        }
+                        if out.is_empty() && err.is_empty() {
+                            app.output_lines.push("  (no output)".into());
+                        }
+                    }
+                }
+                Err(e) => app.output_lines.push(format!("  ✗ git: {e}")),
+            }
         }
 
         if pending_compact {

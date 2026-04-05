@@ -144,6 +144,22 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
             Style::default().fg(Color::Green),
         ),
         Span::raw(" │ "),
+        // Context window usage bar
+        {
+            let pct = app.context_usage_pct;
+            let bar_len = 10;
+            let filled = (pct as usize * bar_len / 100).min(bar_len);
+            let bar: String = "█".repeat(filled) + &"░".repeat(bar_len - filled);
+            let color = if pct > 80 {
+                Color::Red
+            } else if pct > 60 {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+            Span::styled(format!("ctx {bar} {pct}%"), Style::default().fg(color))
+        },
+        Span::raw(" │ "),
         if app.plan_mode {
             Span::styled(
                 "PLAN",
