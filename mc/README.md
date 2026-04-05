@@ -2,7 +2,7 @@
 
 Open-source TUI agentic AI coding agent. Built in Rust.
 
-[![CI](https://github.com/kienbui1995/magic-code/actions/workflows/ci.yml/badge.svg)](https://github.com/kienbui1995/magic-code/actions/workflows/ci.yml)
+[![CI](https://github.com/kienbui1995/mc-code/actions/workflows/ci.yml/badge.svg)](https://github.com/kienbui1995/mc-code/actions/workflows/ci.yml)
 
 [![demo](https://asciinema.org/a/placeholder.svg)](docs/demo.cast)
 
@@ -25,14 +25,14 @@ Open-source TUI agentic AI coding agent. Built in Rust.
 
 ```bash
 # Homebrew (macOS/Linux)
-brew tap kienbui1995/magic-code
+brew tap kienbui1995/mc-code
 brew install magic-code
 
 # Cargo (crates.io)
 cargo install magic-code
 
 # From source
-git clone https://github.com/kienbui1995/magic-code
+git clone https://github.com/kienbui1995/mc-code
 cd magic-code/mc
 cargo build --release
 cp target/release/magic-code ~/.local/bin/
