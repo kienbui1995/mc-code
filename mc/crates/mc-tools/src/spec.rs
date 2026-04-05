@@ -121,5 +121,27 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["key"]
             }),
         },
+        ToolSpec {
+            name: "web_fetch".into(),
+            description: "Fetch content from a URL. Returns plain text (HTML tags stripped). Use for reading documentation, API specs, web pages.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": { "type": "string", "description": "URL to fetch" }
+                },
+                "required": ["url"]
+            }),
+        },
+        ToolSpec {
+            name: "web_search".into(),
+            description: "Search the web using DuckDuckGo. Returns instant answers and related topics. Use when you need to look up current information.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Search query" }
+                },
+                "required": ["query"]
+            }),
+        },
     ]
 }

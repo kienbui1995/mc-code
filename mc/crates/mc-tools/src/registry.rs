@@ -13,6 +13,7 @@ use crate::mcp::McpClient;
 use crate::sandbox::Sandbox;
 use crate::search::{GlobSearchTool, GrepSearchTool};
 use crate::spec::{all_tool_specs, ToolSpec};
+use crate::web::{WebFetchTool, WebSearchTool};
 
 const DEFAULT_MAX_OUTPUT: usize = 100_000;
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(120);
@@ -40,6 +41,15 @@ impl ToolRegistry {
     #[must_use]
     pub fn with_workspace_root(mut self, root: PathBuf) -> Self {
         self.sandbox = Some(Sandbox::new(root));
+        self
+    }
+
+    /// Add file protection patterns (e.g. `.env`, `*.key`).
+    #[must_use]
+    pub fn with_protected_patterns(mut self, patterns: Vec<String>) -> Self {
+        if let Some(ref mut sandbox) = self.sandbox {
+            sandbox.protected.extend(patterns);
+        }
         self
     }
 
@@ -201,6 +211,14 @@ impl ToolRegistry {
                 .await
                 .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
             }
+            "web_fetch" => {
+                let url = str_field(input, "url")?;
+                WebFetchTool::execute(&url).await
+            }
+            "web_search" => {
+                let query = str_field(input, "query")?;
+                WebSearchTool::execute(&query).await
+            }
             _ => {
                 // Check MCP tools: name format is mcp_{server}_{tool}
                 if let Some(rest) = name.strip_prefix("mcp_") {
@@ -305,11 +323,13 @@ mod tests {
     #[test]
     fn specs_has_all_tools() {
         let specs = ToolRegistry::specs();
-        assert_eq!(specs.len(), 9);
+        assert_eq!(specs.len(), 11);
         let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"bash"));
         assert!(names.contains(&"edit_file"));
         assert!(names.contains(&"subagent"));
+        assert!(names.contains(&"web_fetch"));
+        assert!(names.contains(&"web_search"));
     }
 
     #[test]

@@ -135,10 +135,13 @@ pub struct RuntimeConfig {
     pub ignore_patterns: Vec<String>,
     pub mcp_servers: Vec<McpServerConfig>,
     pub hooks: Vec<HookConfig>,
+    pub model_aliases: std::collections::HashMap<String, String>,
+    pub protected_patterns: Vec<String>,
 }
 
 impl RuntimeConfig {
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn from_layers(layers: &[ConfigLayer]) -> Self {
         let mut provider: Option<String> = None;
         let mut model: Option<String> = None;
@@ -243,6 +246,8 @@ impl RuntimeConfig {
             ignore_patterns: ignore_patterns.unwrap_or_default(),
             mcp_servers,
             hooks,
+            model_aliases: std::collections::HashMap::new(),
+            protected_patterns: Vec::new(),
         }
     }
 

@@ -158,6 +158,11 @@ impl ConversationRuntime {
         &self.model
     }
 
+    /// Switch model mid-session.
+    pub fn set_model(&mut self, model: String) {
+        self.model = model;
+    }
+
     /// Cumulative cost across all sessions from disk.
     #[must_use]
     pub fn cumulative_cost(&self) -> (u64, u64, f64) {

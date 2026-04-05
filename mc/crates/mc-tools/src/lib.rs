@@ -9,6 +9,7 @@ mod registry;
 mod sandbox;
 mod search;
 mod spec;
+mod web;
 
 pub use audit::{AuditEntry, AuditLog};
 pub use bash::BashTool;
@@ -23,3 +24,4 @@ pub use registry::ToolRegistry;
 pub use sandbox::Sandbox;
 pub use search::{GlobSearchTool, GrepSearchTool};
 pub use spec::ToolSpec;
+pub use web::{WebFetchTool, WebSearchTool};
