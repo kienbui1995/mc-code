@@ -92,6 +92,7 @@ pub struct App {
     pub search_query: Option<String>,
     /// Dry-run mode: show tool calls without executing.
     pub dry_run: bool,
+    pub doctor_requested: bool,
 }
 
 impl App {
@@ -135,6 +136,7 @@ impl App {
             summary_requested: false,
             search_query: None,
             dry_run: false,
+            doctor_requested: false,
         }
     }
 
@@ -339,6 +341,7 @@ impl App {
                     }
                 ));
             }
+            "/doctor" => self.doctor_requested = true,
             _ => {
                 self.output_lines.push(format!("Unknown command: {cmd}"));
             }
@@ -385,6 +388,7 @@ impl App {
         "/init",
         "/summary",
         "/search",
+        "/doctor",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.

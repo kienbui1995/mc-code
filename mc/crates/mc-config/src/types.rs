@@ -118,6 +118,8 @@ pub struct HookConfig {
 #[derive(Debug, Clone)]
 pub struct RuntimeConfig {
     pub provider: String,
+    pub fallback_provider: Option<String>,
+    pub fallback_model: Option<String>,
     pub model: String,
     pub max_tokens: u32,
     pub permission_mode: PermissionMode,
@@ -229,6 +231,8 @@ impl RuntimeConfig {
 
         Self {
             provider: resolved_provider,
+            fallback_provider: None,
+            fallback_model: None,
             model: model.unwrap_or_else(|| "claude-sonnet-4-20250514".into()),
             max_tokens: max_tokens.unwrap_or(8192),
             permission_mode: perm,

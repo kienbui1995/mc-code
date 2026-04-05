@@ -3,14 +3,17 @@
 **Open-source TUI agentic AI coding agent.** Built in Rust. Fast. Multi-provider.
 
 ```
-┌─ magic-code ──────────────────────────────────────────────┐
+┌─ magic-code ████████░░ 62% ──────────────────────────────┐
 │                                                           │
 │ › Fix the failing test in src/auth.rs                     │
 │                                                           │
 │   ⚙ tool: grep_search                                    │
 │   ⚙ tool: read_file                                      │
 │   ⚙ tool: edit_file                                      │
-│   ⚙ tool: bash                                           │
+│   ⚙ tool: bash (streaming output)                        │
+│     running tests...                                      │
+│     test auth::test_login ... ok                          │
+│     test auth::test_token ... ok                          │
 │                                                           │
 │ Fixed. The issue was a missing lifetime bound on line 42. │
 │ Tests pass now: 47/47 ✓                                   │
@@ -18,124 +21,145 @@
 ├───────────────────────────────────────────────────────────┤
 │ Input                                                     │
 ├───────────────────────────────────────────────────────────┤
-│ claude-sonnet-4-20250514 │ 12K↓ 2K↑ $0.066 │ ready       │
+│ claude-sonnet │ ctx ████████░░ 62% │ 12K↓ 2K↑ $0.066     │
 └───────────────────────────────────────────────────────────┘
 ```
 
 ## Install
 
 ```bash
-# One-line install (recommended)
 curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh | sh
-
-# Or download directly
-# Linux: magic-code-linux-x86_64.tar.gz
-# macOS: magic-code-macos-aarch64.tar.gz
-# → https://github.com/kienbui1995/mc-code/releases/latest
-
-# Or with Cargo (from source)
-cargo install --git https://github.com/kienbui1995/mc-code magic-code
 ```
 
-## Quick Start
-
+Or build from source:
 ```bash
-# Set your API key
-export ANTHROPIC_API_KEY="sk-..."
-
-# Interactive TUI
-magic-code
-
-# One-shot
-magic-code "explain this codebase"
-
-# Pipe
-cat error.log | magic-code "fix this"
+git clone https://github.com/kienbui1995/mc-code.git
+cd mc-code/mc
+cargo install --path crates/mc-cli
 ```
-
-## Providers
-
-Works with any LLM that supports tool calling:
-
-| Provider | Setup |
-|----------|-------|
-| **Anthropic** | `export ANTHROPIC_API_KEY=...` |
-| **OpenAI** | `--provider openai` + `export OPENAI_API_KEY=...` |
-| **Gemini** | `--provider gemini` + `export GEMINI_API_KEY=...` |
-| **Ollama** | `--provider ollama` (local, free) |
-| **LiteLLM** | `--provider litellm --base-url http://...` |
-| **Any OpenAI-compatible** | `--base-url http://your-endpoint` |
 
 ## Features
 
-- **True streaming** — tokens render as they arrive
-- **9 tools** — bash, read/write/edit file, glob, grep, subagent, memory read/write
-- **TUI** — syntax highlighting, markdown, scroll, input history
-- **MCP** — connect external tool servers
-- **Smart compaction** — LLM summarizes context when approaching limits
-- **Permissions** — read-only / workspace-write / full-access
-- **Audit log** — every tool call logged
-- **Sessions** — save, load, resume
-- **Cost tracking** — live estimate in status bar
-- **Extended thinking** — Anthropic reasoning blocks streamed separately
-- **Image support** — send screenshots/diagrams to LLM via `/image`
-- **Long-term memory** — persistent project facts across sessions
-- **@-mentions** — `@src/main.rs fix this` auto-includes file content
-- **Undo** — `/undo` reverts last turn's file changes
-- **Branching** — fork conversations, switch between branches
-- **Parallel tools** — concurrent execution with semaphore
-- **Prompt caching** — up to 90% input cost savings (Anthropic)
-- **Dynamic token budget** — auto-adjusts response size based on context
+### Multi-Provider
+Works with **Anthropic**, **OpenAI**, **Gemini**, **Ollama**, **LiteLLM**, and any OpenAI-compatible endpoint. Switch mid-session with `/model`.
+
+### 11 Built-in Tools
+| Tool | Description |
+|------|-------------|
+| `bash` | Execute shell commands (streaming output) |
+| `read_file` | Read files with offset/limit |
+| `write_file` | Create or overwrite files |
+| `edit_file` | Surgical text replacement with diff preview |
+| `glob_search` | Find files by pattern |
+| `grep_search` | Search file contents with regex |
+| `subagent` | Delegate tasks to isolated sub-conversations |
+| `memory_read` | Read persistent project facts |
+| `memory_write` | Save facts across sessions |
+| `web_fetch` | Fetch URL content |
+| `web_search` | Search DuckDuckGo |
+
+### TUI
+- Syntax highlighting (syntect)
+- Markdown rendering
+- Scroll (PageUp/PageDown, mouse wheel)
+- Input history (persisted)
+- Tab completion for slash commands
+- Context window usage bar
+- Permission prompts for destructive operations
+
+### Intelligence
+- True async streaming (tokens render as they arrive)
+- LLM-based smart context compaction
+- Extended thinking / reasoning blocks
+- Image support (`/image`)
+- Long-term memory (persists across sessions)
+- `@file` mentions (auto-read file content)
+- Conversation branching (fork/switch)
+- Parallel tool execution (up to 4 concurrent)
+- Tool result caching (30s TTL for read-only tools)
+- Prompt caching (Anthropic, up to 90% cost savings)
+- Dynamic token budget
+- Mid-stream retry with exponential backoff
+
+### Git Integration
+- `/diff` — show changes
+- `/commit` — LLM-generated commit messages
+- `/log` — recent history
+- `/stash` / `/stash pop`
+
+### Safety
+- Permission modes: read-only, workspace-write, full-access
+- File protection (`.env`, `*.key`, `.git/*` + configurable)
+- Workspace sandboxing
+- Audit log for all tool executions
+- Dry-run mode
+- Undo/rollback (`/undo`)
+
+### Developer Experience
+- `/model` — switch provider/model mid-session
+- `/cost` / `/cost --total` — session and all-time cost tracking
+- `/doctor` — check connectivity, config, API keys
+- `/init` — project setup wizard
+- `/export` — export conversation to markdown
+- `/search` — search across saved sessions
+- `/summary` — session statistics
+- Session save/load/resume
+- Pipe mode (`echo "fix this" | magic-code`)
+- Config layering: global → project → local
+- Custom instructions (`.magic-code/instructions.md`)
+- Pre/post tool call hooks
+- MCP server support
 
 ## Configuration
 
 ```bash
-# Project config (committed)
-.magic-code/config.toml
-
-# Local overrides (gitignored)
-.magic-code/config.local.toml
-
-# Global
-~/.config/magic-code/config.toml
+magic-code --init  # or /init in TUI
 ```
 
+Creates `.magic-code/config.toml`:
 ```toml
-[default]
-provider = "anthropic"
 model = "claude-sonnet-4-20250514"
+provider = "anthropic"
 permission_mode = "workspace-write"
 
-[[mcp_servers]]
-name = "github"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-github"]
+[model_aliases]
+fast = "claude-haiku"
+smart = "claude-sonnet-4-20250514"
 ```
 
-## Keybindings
+Global config: `~/.config/magic-code/config.toml`
 
-| Key | Action |
-|-----|--------|
-| `Enter` | Submit |
-| `Ctrl+C` | Cancel / Quit |
-| `PageUp/Down` | Scroll |
-| `Up/Down` | History |
-| `/help` | Commands |
-| `/cost` | Session cost |
-| `/plan` | Plan mode (think, don't execute) |
+## Slash Commands
 
-## Architecture
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all commands |
+| `/quit` | Exit |
+| `/status` | Session info |
+| `/cost` | Session cost (`--total` for all-time) |
+| `/model <name>` | Switch model |
+| `/diff` | Git diff |
+| `/commit` | Auto-commit with LLM message |
+| `/log` | Git log |
+| `/stash` | Git stash (`pop` to restore) |
+| `/compact` | Compress context |
+| `/undo` | Revert last turn's file changes |
+| `/save <name>` | Save session |
+| `/load <name>` | Load session |
+| `/export` | Export to markdown |
+| `/search <q>` | Search sessions |
+| `/summary` | Session stats |
+| `/plan` | Toggle plan mode |
+| `/image` | Attach image |
+| `/clear` | Clear output |
+| `/init` | Project setup |
+| `/doctor` | Health check |
+| `/dry-run` | Toggle dry-run |
 
-```
-mc-cli       → Binary, CLI dispatch
-mc-tui       → TUI (ratatui, syntect)
-mc-core      → Runtime, compaction, subagents, memory, undo, branching, parallel tools
-mc-provider  → Anthropic, Gemini, OpenAI-compat (with prompt caching, thinking, images)
-mc-tools     → Async tools, MCP, permissions
-mc-config    → TOML config, project context
-```
+## Requirements
 
-123 tests. ~7,500 LOC Rust. Zero unsafe.
+- Rust 1.75+ (build from source)
+- API key for at least one provider (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)
 
 ## License
 

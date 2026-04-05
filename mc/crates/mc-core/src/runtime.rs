@@ -163,6 +163,44 @@ impl ConversationRuntime {
         self.model = model;
     }
 
+    /// Ask LLM to generate a commit message from a diff.
+    pub async fn generate_commit_message(&self, provider: &dyn LlmProvider, diff: &str) -> String {
+        let truncated = if diff.len() > 4000 {
+            &diff[..4000]
+        } else {
+            diff
+        };
+        let prompt = format!(
+            "Generate a concise git commit message (conventional commits format) for this diff. \
+             Reply with ONLY the commit message, no explanation.\n\n```diff\n{truncated}\n```"
+        );
+        let request = CompletionRequest {
+            model: self.model.clone(),
+            max_tokens: 100,
+            system_prompt: None,
+            messages: vec![InputMessage {
+                role: MessageRole::User,
+                content: vec![ContentBlock::Text { text: prompt }],
+            }],
+            tools: Vec::new(),
+            tool_choice: None,
+            thinking_budget: None,
+        };
+        let mut stream = provider.stream(&request);
+        let mut msg = String::new();
+        while let Some(Ok(event)) = crate::runtime::next_event(&mut stream).await {
+            if let ProviderEvent::TextDelta(t) = event {
+                msg.push_str(&t);
+            }
+        }
+        let trimmed = msg.trim().trim_matches('"').trim_matches('`').trim();
+        if trimmed.is_empty() {
+            "chore: update files".into()
+        } else {
+            trimmed.to_string()
+        }
+    }
+
     /// Cumulative cost across all sessions from disk.
     #[must_use]
     pub fn cumulative_cost(&self) -> (u64, u64, f64) {

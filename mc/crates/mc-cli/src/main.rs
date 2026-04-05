@@ -279,6 +279,7 @@ async fn run_tui(
     let mut pending_compact = false;
     let mut pending_save: Option<String> = None;
     let mut pending_load: Option<String> = None;
+    let mut turn_count: u32 = 0;
 
     loop {
         terminal.draw(|f| mc_tui::ui::draw(f, &mut app))?;
@@ -304,6 +305,15 @@ async fn run_tui(
                 UiMessage::Done => {
                     app.handle_event(AppEvent::StreamDone);
                     turn_cancel = None;
+                    // Auto-save every 5 turns
+                    turn_count += 1;
+                    if turn_count.is_multiple_of(5) {
+                        if let Ok(rt) = runtime.try_lock() {
+                            let _ = rt.session.save(&session_path("last"));
+                        }
+                    }
+                    // Terminal bell
+                    print!("\x07");
                 }
                 UiMessage::Error(e) => {
                     app.handle_event(AppEvent::Error(e));
@@ -682,6 +692,55 @@ async fn run_tui(
             ));
         }
 
+        // Handle /doctor
+        if app.doctor_requested {
+            app.doctor_requested = false;
+            app.output_lines.push("🩺 Doctor check:".into());
+            app.output_lines
+                .push(format!("  Version: v{}", env!("CARGO_PKG_VERSION")));
+            app.output_lines.push(format!("  Model: {}", app.model));
+            app.output_lines
+                .push(format!("  Provider: {}", config.provider));
+            // Check git
+            let git_ok = std::process::Command::new("git")
+                .args(["--version"])
+                .output()
+                .is_ok_and(|o| o.status.success());
+            app.output_lines.push(format!(
+                "  Git: {}",
+                if git_ok { "✓" } else { "✗ not found" }
+            ));
+            // Check config
+            let warnings = config.validate();
+            if warnings.is_empty() {
+                app.output_lines.push("  Config: ✓ valid".into());
+            } else {
+                for w in &warnings {
+                    app.output_lines.push(format!("  Config: ⚠ {w}"));
+                }
+            }
+            // Check API key
+            let key_var = match config.provider.as_str() {
+                "anthropic" => "ANTHROPIC_API_KEY",
+                "openai" => "OPENAI_API_KEY",
+                "gemini" => "GEMINI_API_KEY",
+                _ => "API_KEY",
+            };
+            let key_ok = std::env::var(key_var).is_ok_and(|v| !v.is_empty());
+            app.output_lines.push(format!(
+                "  {key_var}: {}",
+                if key_ok { "✓ set" } else { "✗ missing" }
+            ));
+            app.output_lines.push(format!("  Tools: {} registered", 11));
+            app.output_lines.push(format!(
+                "  Sessions dir: {}",
+                session_path("")
+                    .parent()
+                    .unwrap_or(std::path::Path::new("."))
+                    .display()
+            ));
+        }
+
         // Handle /search
         if let Some(query) = app.search_query.take() {
             let sessions_dir = session_path("")
@@ -766,30 +825,36 @@ async fn run_tui(
                         } else {
                             app.output_lines.push(format!("Staged:\n{out}"));
                             app.output_lines.push("Generating commit message...".into());
-                            // Queue a prompt to the LLM to generate commit message
-                            // For now, commit with a generic message
                             if let Ok(diff) = std::process::Command::new("git")
                                 .args(["diff", "--cached"])
                                 .output()
                             {
-                                let diff_text = String::from_utf8_lossy(&diff.stdout);
-                                let msg = if diff_text.len() > 200 {
-                                    "chore: update files"
-                                } else {
-                                    "chore: minor changes"
-                                };
-                                match std::process::Command::new("git")
-                                    .args(["commit", "-m", msg])
-                                    .output()
-                                {
-                                    Ok(co) => app.output_lines.push(format!(
-                                        "✓ {}",
-                                        String::from_utf8_lossy(&co.stdout).trim()
-                                    )),
-                                    Err(e) => {
-                                        app.output_lines.push(format!("✗ commit failed: {e}"));
+                                let diff_text = String::from_utf8_lossy(&diff.stdout).to_string();
+                                let rt_clone = Arc::clone(&runtime);
+                                let prov_clone = Arc::clone(&provider);
+                                let tx_clone = ui_tx.clone();
+                                tokio::spawn(async move {
+                                    let rt = rt_clone.lock().await;
+                                    let msg =
+                                        rt.generate_commit_message(&*prov_clone, &diff_text).await;
+                                    match std::process::Command::new("git")
+                                        .args(["commit", "-m", &msg])
+                                        .output()
+                                    {
+                                        Ok(co) => {
+                                            let _ = tx_clone.try_send(UiMessage::Delta(format!(
+                                                "✓ {}",
+                                                String::from_utf8_lossy(&co.stdout).trim()
+                                            )));
+                                        }
+                                        Err(e) => {
+                                            let _ = tx_clone.try_send(UiMessage::Error(format!(
+                                                "commit failed: {e}"
+                                            )));
+                                        }
                                     }
-                                }
+                                    let _ = tx_clone.try_send(UiMessage::Done);
+                                });
                             }
                         }
                     } else {
