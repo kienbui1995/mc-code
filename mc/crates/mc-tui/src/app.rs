@@ -66,6 +66,8 @@ pub struct App {
     pub permission_response: Option<bool>,
     /// Tools always allowed (user pressed 'A').
     pub always_allowed: std::collections::HashSet<String>,
+    /// User requested `/cost --total`.
+    pub cost_total_requested: bool,
     /// Pending image attachment path.
     pub image_pending: Option<String>,
     /// Pending memory command.
@@ -104,6 +106,7 @@ impl App {
             permission_pending: None,
             permission_response: None,
             always_allowed: std::collections::HashSet::new(),
+            cost_total_requested: false,
             image_pending: None,
             memory_command: None,
             thinking_toggle: false,
@@ -166,6 +169,7 @@ impl App {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn handle_slash_command(&mut self, cmd: &str) {
         let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
         match parts[0] {
@@ -206,10 +210,14 @@ impl App {
                 self.undo_requested = true;
             }
             "/cost" => {
-                self.output_lines.push(format!(
-                    "Session cost: ${:.4} ({} input + {} output tokens)",
-                    self.session_cost, self.total_input_tokens, self.total_output_tokens
-                ));
+                if parts.get(1) == Some(&"--total") {
+                    self.cost_total_requested = true;
+                } else {
+                    self.output_lines.push(format!(
+                        "Session cost: ${:.4} ({} input + {} output tokens)",
+                        self.session_cost, self.total_input_tokens, self.total_output_tokens
+                    ));
+                }
             }
             "/save" => {
                 let name = parts.get(1).unwrap_or(&"default");
@@ -277,6 +285,48 @@ impl App {
             Some(AppEvent::SlashCommand(trimmed))
         } else {
             Some(AppEvent::UserSubmit(trimmed))
+        }
+    }
+
+    const SLASH_COMMANDS: &[&str] = &[
+        "/help",
+        "/quit",
+        "/status",
+        "/cost",
+        "/plan",
+        "/compact",
+        "/undo",
+        "/save",
+        "/load",
+        "/image",
+        "/memory",
+        "/thinking",
+        "/fork",
+        "/branches",
+        "/switch",
+    ];
+
+    /// Tab-complete slash commands. Returns true if completion was applied.
+    pub fn tab_complete(&mut self) -> bool {
+        let text = self.input.as_str();
+        if !text.starts_with('/') || text.contains(' ') {
+            return false;
+        }
+        let matches: Vec<&&str> = Self::SLASH_COMMANDS
+            .iter()
+            .filter(|cmd| cmd.starts_with(text) && **cmd != text)
+            .collect();
+        match matches.len() {
+            1 => {
+                self.input.set(matches[0]);
+                true
+            }
+            2.. => {
+                self.output_lines
+                    .push(matches.iter().map(|c| **c).collect::<Vec<_>>().join("  "));
+                true
+            }
+            _ => false,
         }
     }
 

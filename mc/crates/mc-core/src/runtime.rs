@@ -76,6 +76,7 @@ pub struct ConversationRuntime {
     repo_map: Option<String>,
     undo_manager: UndoManager,
     tool_cache: ToolCache,
+    cost_tracker: Option<crate::cost::CostTracker>,
 }
 
 impl ConversationRuntime {
@@ -106,6 +107,8 @@ impl ConversationRuntime {
             repo_map: None,
             undo_manager: UndoManager::new(10),
             tool_cache: ToolCache::default(),
+            cost_tracker: crate::cost::CostTracker::default_path()
+                .map(crate::cost::CostTracker::new),
         }
     }
 
@@ -153,6 +156,14 @@ impl ConversationRuntime {
     #[must_use]
     pub fn model(&self) -> &str {
         &self.model
+    }
+
+    /// Cumulative cost across all sessions from disk.
+    #[must_use]
+    pub fn cumulative_cost(&self) -> (u64, u64, f64) {
+        self.cost_tracker
+            .as_ref()
+            .map_or((0, 0, 0.0), crate::cost::CostTracker::cumulative)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -311,6 +322,20 @@ impl ConversationRuntime {
 
         self.maybe_compact(provider).await;
         self.undo_manager.end_turn();
+        // Persist cost
+        if let Some(ref tracker) = self.cost_tracker {
+            let cost = self.model_registry.estimate_cost(
+                &self.model,
+                turn_usage.input_tokens,
+                turn_usage.output_tokens,
+            );
+            tracker.record(
+                &self.model,
+                turn_usage.input_tokens,
+                turn_usage.output_tokens,
+                cost,
+            );
+        }
         Ok(TurnResult {
             text: final_text,
             tool_calls,
