@@ -110,6 +110,14 @@ pub struct App {
     pub turn_time_ms: u64,
     /// Color theme: "dark" (default), "light".
     pub theme: String,
+    /// Clipboard content (for /copy).
+    pub clipboard: Option<String>,
+    /// Token breakdown requested.
+    pub tokens_requested: bool,
+    /// Context info requested.
+    pub context_requested: bool,
+    /// User-defined command aliases.
+    pub aliases: std::collections::HashMap<String, String>,
 }
 
 impl App {
@@ -161,6 +169,10 @@ impl App {
             ttft_ms: 0,
             turn_time_ms: 0,
             theme: "dark".into(),
+            clipboard: None,
+            tokens_requested: false,
+            context_requested: false,
+            aliases: std::collections::HashMap::new(),
         }
     }
 
@@ -389,6 +401,52 @@ impl App {
                 };
                 self.output_lines.push(format!("Theme: {}", self.theme));
             }
+            "/copy" => {
+                let last_response: String = self
+                    .output_lines
+                    .iter()
+                    .rev()
+                    .take_while(|l| !l.starts_with('›'))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                self.clipboard = Some(last_response);
+                self.output_lines.push("📋 Copied to clipboard.".into());
+            }
+            "/version" => {
+                self.output_lines.push(format!(
+                    "magic-code v{} ({} {})",
+                    env!("CARGO_PKG_VERSION"),
+                    std::env::consts::OS,
+                    std::env::consts::ARCH,
+                ));
+            }
+            "/history" => {
+                self.output_lines.push("Input history:".into());
+                for (i, entry) in self.history.entries().iter().rev().take(20).enumerate() {
+                    self.output_lines.push(format!("  {}: {entry}", i + 1));
+                }
+            }
+            "/tokens" => self.tokens_requested = true,
+            "/context" => self.context_requested = true,
+            "/alias" => {
+                if let (Some(name), Some(expansion)) = (parts.get(1), parts.get(2)) {
+                    self.aliases
+                        .insert(format!("/{name}"), expansion.to_string());
+                    self.output_lines
+                        .push(format!("Alias: /{name} → {expansion}"));
+                } else if self.aliases.is_empty() {
+                    self.output_lines
+                        .push("No aliases. Usage: /alias <name> <command>".into());
+                } else {
+                    for (k, v) in &self.aliases {
+                        self.output_lines.push(format!("  {k} → {v}"));
+                    }
+                }
+            }
             "/template" => {
                 if let Some(name) = parts.get(1) {
                     let prompt = match *name {
@@ -468,6 +526,12 @@ impl App {
         "/retry",
         "/pin",
         "/theme",
+        "/copy",
+        "/version",
+        "/history",
+        "/tokens",
+        "/context",
+        "/alias",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
