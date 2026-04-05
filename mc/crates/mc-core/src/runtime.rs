@@ -15,8 +15,8 @@ use mc_tools::{
 
 use crate::context_resolver::ContextResolver;
 use crate::memory::MemoryStore;
-use crate::repo_map::RepoMap;
 use crate::model_registry::ModelRegistry;
+use crate::repo_map::RepoMap;
 use crate::retry::RetryPolicy;
 use crate::session::{Block, ConversationMessage, Role, Session};
 use crate::subagent::SubagentSpawner;
@@ -245,7 +245,8 @@ impl ConversationRuntime {
             }
 
             // Execute parallel batch with streaming output
-            let (tool_output_tx, mut tool_output_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+            let (tool_output_tx, mut tool_output_rx) =
+                tokio::sync::mpsc::unbounded_channel::<String>();
             let batch_results = {
                 let batch_fut = crate::parallel_tools::execute_batch(
                     parallel,
@@ -273,7 +274,9 @@ impl ConversationRuntime {
                             done = true;
                         }
                     }
-                    if done { break; }
+                    if done {
+                        break;
+                    }
                 }
                 results
             };
@@ -739,7 +742,12 @@ impl ConversationRuntime {
             (
                 tools,
                 Some(ToolChoice::Auto),
-                format!("{}{}{}", self.system_prompt, memory_section, self.repo_map.as_deref().unwrap_or("")),
+                format!(
+                    "{}{}{}",
+                    self.system_prompt,
+                    memory_section,
+                    self.repo_map.as_deref().unwrap_or("")
+                ),
             )
         };
 

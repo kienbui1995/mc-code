@@ -31,7 +31,16 @@ pub async fn execute_batch(
         return Vec::new();
     }
     if tools.len() == 1 || max_concurrent <= 1 {
-        return execute_sequential(tools, registry, hook_engine, audit_log, policy, cancel, output_tx).await;
+        return execute_sequential(
+            tools,
+            registry,
+            hook_engine,
+            audit_log,
+            policy,
+            cancel,
+            output_tx,
+        )
+        .await;
     }
 
     let sem = Arc::new(Semaphore::new(max_concurrent));
@@ -96,8 +105,19 @@ async fn execute_sequential(
             });
             break;
         }
-        results
-            .push(execute_one(&id, &name, &input, registry, hook_engine, audit_log, policy, output_tx).await);
+        results.push(
+            execute_one(
+                &id,
+                &name,
+                &input,
+                registry,
+                hook_engine,
+                audit_log,
+                policy,
+                output_tx,
+            )
+            .await,
+        );
     }
     results
 }
