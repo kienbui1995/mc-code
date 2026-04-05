@@ -654,15 +654,13 @@ async fn run_single(
             prompt,
             policy,
             &mut None,
-            &mut |event| {
-                match event {
-                    mc_provider::ProviderEvent::TextDelta(text)
-                    | mc_provider::ProviderEvent::ToolOutputDelta(text) => {
-                        let _ = write!(stdout, "{text}");
-                        let _ = stdout.flush();
-                    }
-                    _ => {}
+            &mut |event| match event {
+                mc_provider::ProviderEvent::TextDelta(text)
+                | mc_provider::ProviderEvent::ToolOutputDelta(text) => {
+                    let _ = write!(stdout, "{text}");
+                    let _ = stdout.flush();
                 }
+                _ => {}
             },
             &cancel,
         )

@@ -198,13 +198,9 @@ mod tests {
     #[tokio::test]
     async fn streaming_mixed_stdout_stderr() {
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let out = BashTool::execute_streaming(
-            "echo out1; echo err1 >&2; echo out2",
-            None,
-            &tx,
-        )
-        .await
-        .unwrap();
+        let out = BashTool::execute_streaming("echo out1; echo err1 >&2; echo out2", None, &tx)
+            .await
+            .unwrap();
         drop(tx);
         assert!(out.contains("out1"));
         assert!(out.contains("out2"));
