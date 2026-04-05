@@ -302,8 +302,10 @@ async fn run_tui(
                     app.context_usage_pct =
                         ((u64::from(used) * 100) / u64::from(ctx_window.max(1))).min(100) as u8;
                 }
-                UiMessage::Done => {
+                UiMessage::Done { ttft_ms, total_ms } => {
                     app.handle_event(AppEvent::StreamDone);
+                    app.ttft_ms = ttft_ms;
+                    app.turn_time_ms = total_ms;
                     turn_cancel = None;
                     // Auto-save every 5 turns
                     turn_count += 1;
@@ -461,9 +463,16 @@ async fn run_tui(
                                                 ui_tx: prompter_tx,
                                                 response_rx: prx,
                                             }));
+                                            let turn_start = std::time::Instant::now();
+                                            let mut first_token = true;
+                                            let mut ttft_ms = 0u64;
                                             let result = {
                                                 let mut runtime = rt.lock().await;
                                                 runtime.run_turn(&*prov, &text, &pol, &mut prompter, &mut |ev| {
+                                                if first_token && matches!(ev, mc_provider::ProviderEvent::TextDelta(_)) {
+                                                    ttft_ms = turn_start.elapsed().as_millis() as u64;
+                                                    first_token = false;
+                                                }
                                                 match ev {
                                                     mc_provider::ProviderEvent::TextDelta(t) =>
                                                         { let _ = tx.try_send(UiMessage::Delta(t.clone())); }
@@ -484,7 +493,12 @@ async fn run_tui(
                                             };
                                             match result {
                                                 Ok(_) => {
-                                                    let _ = tx.try_send(UiMessage::Done);
+                                                    let total_ms =
+                                                        turn_start.elapsed().as_millis() as u64;
+                                                    let _ = tx.try_send(UiMessage::Done {
+                                                        ttft_ms,
+                                                        total_ms,
+                                                    });
                                                 }
                                                 Err(e) => {
                                                     let _ = tx
@@ -597,7 +611,10 @@ async fn run_tui(
                         let _ = tx_clone.try_send(UiMessage::Error(format!("Undo failed: {e}")));
                     }
                 }
-                let _ = tx_clone.try_send(UiMessage::Done);
+                let _ = tx_clone.try_send(UiMessage::Done {
+                    ttft_ms: 0,
+                    total_ms: 0,
+                });
             });
         }
 
@@ -690,6 +707,36 @@ async fn run_tui(
                 app.session_cost,
                 app.model
             ));
+        }
+
+        // Handle /review — show git diff of session changes
+        if app.review_requested {
+            app.review_requested = false;
+            match std::process::Command::new("git")
+                .args(["diff", "HEAD"])
+                .output()
+            {
+                Ok(o) => {
+                    let diff = String::from_utf8_lossy(&o.stdout);
+                    if diff.is_empty() {
+                        app.output_lines.push("No changes to review.".into());
+                    } else {
+                        app.output_lines.push("📝 Changes for review:".into());
+                        for line in diff.lines() {
+                            app.output_lines.push(format!("  {line}"));
+                        }
+                    }
+                }
+                Err(e) => app.output_lines.push(format!("git diff failed: {e}")),
+            }
+        }
+
+        // Handle /retry — re-submit last user input
+        if app.retry_requested {
+            app.retry_requested = false;
+            if let Some(ref text) = app.last_user_input.clone() {
+                app.handle_event(AppEvent::UserSubmit(text.clone()));
+            }
         }
 
         // Handle /doctor
@@ -853,7 +900,10 @@ async fn run_tui(
                                             )));
                                         }
                                     }
-                                    let _ = tx_clone.try_send(UiMessage::Done);
+                                    let _ = tx_clone.try_send(UiMessage::Done {
+                                        ttft_ms: 0,
+                                        total_ms: 0,
+                                    });
                                 });
                             }
                         }

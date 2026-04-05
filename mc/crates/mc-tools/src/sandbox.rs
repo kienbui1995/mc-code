@@ -31,6 +31,11 @@ impl Sandbox {
         self
     }
 
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
     /// Check if a path is within the sandbox. Resolves `..` and symlinks.
     pub fn check(&self, path: &str) -> Result<PathBuf, ToolError> {
         let target = if Path::new(path).is_absolute() {
