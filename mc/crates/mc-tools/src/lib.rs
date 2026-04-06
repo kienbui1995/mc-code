@@ -3,6 +3,7 @@ mod bash;
 mod error;
 mod file_ops;
 mod hooks;
+mod lsp;
 mod mcp;
 mod permissions;
 mod plugin;
@@ -17,6 +18,7 @@ pub use bash::BashTool;
 pub use error::ToolError;
 pub use file_ops::{EditFileTool, ReadFileTool, WriteFileTool};
 pub use hooks::{Hook, HookEngine, HookEvent};
+pub use lsp::{detect_language, LspClient};
 pub use mcp::McpClient;
 pub use permissions::{
     PermissionMode, PermissionOutcome, PermissionPolicy, PermissionPrompter, PermissionRequest,

@@ -23,7 +23,7 @@ pub use memory::{Fact, MemoryStore};
 pub use model_registry::{ModelMeta, ModelRegistry};
 pub use repo_map::RepoMap;
 pub use retry::RetryPolicy;
-pub use runtime::{ConversationRuntime, LlmProvider, TurnResult};
+pub use runtime::{next_event, ConversationRuntime, LlmProvider, TurnResult};
 pub use session::{Block, ConversationMessage, ImageSource, Role, Session};
 pub use subagent::SubagentSpawner;
 pub use token_budget::TokenBudget;

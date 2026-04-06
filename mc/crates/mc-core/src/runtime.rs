@@ -396,6 +396,8 @@ impl ConversationRuntime {
                 cost,
             );
         }
+        // Auto-memory: save useful facts from the response
+        self.auto_save_memory(&final_text);
         Ok(TurnResult {
             text: final_text,
             tool_calls,
@@ -692,6 +694,33 @@ impl ConversationRuntime {
     }
 
     /// Auto-compact if approaching context window limit.
+    /// Auto-save useful facts from LLM response to memory.
+    fn auto_save_memory(&mut self, text: &str) {
+        let Some(ref mut memory) = self.memory else {
+            return;
+        };
+        // Heuristic: save lines that look like project facts
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if (trimmed.starts_with("Note:")
+                || trimmed.starts_with("Remember:")
+                || trimmed.contains("convention is"))
+                && trimmed.len() > 20
+                && trimmed.len() < 200
+            {
+                let key = format!(
+                    "auto_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                );
+                memory.set(&key, trimmed);
+                let _ = memory.save();
+            }
+        }
+    }
+
     async fn maybe_compact(&mut self, provider: &dyn LlmProvider) {
         let ctx_window = self.model_registry.context_window(&self.model) as usize;
         if crate::compact::should_compact(&self.session, ctx_window, 0.8) {
@@ -848,7 +877,7 @@ impl ConversationRuntime {
     }
 }
 
-pub(crate) async fn next_event(
+pub async fn next_event(
     stream: &mut Pin<Box<dyn Stream<Item = Result<ProviderEvent, ProviderError>> + Send>>,
 ) -> Option<Result<ProviderEvent, ProviderError>> {
     use std::future::poll_fn;

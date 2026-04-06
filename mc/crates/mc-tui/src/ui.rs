@@ -32,10 +32,18 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 }
 
 fn draw_output(frame: &mut Frame, app: &App, area: Rect) {
-    let lines: Vec<Line<'_>> = HIGHLIGHTER.with(|h| {
-        let full_text = app.output_lines.join("\n");
-        render_markdown(&full_text, h)
-    });
+    let lines: Vec<Line<'_>> = if app.transcript_mode {
+        // Raw transcript mode — show output lines without markdown rendering
+        app.output_lines
+            .iter()
+            .map(|l| Line::from(Span::styled(l.as_str(), Style::default().fg(Color::Gray))))
+            .collect()
+    } else {
+        HIGHLIGHTER.with(|h| {
+            let full_text = app.output_lines.join("\n");
+            render_markdown(&full_text, h)
+        })
+    };
 
     let total_lines = lines.len();
     let visible = area.height.saturating_sub(2) as usize; // minus borders
@@ -56,7 +64,19 @@ fn draw_output(frame: &mut Frame, app: &App, area: Rect) {
         String::new()
     };
 
-    let title = format!(" magic-code {scroll_info}");
+    let title = format!(
+        " magic-code{}{} {scroll_info}",
+        if app.transcript_mode {
+            " [TRANSCRIPT]"
+        } else {
+            ""
+        },
+        match app.vim_mode {
+            Some(crate::input::VimMode::Normal) => " [NORMAL]",
+            Some(crate::input::VimMode::Insert) => " [INSERT]",
+            None => "",
+        },
+    );
     let para = Paragraph::new(lines)
         .block(Block::default().borders(Borders::ALL).title(title))
         .wrap(Wrap { trim: false })

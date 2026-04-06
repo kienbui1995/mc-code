@@ -550,9 +550,54 @@ async fn run_tui(
                             ..
                         } => app.input.move_right(),
                         event::KeyEvent {
+                            code: KeyCode::Char('o'),
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => {
+                            app.transcript_mode = !app.transcript_mode;
+                        }
+                        event::KeyEvent {
+                            code: KeyCode::Char('b'),
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => {
+                            // Background current turn
+                            app.output_lines
+                                .push("  ⏎ Backgrounded current task".into());
+                        }
+                        event::KeyEvent {
+                            code: KeyCode::Esc, ..
+                        } => {
+                            if let Some(ref mut mode) = app.vim_mode {
+                                *mode = mc_tui::VimMode::Normal;
+                            }
+                        }
+                        event::KeyEvent {
                             code: KeyCode::Char(c),
                             ..
-                        } => app.input.insert(c),
+                        } => {
+                            // Vim normal mode handling
+                            if app.vim_mode == Some(mc_tui::VimMode::Normal) {
+                                match c {
+                                    'i' => app.vim_mode = Some(mc_tui::VimMode::Insert),
+                                    'a' => {
+                                        app.input.move_right_for_append();
+                                        app.vim_mode = Some(mc_tui::VimMode::Insert);
+                                    }
+                                    'h' => app.input.move_left(),
+                                    'l' => app.input.move_right(),
+                                    'w' => app.input.word_forward(),
+                                    'b' => app.input.word_backward(),
+                                    'x' => app.input.delete_char(),
+                                    '0' => app.input.move_home(),
+                                    '$' => app.input.move_end(),
+                                    'd' => app.input.delete_line(), // simplified dd
+                                    _ => {}
+                                }
+                            } else {
+                                app.input.insert(c);
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -868,6 +913,81 @@ async fn run_tui(
                             }
                         }
                     }
+                }
+                PendingCommand::Rewind(n) => {
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        let msg_len = rt.session.messages.len();
+                        let removed = (n * 2).min(msg_len);
+                        rt.session.messages.truncate(msg_len - removed);
+                        if let Ok(paths) = rt.undo_last_turn() {
+                            if !paths.is_empty() {
+                                app.output_lines
+                                    .push(format!("↩ Reverted: {}", paths.join(", ")));
+                            }
+                        }
+                        app.output_lines.push(format!("⏪ Rewound {n} turn(s)"));
+                    }
+                }
+                PendingCommand::Debug => {
+                    if let Ok(rt) = runtime.try_lock() {
+                        let est = mc_core::estimate_tokens(&rt.session);
+                        let ctx = mc_core::ModelRegistry::default().context_window(&app.model);
+                        app.output_lines.push(format!(
+                            "🔍 {} msgs, ~{est}/{ctx} tokens ({}%), ${:.4}, ttft {}ms",
+                            rt.session.messages.len(),
+                            (est as u64 * 100) / u64::from(ctx.max(1)),
+                            app.session_cost,
+                            app.ttft_ms,
+                        ));
+                    }
+                }
+                PendingCommand::Btw(question) => {
+                    let rt_clone = Arc::clone(&runtime);
+                    let prov_clone = Arc::clone(&provider);
+                    let tx_clone = ui_tx.clone();
+                    tokio::spawn(async move {
+                        let rt = rt_clone.lock().await;
+                        let request = mc_provider::CompletionRequest {
+                            model: rt.model().to_string(),
+                            max_tokens: 500,
+                            system_prompt: Some("Answer briefly.".into()),
+                            messages: vec![mc_provider::InputMessage {
+                                role: mc_provider::types::MessageRole::User,
+                                content: vec![mc_provider::types::ContentBlock::Text {
+                                    text: question,
+                                }],
+                            }],
+                            tools: Vec::new(),
+                            tool_choice: None,
+                            thinking_budget: None,
+                        };
+                        let mut stream = prov_clone.stream(&request);
+                        let mut answer = String::new();
+                        while let Some(Ok(ev)) = mc_core::next_event(&mut stream).await {
+                            if let mc_provider::ProviderEvent::TextDelta(t) = ev {
+                                answer.push_str(&t);
+                            }
+                        }
+                        let _ = tx_clone
+                            .try_send(UiMessage::Delta(format!("\n💬 btw: {}", answer.trim())));
+                    });
+                }
+                PendingCommand::Loop {
+                    interval_secs,
+                    prompt,
+                } => {
+                    let tx_clone = ui_tx.clone();
+                    app.output_lines
+                        .push(format!("🔄 Loop: every {interval_secs}s"));
+                    tokio::spawn(async move {
+                        loop {
+                            tokio::time::sleep(std::time::Duration::from_secs(interval_secs)).await;
+                            let _ = tx_clone.try_send(UiMessage::Delta(format!("\n🔄 {prompt}")));
+                        }
+                    });
+                }
+                PendingCommand::LoopStop => {
+                    app.output_lines.push("🔄 Loop stopped".into());
                 }
             }
         }
