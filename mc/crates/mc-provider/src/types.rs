@@ -4,6 +4,7 @@ use serde_json::Value;
 // --- Provider-agnostic types (public API) ---
 
 #[derive(Debug, Clone)]
+/// Completionrequest.
 pub struct CompletionRequest {
     pub model: String,
     pub max_tokens: u32,
@@ -15,12 +16,14 @@ pub struct CompletionRequest {
 }
 
 #[derive(Debug, Clone)]
+/// Inputmessage.
 pub struct InputMessage {
     pub role: MessageRole,
     pub content: Vec<ContentBlock>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Messagerole.
 pub enum MessageRole {
     User,
     Assistant,
@@ -28,6 +31,7 @@ pub enum MessageRole {
 }
 
 #[derive(Debug, Clone)]
+/// Contentblock.
 pub enum ContentBlock {
     Text {
         text: String,
@@ -52,6 +56,7 @@ pub enum ContentBlock {
 }
 
 #[derive(Debug, Clone)]
+/// Tooldefinition.
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,
@@ -59,6 +64,7 @@ pub struct ToolDefinition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Toolchoice.
 pub enum ToolChoice {
     Auto,
     Any,
@@ -66,6 +72,7 @@ pub enum ToolChoice {
 }
 
 #[derive(Debug, Clone)]
+/// Providerevent.
 pub enum ProviderEvent {
     TextDelta(String),
     ToolUse {
@@ -88,6 +95,7 @@ pub enum ProviderEvent {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Tokenusage.
 pub struct TokenUsage {
     pub input_tokens: u32,
     pub output_tokens: u32,
@@ -97,12 +105,14 @@ pub struct TokenUsage {
 
 impl TokenUsage {
     #[must_use]
+    /// Total.
     pub fn total(&self) -> u32 {
         self.input_tokens + self.output_tokens
     }
 }
 
 #[derive(Debug, Clone)]
+/// Modelinfo.
 pub struct ModelInfo {
     pub name: String,
     pub provider: String,

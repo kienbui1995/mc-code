@@ -7,6 +7,7 @@ use mc_tools::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_util::sync::CancellationToken;
 
+/// Toolresult.
 pub struct ToolResult {
     pub id: String,
     pub name: String,
@@ -30,6 +31,7 @@ fn is_read_tool(name: &str) -> bool {
 
 /// Execute multiple tools: read tools run concurrently, write tools serialized.
 #[allow(clippy::too_many_arguments, clippy::ref_option)]
+/// Execute batch.
 pub async fn execute_batch(
     tools: Vec<(String, String, String)>,
     registry: &Arc<ToolRegistry>,

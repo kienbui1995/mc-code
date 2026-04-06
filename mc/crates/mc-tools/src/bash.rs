@@ -7,9 +7,11 @@ use tokio::sync::mpsc;
 
 use crate::error::ToolError;
 
+/// Bashtool.
 pub struct BashTool;
 
 impl BashTool {
+    /// Execute.
     pub async fn execute(command: &str, timeout: Option<Duration>) -> Result<String, ToolError> {
         let timeout = timeout.unwrap_or(Duration::from_secs(120));
 

@@ -5,6 +5,7 @@ use crate::highlight::Highlighter;
 
 /// Render markdown text into owned styled ratatui Lines.
 #[allow(clippy::similar_names)]
+/// Render markdown.
 pub fn render_markdown(text: &str, highlighter: &Highlighter) -> Vec<Line<'static>> {
     let mut lines: Vec<Line<'static>> = Vec::new();
     let mut in_code_block = false;

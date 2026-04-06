@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+/// Role.
 pub enum Role {
     User,
     Assistant,
@@ -13,6 +14,7 @@ pub enum Role {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+/// Block.
 pub enum Block {
     #[serde(rename = "text")]
     Text { text: String },
@@ -40,12 +42,14 @@ pub enum Block {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+/// Imagesource.
 pub enum ImageSource {
     Base64 { data: String },
     Path { path: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Conversationmessage.
 pub struct ConversationMessage {
     pub role: Role,
     pub blocks: Vec<Block>,
@@ -53,6 +57,7 @@ pub struct ConversationMessage {
 
 impl ConversationMessage {
     #[must_use]
+    /// User.
     pub fn user(text: impl Into<String>) -> Self {
         Self {
             role: Role::User,
@@ -61,6 +66,7 @@ impl ConversationMessage {
     }
 
     #[must_use]
+    /// Assistant.
     pub fn assistant(text: impl Into<String>) -> Self {
         Self {
             role: Role::Assistant,
@@ -69,6 +75,7 @@ impl ConversationMessage {
     }
 
     #[must_use]
+    /// Tool use.
     pub fn tool_use(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -85,6 +92,7 @@ impl ConversationMessage {
     }
 
     #[must_use]
+    /// Tool result.
     pub fn tool_result(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -102,11 +110,13 @@ impl ConversationMessage {
         }
     }
 
+    /// Push block.
     pub fn push_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
 
     #[must_use]
+    /// Content len.
     pub fn content_len(&self) -> usize {
         self.blocks
             .iter()
@@ -120,6 +130,7 @@ impl ConversationMessage {
     }
 
     #[must_use]
+    /// Summary.
     pub fn summary(&self, max_text: usize) -> String {
         self.blocks
             .iter()
@@ -146,6 +157,7 @@ impl ConversationMessage {
     }
 
     #[must_use]
+    /// Contains text.
     pub fn contains_text(&self, needle: &str) -> bool {
         self.blocks.iter().any(|b| match b {
             Block::Text { text } | Block::Thinking { text } => text.contains(needle),
@@ -156,6 +168,7 @@ impl ConversationMessage {
     }
 }
 
+/// Truncate.
 pub fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
@@ -170,6 +183,7 @@ pub fn truncate(s: &str, max: usize) -> String {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Session.
 pub struct Session {
     pub messages: Vec<ConversationMessage>,
     pub input_tokens: u32,
@@ -183,6 +197,7 @@ pub struct Session {
 }
 
 impl Session {
+    /// Save.
     pub fn save(&self, path: &Path) -> Result<(), std::io::Error> {
         let json =
             serde_json::to_string_pretty(self).map_err(|e| std::io::Error::other(e.to_string()))?;
@@ -192,6 +207,7 @@ impl Session {
         fs::write(path, json)
     }
 
+    /// Load.
     pub fn load(path: &Path) -> Result<Self, std::io::Error> {
         let json = fs::read_to_string(path)?;
         serde_json::from_str(&json).map_err(|e| std::io::Error::other(e.to_string()))

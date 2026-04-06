@@ -1,25 +1,30 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Vimmode.
 pub enum VimMode {
     Normal,
     Insert,
 }
 
 #[derive(Debug, Default)]
+/// Inputbuffer.
 pub struct InputBuffer {
     buffer: String,
     cursor: usize,
 }
 
 impl InputBuffer {
+    /// Insert.
     pub fn insert(&mut self, ch: char) {
         self.buffer.insert(self.cursor, ch);
         self.cursor += ch.len_utf8();
     }
 
+    /// Insert newline.
     pub fn insert_newline(&mut self) {
         self.insert('\n');
     }
 
+    /// Backspace.
     pub fn backspace(&mut self) {
         if self.cursor == 0 {
             return;
@@ -44,6 +49,7 @@ impl InputBuffer {
         self.cursor = word_start;
     }
 
+    /// Move left.
     pub fn move_left(&mut self) {
         if self.cursor > 0 {
             self.cursor = self.buffer[..self.cursor]
@@ -53,6 +59,7 @@ impl InputBuffer {
         }
     }
 
+    /// Move right.
     pub fn move_right(&mut self) {
         if self.cursor < self.buffer.len() {
             if let Some(ch) = self.buffer[self.cursor..].chars().next() {
@@ -114,31 +121,37 @@ impl InputBuffer {
     }
 
     #[must_use]
+    /// As str.
     pub fn as_str(&self) -> &str {
         &self.buffer
     }
 
     #[must_use]
+    /// Cursor pos.
     pub fn cursor_pos(&self) -> usize {
         self.cursor
     }
 
+    /// Take.
     pub fn take(&mut self) -> String {
         self.cursor = 0;
         std::mem::take(&mut self.buffer)
     }
 
+    /// Set.
     pub fn set(&mut self, text: &str) {
         self.buffer = text.to_string();
         self.cursor = self.buffer.len();
     }
 
+    /// Clear.
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.cursor = 0;
     }
 
     #[must_use]
+    /// Is empty.
     pub fn is_empty(&self) -> bool {
         self.buffer.is_empty()
     }

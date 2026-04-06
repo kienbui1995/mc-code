@@ -3,6 +3,7 @@ use std::process::Command;
 
 /// Discovered project context for system prompt construction.
 #[derive(Debug, Clone)]
+/// Projectcontext.
 pub struct ProjectContext {
     pub cwd: PathBuf,
     pub git_status: Option<String>,
@@ -11,6 +12,7 @@ pub struct ProjectContext {
 }
 
 #[derive(Debug, Clone)]
+/// Instructionfile.
 pub struct InstructionFile {
     pub path: PathBuf,
     pub content: String,
@@ -18,6 +20,7 @@ pub struct InstructionFile {
 
 impl ProjectContext {
     #[must_use]
+    /// Discover.
     pub fn discover(cwd: &Path) -> Self {
         let instruction_files = discover_instruction_files(cwd);
         let git_status = read_git_status(cwd);

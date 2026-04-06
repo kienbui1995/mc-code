@@ -10,6 +10,7 @@ pub struct AuditLog {
     path: PathBuf,
 }
 
+/// Auditentry.
 pub struct AuditEntry {
     pub tool: String,
     pub input_summary: String,
@@ -21,17 +22,20 @@ pub struct AuditEntry {
 
 impl AuditLog {
     #[must_use]
+    /// New.
     pub fn new(path: PathBuf) -> Self {
         Self { path }
     }
 
     /// Default location: `~/.local/share/magic-code/audit.jsonl`
     #[must_use]
+    /// Default path.
     pub fn default_path() -> Option<PathBuf> {
         std::env::var_os("HOME")
             .map(|h| PathBuf::from(h).join(".local/share/magic-code/audit.jsonl"))
     }
 
+    /// Log.
     pub fn log(&self, entry: &AuditEntry) {
         if let Some(parent) = self.path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -67,6 +71,7 @@ impl AuditLog {
 
     /// Start a timer, returns an `Instant` for measuring duration.
     #[must_use]
+    /// Start timer.
     pub fn start_timer() -> Instant {
         Instant::now()
     }

@@ -14,6 +14,7 @@ pub struct RetryPolicy {
 
 impl RetryPolicy {
     #[must_use]
+    /// New.
     pub fn new(max_attempts: u32, initial_backoff_ms: u64, max_backoff_ms: u64) -> Self {
         Self {
             max_attempts,
@@ -23,11 +24,13 @@ impl RetryPolicy {
     }
 
     #[must_use]
+    /// Should retry.
     pub fn should_retry(&self, error: &ProviderError, attempt: u32) -> bool {
         attempt < self.max_attempts && error.is_retryable()
     }
 
     #[must_use]
+    /// Backoff duration.
     pub fn backoff_duration(&self, attempt: u32) -> Duration {
         let multiplier = 1u64.checked_shl(attempt).unwrap_or(u64::MAX);
         let ms = self

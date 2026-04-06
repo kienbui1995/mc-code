@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::session::Session;
 
+/// Branchinfo.
 pub struct BranchInfo {
     pub id: String,
     pub parent: Option<String>,
@@ -10,6 +11,7 @@ pub struct BranchInfo {
     pub fork_point: Option<usize>,
 }
 
+/// Branchmanager.
 pub struct BranchManager {
     branches_dir: PathBuf,
     max_branches: usize,
@@ -17,6 +19,7 @@ pub struct BranchManager {
 
 impl BranchManager {
     #[must_use]
+    /// New.
     pub fn new(branches_dir: PathBuf, max_branches: usize) -> Self {
         Self {
             branches_dir,
@@ -26,6 +29,7 @@ impl BranchManager {
 
     /// Fork a session at the given message index. Returns new session with branch metadata.
     #[must_use]
+    /// Fork.
     pub fn fork(&self, session: &Session, at_index: usize) -> Session {
         let branch_id = format!("fork-{}", self.next_id());
         let parent = session.branch_id.clone().unwrap_or_else(|| "main".into());
@@ -44,6 +48,7 @@ impl BranchManager {
         forked
     }
 
+    /// Save branch.
     pub fn save_branch(&self, session: &Session) -> Result<(), std::io::Error> {
         let id = session.branch_id.as_deref().unwrap_or("main");
         fs::create_dir_all(&self.branches_dir)?;
@@ -51,12 +56,14 @@ impl BranchManager {
         session.save(&path)
     }
 
+    /// Load branch.
     pub fn load_branch(&self, id: &str) -> Result<Session, std::io::Error> {
         let path = self.branches_dir.join(format!("{id}.json"));
         Session::load(&path)
     }
 
     #[must_use]
+    /// List branches.
     pub fn list_branches(&self) -> Vec<BranchInfo> {
         let mut branches = Vec::new();
         let Ok(entries) = fs::read_dir(&self.branches_dir) else {
@@ -83,12 +90,14 @@ impl BranchManager {
         branches
     }
 
+    /// Delete branch.
     pub fn delete_branch(&self, id: &str) -> Result<(), std::io::Error> {
         let path = self.branches_dir.join(format!("{id}.json"));
         fs::remove_file(path)
     }
 
     #[must_use]
+    /// At capacity.
     pub fn at_capacity(&self) -> bool {
         self.list_branches().len() >= self.max_branches
     }

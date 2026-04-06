@@ -10,6 +10,7 @@ use crate::spec::ToolSpec;
 /// Each script becomes a tool named after the file (without extension).
 /// Scripts receive JSON input via stdin and should print output to stdout.
 #[must_use]
+/// Discover plugins.
 pub fn discover_plugins(workspace: &Path) -> Vec<ToolSpec> {
     let dir = workspace.join(".magic-code/tools");
     let Ok(entries) = std::fs::read_dir(&dir) else {

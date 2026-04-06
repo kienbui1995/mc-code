@@ -7,6 +7,7 @@ use crate::types::{
 
 const DEFAULT_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 
+/// Geminiprovider.
 pub struct GeminiProvider {
     http: reqwest::Client,
     api_key: String,
@@ -15,6 +16,7 @@ pub struct GeminiProvider {
 }
 
 impl GeminiProvider {
+    /// From env.
     pub fn from_env() -> Result<Self, ProviderError> {
         let api_key = std::env::var("GEMINI_API_KEY")
             .or_else(|_| std::env::var("GOOGLE_API_KEY"))
@@ -30,6 +32,7 @@ impl GeminiProvider {
     }
 
     #[must_use]
+    /// Model info.
     pub fn model_info(model: &str) -> ModelInfo {
         ModelInfo {
             name: model.into(),
@@ -39,6 +42,7 @@ impl GeminiProvider {
     }
 
     #[must_use]
+    /// Stream.
     pub fn stream(&self, request: &CompletionRequest) -> crate::ProviderStream {
         let body = build_body(request);
         let url = format!(

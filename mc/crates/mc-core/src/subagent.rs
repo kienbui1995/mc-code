@@ -19,6 +19,7 @@ pub struct SubagentSpawner {
 
 impl SubagentSpawner {
     #[must_use]
+    /// New.
     pub fn new(model: String, max_tokens: u32) -> Self {
         Self {
             model,
@@ -73,6 +74,7 @@ impl SubagentSpawner {
     }
 
     #[must_use]
+    /// Active count.
     pub fn active_count(&self) -> usize {
         self.active_count
     }

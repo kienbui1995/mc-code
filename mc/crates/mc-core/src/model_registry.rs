@@ -6,6 +6,7 @@ pub struct ModelRegistry {
 }
 
 #[derive(Debug, Clone)]
+/// Modelmeta.
 pub struct ModelMeta {
     pub context_window: u32,
     pub supports_tools: bool,
@@ -59,23 +60,27 @@ impl Default for ModelRegistry {
 
 impl ModelRegistry {
     #[must_use]
+    /// Context window.
     pub fn context_window(&self, model: &str) -> u32 {
         self.lookup(model).map_or(128_000, |m| m.context_window)
     }
 
     #[must_use]
+    /// Supports tools.
     pub fn supports_tools(&self, model: &str) -> bool {
         self.lookup(model).is_none_or(|m| m.supports_tools)
     }
 
     /// Returns (`input_cost`, `output_cost`) per million tokens.
     #[must_use]
+    /// Cost per mtok.
     pub fn cost_per_mtok(&self, model: &str) -> (f64, f64) {
         self.lookup(model).map_or((0.0, 0.0), |m| m.cost_per_mtok)
     }
 
     /// Estimate cost in USD for given token counts.
     #[must_use]
+    /// Estimate cost.
     pub fn estimate_cost(&self, model: &str, input_tokens: u32, output_tokens: u32) -> f64 {
         let (ic, oc) = self.cost_per_mtok(model);
         f64::from(input_tokens) * ic / 1_000_000.0 + f64::from(output_tokens) * oc / 1_000_000.0

@@ -3,6 +3,7 @@ use std::process::Command;
 use crate::error::ToolError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Hookevent.
 pub enum HookEvent {
     PreToolCall,
     PostToolCall,
@@ -11,6 +12,7 @@ pub enum HookEvent {
 }
 
 #[derive(Debug, Clone)]
+/// Hook.
 pub struct Hook {
     pub event: HookEvent,
     pub command: String,
@@ -18,12 +20,14 @@ pub struct Hook {
     pub match_tools: Vec<String>,
 }
 
+/// Hookengine.
 pub struct HookEngine {
     hooks: Vec<Hook>,
 }
 
 impl HookEngine {
     #[must_use]
+    /// New.
     pub fn new(hooks: Vec<Hook>) -> Self {
         Self { hooks }
     }

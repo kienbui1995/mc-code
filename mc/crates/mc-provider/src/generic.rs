@@ -17,6 +17,7 @@ pub struct GenericProvider {
 
 impl GenericProvider {
     #[must_use]
+    /// New.
     pub fn new(base_url: String, api_key: Option<String>) -> Self {
         Self {
             http: reqwest::Client::new(),
@@ -43,12 +44,14 @@ impl GenericProvider {
 
     /// Create for a `LiteLLM` proxy.
     #[must_use]
+    /// Litellm.
     pub fn litellm(base_url: String, api_key: Option<String>) -> Self {
         Self::new(base_url, api_key)
     }
 
     /// Create for local Ollama.
     #[must_use]
+    /// Ollama.
     pub fn ollama() -> Self {
         let host =
             std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
@@ -56,6 +59,7 @@ impl GenericProvider {
     }
 
     #[must_use]
+    /// Model info.
     pub fn model_info(model: &str, provider_name: &str) -> ModelInfo {
         ModelInfo {
             name: model.to_string(),
@@ -64,6 +68,7 @@ impl GenericProvider {
         }
     }
 
+    /// Stream.
     pub fn stream(&self, request: &CompletionRequest) -> crate::ProviderStream {
         tracing::debug!(
             model = %request.model,

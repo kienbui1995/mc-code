@@ -1,12 +1,14 @@
 use mc_provider::TokenUsage;
 
 #[derive(Debug, Clone, Default)]
+/// Usagetracker.
 pub struct UsageTracker {
     turns: usize,
     total: TokenUsage,
 }
 
 impl UsageTracker {
+    /// Record.
     pub fn record(&mut self, usage: &TokenUsage) {
         self.turns += 1;
         self.total.input_tokens += usage.input_tokens;
@@ -16,23 +18,27 @@ impl UsageTracker {
     }
 
     #[must_use]
+    /// Turns.
     pub fn turns(&self) -> usize {
         self.turns
     }
 
     #[must_use]
+    /// Total.
     pub fn total(&self) -> &TokenUsage {
         &self.total
     }
 
     /// Tokens served from prompt cache (90% cost savings on these).
     #[must_use]
+    /// Cache read tokens.
     pub fn cache_read_tokens(&self) -> u32 {
         self.total.cache_read_input_tokens
     }
 
     /// Tokens written to prompt cache (25% surcharge on first write).
     #[must_use]
+    /// Cache creation tokens.
     pub fn cache_creation_tokens(&self) -> u32 {
         self.total.cache_creation_input_tokens
     }

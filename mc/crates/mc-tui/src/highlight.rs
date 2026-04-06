@@ -5,6 +5,7 @@ use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
+/// Highlighter.
 pub struct Highlighter {
     syntax_set: SyntaxSet,
     theme_set: ThemeSet,

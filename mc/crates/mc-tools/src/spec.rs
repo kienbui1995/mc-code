@@ -1,6 +1,7 @@
 use serde_json::{json, Value};
 
 #[derive(Debug, Clone)]
+/// Toolspec.
 pub struct ToolSpec {
     pub name: String,
     pub description: String,
@@ -8,6 +9,7 @@ pub struct ToolSpec {
 }
 
 #[allow(clippy::too_many_lines)]
+/// All tool specs.
 pub fn all_tool_specs() -> Vec<ToolSpec> {
     vec![
         ToolSpec {

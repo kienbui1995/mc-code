@@ -121,6 +121,7 @@ impl LspClient {
         }
     }
 
+    /// Shutdown.
     pub async fn shutdown(&mut self) {
         let _ = self.child.kill().await;
     }
@@ -186,6 +187,7 @@ impl Drop for LspClient {
 
 /// Detect language from file extension.
 #[must_use]
+/// Detect language.
 pub fn detect_language(file: &str) -> Option<&'static str> {
     match file.rsplit('.').next()? {
         "rs" => Some("rust"),

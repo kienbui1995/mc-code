@@ -3,11 +3,15 @@ use std::path::Path;
 
 use crate::error::ToolError;
 
+/// Readfiletool.
 pub struct ReadFileTool;
+/// Writefiletool.
 pub struct WriteFileTool;
+/// Editfiletool.
 pub struct EditFileTool;
 
 impl ReadFileTool {
+    /// Execute.
     pub fn execute(
         path: &str,
         offset: Option<usize>,
@@ -43,6 +47,7 @@ impl ReadFileTool {
 }
 
 impl WriteFileTool {
+    /// Execute.
     pub fn execute(path: &str, content: &str) -> Result<String, ToolError> {
         if let Some(parent) = Path::new(path).parent() {
             if !parent.as_os_str().is_empty() {
@@ -56,6 +61,7 @@ impl WriteFileTool {
 }
 
 impl EditFileTool {
+    /// Execute.
     pub fn execute(
         path: &str,
         old_string: &str,

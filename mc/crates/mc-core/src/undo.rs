@@ -10,6 +10,7 @@ struct TurnSnapshot {
     files: Vec<FileSnapshot>,
 }
 
+/// Undomanager.
 pub struct UndoManager {
     current: Vec<FileSnapshot>,
     turns: Vec<TurnSnapshot>,
@@ -18,6 +19,7 @@ pub struct UndoManager {
 
 impl UndoManager {
     #[must_use]
+    /// New.
     pub fn new(max_turns: usize) -> Self {
         Self {
             current: Vec::new(),
@@ -73,11 +75,13 @@ impl UndoManager {
     }
 
     #[must_use]
+    /// Can undo.
     pub fn can_undo(&self) -> bool {
         !self.turns.is_empty()
     }
 
     #[must_use]
+    /// Turns available.
     pub fn turns_available(&self) -> usize {
         self.turns.len()
     }

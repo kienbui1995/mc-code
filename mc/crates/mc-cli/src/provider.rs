@@ -27,6 +27,7 @@ pub fn detect_provider(model: &str) -> Option<String> {
     }
 }
 
+/// Resolve api key.
 pub fn resolve_api_key(config: &mc_config::ProviderConfig) -> Option<String> {
     if config.api_key_env.is_empty() {
         return None;
