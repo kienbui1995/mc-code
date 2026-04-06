@@ -217,7 +217,6 @@ impl ToolRegistry {
                 WebFetchTool::execute(&url).await
             }
             "web_search" => {
-        assert!(names.contains(&"lsp_query"));
                 let query = str_field(input, "query")?;
                 WebSearchTool::execute(&query).await
             }

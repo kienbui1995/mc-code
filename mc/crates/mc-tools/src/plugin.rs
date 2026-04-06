@@ -41,6 +41,7 @@ pub fn discover_plugins(workspace: &Path) -> Vec<ToolSpec> {
 }
 
 /// Execute a plugin script. Passes input via stdin, captures stdout.
+/// Execute a user plugin script from `.magic-code/tools/`.
 pub async fn execute_plugin(
     workspace: &Path,
     plugin_name: &str,

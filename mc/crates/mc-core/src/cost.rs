@@ -3,6 +3,7 @@ use std::io::{BufRead, Write};
 use std::path::PathBuf;
 
 /// Persists per-turn cost entries to `usage.jsonl` and reads cumulative totals.
+/// Persists per-turn usage to disk for cumulative cost tracking.
 pub struct CostTracker {
     path: PathBuf,
 }
