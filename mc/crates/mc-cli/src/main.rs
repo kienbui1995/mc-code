@@ -739,29 +739,62 @@ async fn run_tui(
                         .parent()
                         .unwrap_or(std::path::Path::new("."))
                         .to_path_buf();
-                    let mut found = Vec::new();
-                    if let Ok(entries) = std::fs::read_dir(&dir) {
-                        for e in entries.flatten() {
-                            if e.path().extension().is_some_and(|x| x == "json") {
-                                if let Ok(c) = std::fs::read_to_string(e.path()) {
-                                    if c.contains(&query) {
-                                        found.push(
-                                            e.path()
-                                                .file_stem()
-                                                .unwrap_or_default()
-                                                .to_string_lossy()
-                                                .to_string(),
-                                        );
+                    // Handle /sessions list
+                    if query == "__list__" {
+                        let mut sessions = Vec::new();
+                        if let Ok(entries) = std::fs::read_dir(&dir) {
+                            for e in entries.flatten() {
+                                if e.path().extension().is_some_and(|x| x == "json") {
+                                    sessions.push(
+                                        e.path()
+                                            .file_stem()
+                                            .unwrap_or_default()
+                                            .to_string_lossy()
+                                            .to_string(),
+                                    );
+                                }
+                            }
+                        }
+                        if sessions.is_empty() {
+                            app.output_lines.push("No saved sessions.".into());
+                        } else {
+                            app.output_lines
+                                .push(format!("Sessions ({}):", sessions.len()));
+                            for s in &sessions {
+                                app.output_lines.push(format!("  {s}"));
+                            }
+                        }
+                    } else if let Some(name) = query.strip_prefix("__delete__") {
+                        let path = session_path(name);
+                        match std::fs::remove_file(&path) {
+                            Ok(()) => app.output_lines.push(format!("Deleted: {name}")),
+                            Err(e) => app.output_lines.push(format!("  ✗ {e}")),
+                        }
+                    } else {
+                        let mut found = Vec::new();
+                        if let Ok(entries) = std::fs::read_dir(&dir) {
+                            for e in entries.flatten() {
+                                if e.path().extension().is_some_and(|x| x == "json") {
+                                    if let Ok(c) = std::fs::read_to_string(e.path()) {
+                                        if c.contains(&query) {
+                                            found.push(
+                                                e.path()
+                                                    .file_stem()
+                                                    .unwrap_or_default()
+                                                    .to_string_lossy()
+                                                    .to_string(),
+                                            );
+                                        }
                                     }
                                 }
                             }
                         }
+                        app.output_lines.push(if found.is_empty() {
+                            format!("No sessions matching \"{query}\"")
+                        } else {
+                            format!("Found: {}", found.join(", "))
+                        });
                     }
-                    app.output_lines.push(if found.is_empty() {
-                        format!("No sessions matching \"{query}\"")
-                    } else {
-                        format!("Found: {}", found.join(", "))
-                    });
                 }
                 PendingCommand::Memory(cmd) => {
                     app.output_lines.push(format!("📌 memory: {cmd}"));

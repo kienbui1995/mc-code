@@ -707,6 +707,86 @@ impl App {
                     Err(e) => self.output_lines.push(format!("  ✗ {e}")),
                 }
             }
+            "/permissions" => {
+                // Claude Code style: show and toggle permission mode
+                if let Some(mode) = parts.get(1) {
+                    self.output_lines.push(format!("Permission mode → {mode} (restart to apply)"));
+                } else {
+                    self.output_lines.push(format!(
+                        "Permission mode: {} | Dry-run: {}",
+                        if self.dry_run { "dry-run" } else { "active" },
+                        if self.dry_run { "ON" } else { "OFF" },
+                    ));
+                    self.output_lines.push("  Modes: read-only, workspace-write, full-access".into());
+                    self.output_lines.push("  Toggle dry-run: /dry-run".into());
+                }
+            }
+            "/config" => {
+                // Show current runtime config — Codex/Claude Code have this
+                self.output_lines.push("Current config:".into());
+                self.output_lines.push(format!("  model: {}", self.model));
+                self.output_lines.push(format!("  plan_mode: {}", self.plan_mode));
+                self.output_lines.push(format!("  dry_run: {}", self.dry_run));
+                self.output_lines.push(format!("  theme: {}", self.theme));
+                self.output_lines.push(format!("  session_time: {}s", self.session_start.elapsed().as_secs()));
+                self.output_lines.push(format!("  tokens: {}↓ {}↑", self.total_input_tokens, self.total_output_tokens));
+                self.output_lines.push(format!("  cost: ${:.4}", self.session_cost));
+                self.output_lines.push(format!("  context: {}%", self.context_usage_pct));
+                self.output_lines.push("  Edit: .magic-code/config.toml".into());
+            }
+            "/add" => {
+                // Add file/dir content to next prompt — Claude Code's /add-dir
+                if let Some(path) = parts.get(1) {
+                    let p = std::path::Path::new(path);
+                    if p.is_file() {
+                        match std::fs::read_to_string(p) {
+                            Ok(content) => {
+                                let lines = content.lines().count();
+                                let current = self.input.as_str().to_string();
+                                let prefix = if current.is_empty() { String::new() } else { format!("{current}\n\n") };
+                                self.input.set(&format!("{prefix}[{path} ({lines} lines)]:\n```\n{content}\n```"));
+                                self.output_lines.push(format!("📎 Added {path} ({lines} lines) to input"));
+                            }
+                            Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                        }
+                    } else if p.is_dir() {
+                        let mut files = Vec::new();
+                        if let Ok(entries) = std::fs::read_dir(p) {
+                            for e in entries.flatten().take(20) {
+                                if e.path().is_file() {
+                                    files.push(e.path().display().to_string());
+                                }
+                            }
+                        }
+                        self.output_lines.push(format!("📁 Dir {path}: {} files", files.len()));
+                        for f in &files { self.output_lines.push(format!("  {f}")); }
+                    } else {
+                        self.output_lines.push(format!("  ✗ not found: {path}"));
+                    }
+                } else { self.output_lines.push("Usage: /add <file|dir>".into()); }
+            }
+            "/sessions" => {
+                // List/delete saved sessions — essential session management
+                if parts.get(1) == Some(&"delete") {
+                    if let Some(name) = parts.get(2) {
+                        self.pending_command = Some(PendingCommand::Search(format!("__delete__{name}")));
+                        self.output_lines.push(format!("Deleting session: {name}"));
+                    } else { self.output_lines.push("Usage: /sessions delete <name>".into()); }
+                } else {
+                    self.pending_command = Some(PendingCommand::Search("__list__".into()));
+                }
+            }
+            "/spec" => {
+                // Kiro-style: generate spec before coding
+                let task = if parts.len() > 1 { parts[1..].join(" ") } else { String::new() };
+                let spec_prompt = if task.is_empty() {
+                    "Before writing any code, create a brief technical specification:\n1. Requirements (what needs to be done)\n2. Approach (how to implement)\n3. Files to modify\n4. Edge cases\n5. Testing strategy\n\nThen ask me to confirm before proceeding.".to_string()
+                } else {
+                    format!("Before implementing: {task}\n\nCreate a brief technical specification:\n1. Requirements\n2. Approach\n3. Files to modify\n4. Edge cases\n5. Testing strategy\n\nThen ask me to confirm before proceeding.")
+                };
+                self.input.set(&spec_prompt);
+                self.output_lines.push("📋 Spec mode: AI will plan before coding".into());
+            }
             "/template" => {
                 if let Some(name) = parts.get(1) {
                     let prompt = match *name {
@@ -813,6 +893,11 @@ impl App {
         "/recent",
         "/ship",
         "/test",
+        "/permissions",
+        "/config",
+        "/add",
+        "/sessions",
+        "/spec",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
