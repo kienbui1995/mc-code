@@ -17,7 +17,7 @@ MC="${MC_BIN:-$HOME/magic-code/magic-code/mc/target/release/magic-code}"
 "$MC" \
   --provider "${MC_PROVIDER:-litellm}" \
   --base-url "${MC_BASE_URL:-http://REDACTED_IP:4000}" \
-  --api-key "${MC_API_KEY:-sk-_RV1uu6ZxkOUXM_hCV1HnA}" \
+  --api-key "${MC_API_KEY}" \
   --model "${MC_MODEL:-gemini/gemini-2.5-flash}" \
   "$@"
 
