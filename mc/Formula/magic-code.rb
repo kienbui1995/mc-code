@@ -1,7 +1,7 @@
 class MagicCode < Formula
   desc "Open-source TUI agentic AI coding agent"
   homepage "https://github.com/kienbui1995/mc-code"
-  version "0.8.0"
+  version "0.8.1"
   license "MIT"
 
   on_macos do

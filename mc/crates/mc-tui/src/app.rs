@@ -43,7 +43,45 @@ pub enum UiMessage {
 }
 
 /// Commands that need processing by main.rs (require runtime/provider access).
-#[derive(Debug, Clone)]
+/// Effort level controlling thinking budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EffortLevel {
+    /// ○ Low: minimal thinking, fast and cheap (~4K tokens).
+    Low,
+    /// ◐ Medium: balanced (default, ~10K tokens).
+    Medium,
+    /// ● High: deep reasoning for complex tasks (~32K tokens).
+    High,
+}
+
+impl EffortLevel {
+    #[must_use]
+    pub fn symbol(self) -> &'static str {
+        match self {
+            Self::Low => "○",
+            Self::Medium => "◐",
+            Self::High => "●",
+        }
+    }
+
+    #[must_use]
+    pub fn thinking_budget(self) -> Option<u32> {
+        match self {
+            Self::Low => None, // no extended thinking
+            Self::Medium => Some(10_000),
+            Self::High => Some(32_000),
+        }
+    }
+
+    fn next(self) -> Self {
+        match self {
+            Self::Low => Self::Medium,
+            Self::Medium => Self::High,
+            Self::High => Self::Low,
+        }
+    }
+}
+
 /// Commands queued by slash commands, consumed by main.rs event loop.
 pub enum PendingCommand {
     Compact,
@@ -123,6 +161,8 @@ pub struct App {
     pub transcript_mode: bool,
     /// Custom commands loaded from .magic-code/commands/*.md.
     pub custom_commands: Vec<(String, String)>,
+    /// Effort level: low (○), medium (◐), high (●). Controls thinking budget.
+    pub effort: EffortLevel,
 }
 
 impl App {
@@ -165,6 +205,7 @@ impl App {
             vim_mode: None,
             transcript_mode: false,
             custom_commands: load_custom_commands(),
+            effort: EffortLevel::Medium,
             state: AgentState::Idle,
         }
     }
@@ -839,6 +880,27 @@ impl App {
                     Some(crate::input::VimMode::Insert)
                 };
             }
+            "/effort" => {
+                if let Some(level) = parts.get(1) {
+                    self.effort = match *level {
+                        "low" | "l" => EffortLevel::Low,
+                        "medium" | "med" | "m" => EffortLevel::Medium,
+                        "high" | "h" => EffortLevel::High,
+                        _ => {
+                            self.output_lines.push("Usage: /effort low|medium|high".into());
+                            return;
+                        }
+                    };
+                } else {
+                    self.effort = self.effort.next();
+                }
+                self.output_lines.push(format!(
+                    "Effort: {} {:?}{}",
+                    self.effort.symbol(),
+                    self.effort,
+                    self.effort.thinking_budget().map_or(String::new(), |b| format!(" (~{b} thinking tokens)")),
+                ));
+            }
             "/rewind" => {
                 let n = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
                 self.pending_command = Some(PendingCommand::Rewind(n));
@@ -903,6 +965,17 @@ impl App {
             Some(AppEvent::SlashCommand(trimmed))
         } else {
             self.last_user_input = Some(trimmed.clone());
+            // Auto-detect effort keywords (like Claude Code's "think hard")
+            let lower = trimmed.to_lowercase();
+            if lower.contains("ultrathink")
+                || lower.contains("think harder")
+                || lower.contains("think hard")
+                || lower.contains("think deeply")
+            {
+                self.effort = EffortLevel::High;
+            } else if lower.starts_with("think") {
+                self.effort = EffortLevel::Medium;
+            }
             Some(AppEvent::UserSubmit(trimmed))
         }
     }
@@ -972,6 +1045,7 @@ impl App {
         "/sessions",
         "/spec",
         "/vim",
+        "/effort",
         "/rewind",
         "/debug",
         "/btw",
