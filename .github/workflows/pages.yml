@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Copy site
         run: cp -r docs/site _site
-      - uses: actions/configure-pages@v4
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
