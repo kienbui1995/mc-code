@@ -1,0 +1,102 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["README.md", "mc/docs/**", "CHANGELOG.md", "RELEASE_NOTES.md"]
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build docs
+        run: |
+          mkdir -p _site
+          cat > _site/index.html << 'HEREDOC'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>magic-code — AI Coding Agent</title>
+            <style>
+              body { font-family: -apple-system, system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #e0e0e0; background: #1a1a2e; }
+              a { color: #64b5f6; }
+              pre { background: #16213e; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+              code { background: #16213e; padding: 2px 6px; border-radius: 4px; }
+              h1 { color: #fff; } h2 { color: #90caf9; border-bottom: 1px solid #333; padding-bottom: 0.3rem; }
+              table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+              .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; margin-right: 4px; }
+              .green { background: #1b5e20; } .blue { background: #0d47a1; }
+            </style>
+          </head>
+          <body>
+          HEREDOC
+
+          # Convert README.md to HTML (simple approach)
+          echo "<div>" >> _site/index.html
+
+          # Use a basic markdown-to-html approach
+          python3 -c "
+          import re, html
+          with open('README.md') as f: md = f.read()
+          # Headers
+          md = re.sub(r'^### (.+)$', r'<h3>\1</h3>', md, flags=re.M)
+          md = re.sub(r'^## (.+)$', r'<h2>\1</h2>', md, flags=re.M)
+          md = re.sub(r'^# (.+)$', r'<h1>\1</h1>', md, flags=re.M)
+          # Bold
+          md = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', md)
+          # Code blocks
+          md = re.sub(r'\`\`\`(\w*)\n(.*?)\`\`\`', r'<pre><code>\2</code></pre>', md, flags=re.S)
+          # Inline code
+          md = re.sub(r'\`(.+?)\`', r'<code>\1</code>', md)
+          # Links
+          md = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href=\"\2\">\1</a>', md)
+          # Tables (basic)
+          lines = md.split('\n')
+          out = []
+          in_table = False
+          for line in lines:
+              if '|' in line and not line.strip().startswith('\`'):
+                  cells = [c.strip() for c in line.split('|')[1:-1]]
+                  if all(set(c) <= {'-', ' ', ':'} for c in cells):
+                      continue
+                  if not in_table:
+                      out.append('<table>')
+                      in_table = True
+                  out.append('<tr>' + ''.join(f'<td>{c}</td>' for c in cells) + '</tr>')
+              else:
+                  if in_table:
+                      out.append('</table>')
+                      in_table = False
+                  if line.strip().startswith('- '):
+                      out.append(f'<li>{line.strip()[2:]}</li>')
+                  elif line.strip():
+                      out.append(f'<p>{line}</p>')
+                  else:
+                      out.append('')
+          if in_table: out.append('</table>')
+          print('\n'.join(out))
+          " >> _site/index.html
+
+          echo "</div></body></html>" >> _site/index.html
+
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
