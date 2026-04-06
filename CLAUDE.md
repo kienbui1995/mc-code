@@ -52,13 +52,10 @@ mc/                          ← Rust workspace root (run cargo commands here)
   crates/
     mc-cli/                  ← Binary. CLI parsing, provider dispatch.
     mc-tui/                  ← TUI. ratatui + crossterm. Markdown, syntax highlighting.
-    mc-core/                 ← Conversation runtime, 8 feature modules (see below).
+    mc-core/                 ← Conversation runtime, 16 feature modules.
     mc-provider/             ← LLM providers. Anthropic, Gemini, OpenAI-compatible.
     mc-tools/                ← Tool execution. Async bash, file ops, MCP, permissions.
     mc-config/               ← TOML config. Layered merge, project context discovery.
-src/                         ← Legacy Python source (reference only, do not modify)
-rust/                        ← Legacy Rust experiments (reference only)
-tests/                       ← Python integration tests (legacy)
 ```
 
 ## mc-core Modules
@@ -204,5 +201,4 @@ CI enforces: `RUSTFLAGS=-Dwarnings` — all warnings are errors.
 - Don't put business logic in mc-tui (it's presentation only)
 - Don't make mc-provider depend on mc-tools or vice versa
 - Don't use `println!` — use `tracing` macros
-- Don't modify files in `src/` or `rust/` (legacy, reference only)
 - Don't dispatch memory/subagent tools through mc-tools (circular dep risk)
