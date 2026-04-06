@@ -1,74 +1,50 @@
 # ADR-003: Permission Model
 
 ## Status
-
-Proposed
+Accepted
 
 ## Context
-
-Current state: `PermissionPolicy` supports Allow/Deny/Prompt modes per tool, but:
-- CLI always uses `PermissionMode::Allow` (no safety)
-- Prompt mode passes `None` as prompter → always Deny
-- Config has `permission_mode` (ReadOnly/WorkspaceWrite/FullAccess) but it's not wired
-- No workspace sandboxing — tools can operate on any path
-
-For a production tool that executes arbitrary shell commands, this is a security gap.
+An agentic coding assistant executes tools that can modify the filesystem, run shell commands, and access the network. Without guardrails, the LLM could accidentally delete files, run destructive commands, or exfiltrate data.
 
 ## Decision
+Three permission modes, configurable per-project:
 
-Three-layer permission model:
+### Modes
+- **read-only**: Only `read_file`, `glob_search`, `grep_search` allowed. All write/execute tools denied.
+- **workspace-write** (default): Read tools auto-allowed. Write tools (`write_file`, `edit_file`) allowed within workspace. `bash` requires user prompt.
+- **full-access**: All tools auto-allowed. No prompts.
 
-### Layer 1: Config-driven mode (coarse)
-
-```
-read-only        → bash: Deny, write_file: Deny, edit_file: Deny, others: Allow
-workspace-write  → bash: Prompt, write/edit inside cwd: Allow, outside: Deny
-full-access      → All: Allow (opt-in, must be explicit)
-```
-
-Default: `workspace-write`
-
-### Layer 2: Per-tool override (fine)
-
-Config can override any tool:
+### Per-tool overrides
+Config can override the default mode for specific tools:
 ```toml
-[permissions]
-default = "workspace-write"
-
-[permissions.tools.bash]
-mode = "prompt"
-
-[permissions.tools.read_file]
-mode = "allow"
+permission_mode = "workspace-write"
+# But always allow bash for this project:
+# [tool_permissions]
+# bash = "allow"
 ```
 
-### Layer 3: Workspace sandbox (path-based)
+### File protection
+Sandbox enforces:
+- All file operations must be within workspace root (path traversal blocked)
+- Protected patterns: `.env`, `*.key`, `*.pem`, `.git/*`, `id_rsa*`
+- Configurable via `protected_patterns` in config
 
-All file operations validated against project root:
-- Resolve symlinks before checking
-- Block path traversal (`../`)
-- Allow explicit additional paths via config
+### Prompt flow
+When a tool requires prompting:
+1. Runtime sends `PermissionPrompt` to TUI via channel
+2. TUI displays prompt widget: `[Y]es / [N]o / [A]lways`
+3. User response sent back via sync channel
+4. "Always" adds tool to session allowlist
 
-### TUI Integration
-
-When Prompt mode triggers, runtime sends `UiMessage::PermissionRequest` to TUI.
-TUI shows modal popup. User response sent back via oneshot channel.
-
-```rust
-enum UiMessage {
-    // ...existing...
-    PermissionRequest {
-        tool: String,
-        summary: String,
-        respond: oneshot::Sender<PermissionOutcome>,
-    },
-}
+### Audit
+All tool executions logged to `~/.local/share/magic-code/audit.jsonl`:
+```json
+{"tool":"bash","input":"rm -rf build","output_len":0,"error":false,"ms":12,"allowed":true}
 ```
 
 ## Consequences
-
-- Default behavior becomes safe (workspace-write)
-- Users must opt-in to full-access
-- TUI gains interactive permission prompt
-- Slight latency for prompted tools (user must respond)
-- Workspace sandbox prevents accidental damage outside project
+- Users can safely use magic-code on production codebases with `read-only` mode
+- Default `workspace-write` balances safety and productivity
+- `full-access` available for trusted environments
+- Audit log enables post-hoc review of all actions
+- File protection prevents accidental modification of secrets/credentials

@@ -106,7 +106,7 @@ impl McpClient {
         Ok(tools)
     }
 
-    /// Call a tool on the MCP server.
+    /// Call a tool on the MCP server (with timeout).
     pub async fn call_tool(
         &mut self,
         name: &str,
@@ -121,7 +121,9 @@ impl McpClient {
         });
         self.send(&req).await?;
 
-        let resp = self.recv().await?;
+        let resp = tokio::time::timeout(std::time::Duration::from_secs(60), self.recv())
+            .await
+            .map_err(|_| ToolError::Timeout(60_000))??;
         if let Some(result) = resp.get("result") {
             Ok(result.to_string())
         } else if let Some(error) = resp.get("error") {
@@ -129,6 +131,12 @@ impl McpClient {
         } else {
             Err(ToolError::ExecutionFailed("empty MCP response".into()))
         }
+    }
+
+    /// Check if the MCP server process is still alive.
+    #[must_use]
+    pub fn is_alive(&mut self) -> bool {
+        self.child.try_wait().ok().flatten().is_none()
     }
 
     /// Gracefully shut down the MCP server.
