@@ -580,6 +580,66 @@ impl App {
                     Err(e) => self.output_lines.push(format!("  ✗ {e}")),
                 }
             }
+            "/tree" => {
+                let depth = parts.get(1).and_then(|d| d.parse::<u8>().ok()).unwrap_or(2);
+                match std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("find . -maxdepth {depth} -not -path '*/target/*' -not -path '*/.git/*' -not -path '*/node_modules/*' | sort | head -80"))
+                    .output()
+                {
+                    Ok(o) => {
+                        for line in String::from_utf8_lossy(&o.stdout).lines() {
+                            self.output_lines.push(format!("  {line}"));
+                        }
+                    }
+                    Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                }
+            }
+            "/head" => {
+                if let Some(path) = parts.get(1) {
+                    let n = parts.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
+                    match std::fs::read_to_string(path) {
+                        Ok(c) => { for line in c.lines().take(n) { self.output_lines.push(format!("  {line}")); } }
+                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                    }
+                } else { self.output_lines.push("Usage: /head <file> [lines]".into()); }
+            }
+            "/tail" => {
+                if let Some(path) = parts.get(1) {
+                    let n = parts.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
+                    match std::fs::read_to_string(path) {
+                        Ok(c) => {
+                            let lines: Vec<&str> = c.lines().collect();
+                            let start = lines.len().saturating_sub(n);
+                            for line in &lines[start..] { self.output_lines.push(format!("  {line}")); }
+                        }
+                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                    }
+                } else { self.output_lines.push("Usage: /tail <file> [lines]".into()); }
+            }
+            "/pwd" => {
+                self.output_lines.push(format!("  {}", std::env::current_dir().unwrap_or_default().display()));
+            }
+            "/env" => {
+                for var in &["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "EDITOR", "SHELL", "HOME"] {
+                    let val = std::env::var(var).unwrap_or_else(|_| "(not set)".into());
+                    let masked = if var.contains("KEY") && val.len() > 8 {
+                        format!("{}...{}", &val[..4], &val[val.len()-4..])
+                    } else { val };
+                    self.output_lines.push(format!("  {var}={masked}"));
+                }
+            }
+            "/size" => {
+                if let Some(path) = parts.get(1) {
+                    match std::fs::metadata(path) {
+                        Ok(m) => {
+                            let kb = m.len() / 1024;
+                            self.output_lines.push(format!("  {path}: {} bytes ({kb} KB)", m.len()));
+                        }
+                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                    }
+                } else { self.output_lines.push("Usage: /size <file>".into()); }
+            }
             "/template" => {
                 if let Some(name) = parts.get(1) {
                     let prompt = match *name {
@@ -676,6 +736,12 @@ impl App {
         "/models",
         "/open",
         "/wc",
+        "/tree",
+        "/head",
+        "/tail",
+        "/pwd",
+        "/env",
+        "/size",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
