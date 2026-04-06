@@ -516,6 +516,70 @@ impl App {
                     self.output_lines.push("No tool output yet.".into());
                 }
             }
+            "/files" => {
+                let path = parts.get(1).unwrap_or(&".");
+                match std::process::Command::new("ls").args(["-la", path]).output() {
+                    Ok(o) => {
+                        for line in String::from_utf8_lossy(&o.stdout).lines() {
+                            self.output_lines.push(format!("  {line}"));
+                        }
+                    }
+                    Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                }
+            }
+            "/cat" => {
+                if let Some(path) = parts.get(1) {
+                    match std::fs::read_to_string(path) {
+                        Ok(content) => {
+                            for line in content.lines().take(100) {
+                                self.output_lines.push(format!("  {line}"));
+                            }
+                            let total = content.lines().count();
+                            if total > 100 {
+                                self.output_lines
+                                    .push(format!("  ... ({} more lines)", total - 100));
+                            }
+                        }
+                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                    }
+                } else {
+                    self.output_lines.push("Usage: /cat <file>".into());
+                }
+            }
+            "/models" => {
+                self.output_lines.push("Known models (use /model <name> to switch):".into());
+                for m in &[
+                    "claude-sonnet-4-20250514", "claude-haiku", "gpt-4o", "gpt-4o-mini",
+                    "gemini-2.5-flash", "gemini-2.5-pro", "llama3", "mistral",
+                ] {
+                    self.output_lines.push(format!("  {m}"));
+                }
+            }
+            "/open" => {
+                if let Some(path) = parts.get(1) {
+                    let editor =
+                        std::env::var("EDITOR").unwrap_or_else(|_| "vi".into());
+                    self.output_lines
+                        .push(format!("Opening {path} in {editor}..."));
+                    let _ = std::process::Command::new(&editor).arg(path).status();
+                } else {
+                    self.output_lines.push("Usage: /open <file>".into());
+                }
+            }
+            "/wc" => {
+                match std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg("find . -name '*.rs' -o -name '*.py' -o -name '*.ts' -o -name '*.go' | head -500 | xargs wc -l 2>/dev/null | tail -1")
+                    .output()
+                {
+                    Ok(o) => {
+                        let out = String::from_utf8_lossy(&o.stdout);
+                        self.output_lines
+                            .push(format!("  {}", out.trim()));
+                    }
+                    Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                }
+            }
             "/template" => {
                 if let Some(name) = parts.get(1) {
                     let prompt = match *name {
@@ -607,6 +671,11 @@ impl App {
         "/whoami",
         "/tip",
         "/last",
+        "/files",
+        "/cat",
+        "/models",
+        "/open",
+        "/wc",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
