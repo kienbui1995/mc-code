@@ -5,6 +5,6 @@ mod input;
 pub mod markdown;
 pub mod ui;
 
-pub use app::{AgentState, App, AppEvent, PendingCommand, UiMessage};
+pub use app::{AgentState, App, AppEvent, EffortLevel, PendingCommand, UiMessage};
 pub use history::InputHistory;
 pub use input::VimMode;

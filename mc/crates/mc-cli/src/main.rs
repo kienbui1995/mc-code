@@ -474,6 +474,7 @@ async fn run_tui(
                                         let rt = Arc::clone(&runtime);
                                         let prov = Arc::clone(&provider);
                                         let pol = policy.clone();
+                                        let effort_budget = app.effort.thinking_budget();
                                         let (ptx, prx) = std::sync::mpsc::sync_channel::<bool>(1);
                                         perm_response_tx = Some(ptx);
                                         let prompter_tx = ui_tx.clone();
@@ -489,6 +490,7 @@ async fn run_tui(
                                             let mut ttft_ms = 0u64;
                                             let result = {
                                                 let mut runtime = rt.lock().await;
+                                                runtime.set_thinking_budget(effort_budget);
                                                 runtime.run_turn(&*prov, &text, &pol, &mut prompter, &mut |ev| {
                                                 if first_token && matches!(ev, mc_provider::ProviderEvent::TextDelta(_)) {
                                                     ttft_ms = turn_start.elapsed().as_millis() as u64;

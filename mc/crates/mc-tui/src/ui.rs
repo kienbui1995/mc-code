@@ -156,7 +156,7 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
     let cost = app.session_cost;
     let status = Line::from(vec![
         Span::styled(
-            format!(" {} ", app.model),
+            format!(" {} {} ", app.model, app.effort.symbol()),
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
