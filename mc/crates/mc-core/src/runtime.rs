@@ -28,6 +28,7 @@ use crate::usage::UsageTracker;
 const MAX_ITERATIONS: usize = 16;
 
 #[derive(Debug)]
+/// Result of a single conversation turn.
 pub struct TurnResult {
     pub text: String,
     pub tool_calls: Vec<String>,
@@ -56,6 +57,7 @@ impl LlmProvider for mc_provider::GeminiProvider {
     }
 }
 
+/// Main orchestrator: manages conversation, tools, providers, and session state.
 pub struct ConversationRuntime {
     pub session: Session,
     pub usage: UsageTracker,

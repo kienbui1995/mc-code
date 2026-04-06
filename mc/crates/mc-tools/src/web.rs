@@ -3,6 +3,7 @@ use crate::error::ToolError;
 const MAX_BODY_BYTES: usize = 100_000;
 const TIMEOUT_SECS: u64 = 30;
 
+/// Fetch content from a URL, strip HTML tags.
 pub struct WebFetchTool;
 
 impl WebFetchTool {
@@ -51,6 +52,7 @@ impl WebFetchTool {
     }
 }
 
+/// Search `DuckDuckGo` instant answers.
 pub struct WebSearchTool;
 
 impl WebSearchTool {

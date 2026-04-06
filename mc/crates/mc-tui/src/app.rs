@@ -44,6 +44,7 @@ pub enum UiMessage {
 
 /// Commands that need processing by main.rs (require runtime/provider access).
 #[derive(Debug, Clone)]
+/// Commands queued by slash commands, consumed by main.rs event loop.
 pub enum PendingCommand {
     Compact,
     Save(String),
@@ -75,6 +76,7 @@ pub enum PendingCommand {
 
 /// Agent processing state.
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Current state of the AI agent.
 pub enum AgentState {
     Idle,
     Streaming,
