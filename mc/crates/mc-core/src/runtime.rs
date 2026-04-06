@@ -268,6 +268,7 @@ impl ConversationRuntime {
         let mut tool_calls = Vec::new();
         let mut turn_usage = TokenUsage::default();
         let mut iterations = 0;
+        let mut recent_patterns: Vec<(usize, Vec<String>)> = Vec::new();
 
         loop {
             if cancel.is_cancelled() {
@@ -295,6 +296,27 @@ impl ConversationRuntime {
 
             if pending_tools.is_empty() {
                 break;
+            }
+
+            // Diminishing returns detection
+            let pattern = (
+                text_buf.len(),
+                pending_tools
+                    .iter()
+                    .map(|t| t.1.clone())
+                    .collect::<Vec<_>>(),
+            );
+            recent_patterns.push(pattern);
+            if recent_patterns.len() >= 3 {
+                let last3 = &recent_patterns[recent_patterns.len() - 3..];
+                if last3[0].1 == last3[1].1
+                    && last3[1].1 == last3[2].1
+                    && (last3[0].0.abs_diff(last3[2].0)) < 50
+                {
+                    tracing::warn!("diminishing returns detected after {iterations} iterations");
+                    final_text.push_str("\n[Stopped: repeated pattern detected]");
+                    break;
+                }
             }
 
             // Split: subagent/memory tools run sequentially, rest run in parallel
@@ -725,7 +747,11 @@ impl ConversationRuntime {
 
     async fn maybe_compact(&mut self, provider: &dyn LlmProvider) {
         let ctx_window = self.model_registry.context_window(&self.model) as usize;
-        if crate::compact::should_compact(&self.session, ctx_window, 0.8) {
+        let est = crate::compact::estimate_tokens(&self.session);
+        let usage_pct = (est * 100) / ctx_window.max(1);
+
+        if usage_pct > 90 {
+            // Full smart compact
             let preserve = 4;
             if let Err(e) =
                 crate::compact::smart_compact(provider, &mut self.session, &self.model, preserve)
@@ -734,6 +760,13 @@ impl ConversationRuntime {
                 tracing::warn!("smart compaction failed, using naive: {e}");
                 crate::compact::compact_session(&mut self.session, preserve);
             }
+        } else if usage_pct > 80 {
+            // Collapse reads + snip thinking
+            crate::compact::collapse_reads(&mut self.session);
+            crate::compact::snip_thinking(&mut self.session, 6);
+        } else if usage_pct > 60 {
+            // Micro-compact only
+            crate::compact::micro_compact(&mut self.session);
         }
     }
 

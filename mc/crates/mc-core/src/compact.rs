@@ -2,7 +2,7 @@ use mc_provider::types::{ContentBlock, MessageRole};
 use mc_provider::{CompletionRequest, InputMessage, ProviderEvent};
 
 use crate::runtime::LlmProvider;
-use crate::session::{ConversationMessage, Role, Session};
+use crate::session::{Block, ConversationMessage, Role, Session};
 
 /// Estimate token count (rough: 4 chars ~ 1 token).
 #[must_use]
@@ -22,6 +22,52 @@ pub fn should_compact(session: &Session, context_window: usize, threshold: f64) 
 }
 
 /// Naive compaction: truncate old messages and insert text summary.
+/// Micro-compact: trim long tool outputs to first/last 500 chars.
+pub fn micro_compact(session: &mut Session) {
+    for msg in &mut session.messages {
+        for block in &mut msg.blocks {
+            if let Block::ToolResult { output, .. } = block {
+                if output.len() > 2000 {
+                    let first = &output[..500];
+                    let last = &output[output.len() - 500..];
+                    *output = format!("{first}\n...[trimmed {}B]...\n{last}", output.len());
+                }
+            }
+        }
+    }
+}
+
+/// Collapse consecutive read results into summaries.
+pub fn collapse_reads(session: &mut Session) {
+    for msg in &mut session.messages {
+        for block in &mut msg.blocks {
+            if let Block::ToolResult { name, output, .. } = block {
+                if matches!(
+                    Some(name.as_str()),
+                    Some("read_file" | "glob_search" | "grep_search")
+                ) && output.len() > 1000
+                {
+                    let lines = output.lines().count();
+                    *output = format!(
+                        "[{} output: {lines} lines, {}B]",
+                        name.as_str(),
+                        output.len()
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Snip old thinking blocks, keep only conclusions.
+pub fn snip_thinking(session: &mut Session, keep_recent: usize) {
+    let len = session.messages.len();
+    let cutoff = len.saturating_sub(keep_recent);
+    for msg in session.messages.iter_mut().take(cutoff) {
+        msg.blocks.retain(|b| !matches!(b, Block::Thinking { .. }));
+    }
+}
+
 pub fn compact_session(session: &mut Session, preserve_recent: usize) {
     if session.messages.len() <= preserve_recent {
         return;
