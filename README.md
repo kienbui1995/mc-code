@@ -164,3 +164,5 @@ Global config: `~/.config/magic-code/config.toml`
 ## License
 
 MIT
+
+<!-- v0.7.0 -->
