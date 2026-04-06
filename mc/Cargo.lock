@@ -871,6 +871,7 @@ dependencies = [
  "mc-tools",
  "mc-tui",
  "ratatui",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tracing",

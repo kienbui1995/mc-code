@@ -48,6 +48,7 @@ impl mc_tools::PermissionPrompter for TuiPrompter {
     version,
     about = "Open-source TUI agentic AI coding agent"
 )]
+#[allow(clippy::struct_excessive_bools)]
 struct Cli {
     #[arg(long, default_value = "claude-sonnet-4-20250514")]
     model: String,
@@ -69,6 +70,9 @@ struct Cli {
     pipe: bool,
     #[arg(long, short)]
     output: Option<String>,
+    /// Output results as JSON (for automation/scripting).
+    #[arg(long)]
+    json: bool,
     #[arg(long, hide = true)]
     completions: Option<String>,
     prompt: Vec<String>,
@@ -165,6 +169,7 @@ fn main() -> Result<()> {
             &policy,
             hooks,
             cli.output,
+            cli.json,
         ))
     }
 }
@@ -1028,6 +1033,7 @@ async fn run_single(
     policy: &mc_tools::PermissionPolicy,
     hooks: Vec<mc_tools::Hook>,
     output_path: Option<String>,
+    json_output: bool,
 ) -> Result<()> {
     let cancel = CancellationToken::new();
     let mut runtime =
@@ -1067,6 +1073,22 @@ async fn run_single(
         .context("turn failed")?;
 
     println!();
+    if json_output {
+        let json = serde_json::json!({
+            "text": result.text,
+            "tool_calls": result.tool_calls,
+            "input_tokens": result.usage.input_tokens,
+            "output_tokens": result.usage.output_tokens,
+            "iterations": result.iterations,
+            "cancelled": result.cancelled,
+            "model": model,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json).unwrap_or_default()
+        );
+        return Ok(());
+    }
     if let Some(path) = output_path {
         std::fs::write(&path, &result.text).context("failed to write output file")?;
         eprintln!("[output written to {path}]");
