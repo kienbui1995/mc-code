@@ -307,6 +307,25 @@ impl ConversationRuntime {
             self.store_response(&text_buf, &thinking_buf, &pending_tools, &mut final_text);
 
             if pending_tools.is_empty() {
+                // Auto-continue: if output appears cut off by token limit
+                let trimmed = text_buf.trim_end();
+                let looks_cut_off = !trimmed.is_empty()
+                    && trimmed.len() > 200
+                    && !trimmed.ends_with('.')
+                    && !trimmed.ends_with('!')
+                    && !trimmed.ends_with('?')
+                    && !trimmed.ends_with("```")
+                    && !trimmed.ends_with('\n')
+                    && iterations < MAX_ITERATIONS - 1
+                    && iterations < 2; // only auto-continue once
+                if looks_cut_off {
+                    tracing::debug!("auto-continue: output appears truncated");
+                    self.session
+                        .messages
+                        .push(ConversationMessage::user("continue"));
+                    iterations += 1;
+                    continue;
+                }
                 break;
             }
 
