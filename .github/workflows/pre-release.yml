@@ -1,0 +1,62 @@
+name: Pre-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*-rc*"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mc
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Binary size check
+        run: |
+          SIZE=$(stat -c%s target/release/magic-code)
+          echo "Binary size: $((SIZE / 1024 / 1024))MB"
+          if [ $SIZE -gt 10485760 ]; then
+            echo "❌ Binary exceeds 10MB limit"
+            exit 1
+          fi
+
+      - name: Smoke test
+        run: |
+          ./target/release/magic-code --version
+          ./target/release/magic-code --help | head -5
+          ./target/release/magic-code --completions bash > /dev/null
+          echo "✅ Smoke test passed"
+
+      - name: Test count
+        run: |
+          COUNT=$(cargo test --workspace -q 2>&1 | grep "test result" | awk '{sum+=$4} END {print sum}')
+          echo "Tests: $COUNT"
+          if [ "$COUNT" -lt 140 ]; then
+            echo "❌ Test count dropped below 140"
+            exit 1
+          fi
