@@ -989,6 +989,14 @@ async fn run_tui(
                 PendingCommand::LoopStop => {
                     app.output_lines.push("🔄 Loop stopped".into());
                 }
+                PendingCommand::AcceptEdit { path, diff } => {
+                    app.output_lines.push(format!("📝 Edit preview: {path}"));
+                    for line in diff.lines() {
+                        app.output_lines.push(format!("  {line}"));
+                    }
+                    app.output_lines
+                        .push("  [Y]es to apply, [N]o to reject".into());
+                }
             }
         }
 

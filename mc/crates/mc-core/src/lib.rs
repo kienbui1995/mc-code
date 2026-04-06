@@ -9,6 +9,7 @@ mod repo_map;
 mod retry;
 mod runtime;
 mod session;
+mod skills;
 mod subagent;
 mod token_budget;
 mod tool_cache;
@@ -16,7 +17,10 @@ mod undo;
 mod usage;
 
 pub use branch::{BranchInfo, BranchManager};
-pub use compact::{compact_session, estimate_tokens, should_compact, smart_compact};
+pub use compact::{
+    collapse_reads, compact_session, estimate_tokens, micro_compact, should_compact, smart_compact,
+    snip_thinking,
+};
 pub use context_resolver::{ContextResolver, ResolvedContext};
 pub use cost::CostTracker;
 pub use memory::{Fact, MemoryStore};
@@ -25,6 +29,7 @@ pub use repo_map::RepoMap;
 pub use retry::RetryPolicy;
 pub use runtime::{next_event, ConversationRuntime, LlmProvider, TurnResult};
 pub use session::{Block, ConversationMessage, ImageSource, Role, Session};
+pub use skills::{discover_skills, skills_prompt_section, Skill};
 pub use subagent::SubagentSpawner;
 pub use token_budget::TokenBudget;
 pub use tool_cache::ToolCache;

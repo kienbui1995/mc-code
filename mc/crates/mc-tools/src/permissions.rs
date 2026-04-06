@@ -5,6 +5,8 @@ pub enum PermissionMode {
     Allow,
     Deny,
     Prompt,
+    /// Auto-classify: read tools auto-allow, safe bash auto-allow, dangerous deny.
+    Auto,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +63,7 @@ impl PermissionPolicy {
             PermissionMode::Deny => PermissionOutcome::Deny {
                 reason: format!("tool '{tool_name}' denied by policy"),
             },
+            PermissionMode::Auto => auto_classify(tool_name, input_summary, prompter),
             PermissionMode::Prompt => match prompter {
                 Some(p) => p.decide(&PermissionRequest {
                     tool_name: tool_name.to_string(),
@@ -71,6 +74,86 @@ impl PermissionPolicy {
                 },
             },
         }
+    }
+}
+
+/// Auto-classify tool permissions based on safety heuristics.
+fn auto_classify(
+    tool_name: &str,
+    input_summary: &str,
+    prompter: Option<&mut dyn PermissionPrompter>,
+) -> PermissionOutcome {
+    // Read tools: always allow
+    if matches!(
+        tool_name,
+        "read_file"
+            | "glob_search"
+            | "grep_search"
+            | "web_fetch"
+            | "web_search"
+            | "lsp_query"
+            | "memory_read"
+    ) {
+        return PermissionOutcome::Allow;
+    }
+    // Write/edit in workspace: allow
+    if matches!(tool_name, "write_file" | "edit_file" | "memory_write") {
+        return PermissionOutcome::Allow;
+    }
+    // Bash: classify by command
+    if tool_name == "bash" {
+        let cmd = input_summary.trim();
+        let safe_prefixes = [
+            "ls",
+            "cat",
+            "head",
+            "tail",
+            "wc",
+            "grep",
+            "find",
+            "echo",
+            "pwd",
+            "env",
+            "git status",
+            "git log",
+            "git diff",
+            "git branch",
+            "git show",
+            "cargo test",
+            "cargo build",
+            "cargo check",
+            "cargo clippy",
+            "cargo fmt",
+            "npm test",
+            "npm run",
+            "npx",
+            "node",
+            "python",
+            "pytest",
+            "go test",
+            "make",
+        ];
+        if safe_prefixes.iter().any(|p| cmd.starts_with(p)) {
+            return PermissionOutcome::Allow;
+        }
+        let dangerous = [
+            "rm -rf", "sudo", "chmod", "curl|sh", "wget|sh", "> /dev/", "mkfs", "dd if=",
+        ];
+        if dangerous.iter().any(|d| cmd.contains(d)) {
+            return PermissionOutcome::Deny {
+                reason: format!("dangerous command blocked: {cmd}"),
+            };
+        }
+    }
+    // Everything else: prompt
+    match prompter {
+        Some(p) => p.decide(&PermissionRequest {
+            tool_name: tool_name.to_string(),
+            input_summary: input_summary.to_string(),
+        }),
+        None => PermissionOutcome::Deny {
+            reason: format!("tool '{tool_name}' requires approval"),
+        },
     }
 }
 

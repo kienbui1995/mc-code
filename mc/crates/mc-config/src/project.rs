@@ -45,11 +45,42 @@ fn discover_instruction_files(cwd: &Path) -> Vec<InstructionFile> {
         .iter()
         .filter_map(|name| {
             let path = cwd.join(name);
-            std::fs::read_to_string(&path)
-                .ok()
-                .map(|content| InstructionFile { path, content })
+            std::fs::read_to_string(&path).ok().map(|content| {
+                let resolved = resolve_imports(&content, path.parent().unwrap_or(cwd), 0);
+                InstructionFile {
+                    path,
+                    content: resolved,
+                }
+            })
         })
         .collect()
+}
+
+/// Resolve `@path/to/file.md` imports in instruction files (max depth 3).
+fn resolve_imports(content: &str, base: &Path, depth: u8) -> String {
+    if depth >= 3 {
+        return content.to_string();
+    }
+    let mut result = String::with_capacity(content.len());
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(import_path) = trimmed.strip_prefix('@') {
+            let resolved = base.join(import_path);
+            if let Ok(imported) = std::fs::read_to_string(&resolved) {
+                result.push_str(&resolve_imports(
+                    &imported,
+                    resolved.parent().unwrap_or(base),
+                    depth + 1,
+                ));
+            } else {
+                result.push_str(line);
+            }
+        } else {
+            result.push_str(line);
+        }
+        result.push('\n');
+    }
+    result
 }
 
 fn read_git_status(cwd: &Path) -> Option<String> {

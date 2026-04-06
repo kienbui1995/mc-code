@@ -14,11 +14,24 @@ pub struct ToolResult {
     pub is_error: bool,
 }
 
-/// Execute multiple tools concurrently with a concurrency limit.
-/// Subagent calls are excluded (must be run sequentially by caller).
+/// Read-only tools safe to run concurrently.
+fn is_read_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "read_file"
+            | "glob_search"
+            | "grep_search"
+            | "web_fetch"
+            | "web_search"
+            | "lsp_query"
+            | "memory_read"
+    )
+}
+
+/// Execute multiple tools: read tools run concurrently, write tools serialized.
 #[allow(clippy::too_many_arguments, clippy::ref_option)]
 pub async fn execute_batch(
-    tools: Vec<(String, String, String)>, // (id, name, input_json)
+    tools: Vec<(String, String, String)>,
     registry: &Arc<ToolRegistry>,
     hook_engine: &Option<Arc<HookEngine>>,
     audit_log: &Option<Arc<AuditLog>>,
@@ -30,9 +43,66 @@ pub async fn execute_batch(
     if tools.is_empty() {
         return Vec::new();
     }
-    if tools.len() == 1 || max_concurrent <= 1 {
-        return execute_sequential(
-            tools,
+
+    let (reads, writes): (Vec<_>, Vec<_>) = tools.into_iter().partition(|t| is_read_tool(&t.1));
+
+    let mut results = Vec::new();
+
+    // Reads: concurrent
+    if reads.len() > 1 && max_concurrent > 1 {
+        let sem = Arc::new(Semaphore::new(max_concurrent));
+        let mut handles = Vec::with_capacity(reads.len());
+        for (id, name, input) in reads {
+            let sem = Arc::clone(&sem);
+            let reg = Arc::clone(registry);
+            let hooks = hook_engine.clone();
+            let audit = audit_log.clone();
+            let pol = policy.clone();
+            let cancel = cancel.clone();
+            let otx = output_tx.cloned();
+            handles.push(tokio::spawn(async move {
+                let _permit = sem.acquire().await.ok();
+                if cancel.is_cancelled() {
+                    return ToolResult {
+                        id,
+                        name,
+                        output: "cancelled".into(),
+                        is_error: true,
+                    };
+                }
+                execute_one(&id, &name, &input, &reg, &hooks, &audit, &pol, otx.as_ref()).await
+            }));
+        }
+        for handle in handles {
+            match handle.await {
+                Ok(r) => results.push(r),
+                Err(e) => results.push(ToolResult {
+                    id: String::new(),
+                    name: "unknown".into(),
+                    output: e.to_string(),
+                    is_error: true,
+                }),
+            }
+        }
+    } else {
+        results.extend(
+            execute_sequential(
+                reads,
+                registry,
+                hook_engine,
+                audit_log,
+                policy,
+                cancel,
+                output_tx,
+            )
+            .await,
+        );
+    }
+
+    // Writes: always sequential
+    results.extend(
+        execute_sequential(
+            writes,
             registry,
             hook_engine,
             audit_log,
@@ -40,47 +110,9 @@ pub async fn execute_batch(
             cancel,
             output_tx,
         )
-        .await;
-    }
+        .await,
+    );
 
-    let sem = Arc::new(Semaphore::new(max_concurrent));
-    let mut handles = Vec::with_capacity(tools.len());
-
-    for (id, name, input) in tools {
-        let sem = Arc::clone(&sem);
-        let reg = Arc::clone(registry);
-        let hooks = hook_engine.clone();
-        let audit = audit_log.clone();
-        let pol = policy.clone();
-        let cancel = cancel.clone();
-        let otx = output_tx.cloned();
-
-        handles.push(tokio::spawn(async move {
-            let _permit = sem.acquire().await.ok();
-            if cancel.is_cancelled() {
-                return ToolResult {
-                    id,
-                    name,
-                    output: "cancelled".into(),
-                    is_error: true,
-                };
-            }
-            execute_one(&id, &name, &input, &reg, &hooks, &audit, &pol, otx.as_ref()).await
-        }));
-    }
-
-    let mut results = Vec::with_capacity(handles.len());
-    for handle in handles {
-        match handle.await {
-            Ok(r) => results.push(r),
-            Err(e) => results.push(ToolResult {
-                id: String::new(),
-                name: "unknown".into(),
-                output: e.to_string(),
-                is_error: true,
-            }),
-        }
-    }
     results
 }
 

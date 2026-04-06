@@ -15,14 +15,28 @@ impl ReadFileTool {
     ) -> Result<String, ToolError> {
         let content = fs::read_to_string(path).map_err(ToolError::Io)?;
         let lines: Vec<&str> = content.lines().collect();
-        let start = offset.unwrap_or(0).min(lines.len());
-        let end = limit.map_or(lines.len(), |l| (start + l).min(lines.len()));
+        let total = lines.len();
+
+        // Large file preview: if >500 lines and no specific range requested
+        if total > 500 && offset.is_none() && limit.is_none() {
+            let first: Vec<&str> = lines[..50].to_vec();
+            let last: Vec<&str> = lines[total - 20..].to_vec();
+            let size = content.len();
+            return Ok(format!(
+                "File: {path} ({total} lines, {size} bytes) [PREVIEW — use offset/limit for full content]\n\n{}\n\n... [{} lines omitted] ...\n\n{}",
+                first.join("\n"),
+                total - 70,
+                last.join("\n"),
+            ));
+        }
+
+        let start = offset.unwrap_or(0).min(total);
+        let end = limit.map_or(total, |l| (start + l).min(total));
         let selected: Vec<&str> = lines[start..end].to_vec();
         Ok(format!(
-            "File: {path}\nLines {}-{} of {}\n\n{}",
+            "File: {path}\nLines {}-{} of {total}\n\n{}",
             start + 1,
             end,
-            lines.len(),
             selected.join("\n")
         ))
     }

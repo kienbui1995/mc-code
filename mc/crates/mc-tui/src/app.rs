@@ -72,6 +72,7 @@ pub enum PendingCommand {
     Btw(String),
     Loop { interval_secs: u64, prompt: String },
     LoopStop,
+    AcceptEdit { path: String, diff: String },
 }
 
 /// Agent processing state.

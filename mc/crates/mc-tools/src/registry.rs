@@ -91,6 +91,7 @@ impl ToolRegistry {
 
     pub async fn execute(&self, name: &str, input: &Value) -> Result<String, ToolError> {
         tracing::debug!(tool = name, "executing tool");
+        Self::validate_input(name, input)?;
 
         let result = tokio::time::timeout(self.tool_timeout, self.execute_inner(name, input))
             .await
@@ -251,6 +252,38 @@ impl ToolRegistry {
             sandbox.check(&path)?;
         }
         Ok(path)
+    }
+
+    fn validate_input(name: &str, input: &Value) -> Result<(), ToolError> {
+        let require = |field: &str| {
+            if input
+                .get(field)
+                .and_then(|v| v.as_str())
+                .is_none_or(str::is_empty)
+            {
+                Err(ToolError::InvalidInput(format!(
+                    "{name}: missing required field '{field}'"
+                )))
+            } else {
+                Ok(())
+            }
+        };
+        match name {
+            "bash" => require("command"),
+            "read_file" | "write_file" => require("path"),
+            "edit_file" => {
+                require("path")?;
+                require("old_string")?;
+                require("new_string")
+            }
+            "web_fetch" => require("url"),
+            "web_search" => require("query"),
+            "lsp_query" => {
+                require("file")?;
+                require("method")
+            }
+            _ => Ok(()),
+        }
     }
 
     fn truncate_output(&self, output: String) -> String {
