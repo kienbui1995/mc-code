@@ -640,6 +640,73 @@ impl App {
                     }
                 } else { self.output_lines.push("Usage: /size <file>".into()); }
             }
+            "/todo" => {
+                // Find all TODO/FIXME in codebase — genuinely useful during development
+                match std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg("grep -rn --color=never 'TODO\\|FIXME\\|HACK\\|XXX' . --include='*.rs' --include='*.py' --include='*.ts' --include='*.js' --include='*.go' 2>/dev/null | grep -v target/ | head -30")
+                    .output()
+                {
+                    Ok(o) => {
+                        let out = String::from_utf8_lossy(&o.stdout);
+                        if out.is_empty() { self.output_lines.push("No TODOs found ✓".into()); }
+                        else { for line in out.lines() { self.output_lines.push(format!("  {line}")); } }
+                    }
+                    Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                }
+            }
+            "/recent" => {
+                // Files modified in last hour — see what the agent changed
+                match std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg("find . -name '*.rs' -o -name '*.py' -o -name '*.ts' -o -name '*.js' -o -name '*.go' -o -name '*.toml' -o -name '*.md' | xargs ls -lt 2>/dev/null | head -15")
+                    .output()
+                {
+                    Ok(o) => {
+                        let out = String::from_utf8_lossy(&o.stdout);
+                        if out.is_empty() { self.output_lines.push("No recent changes.".into()); }
+                        else {
+                            self.output_lines.push("Recently modified:".into());
+                            for line in out.lines() { self.output_lines.push(format!("  {line}")); }
+                        }
+                    }
+                    Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                }
+            }
+            "/ship" => {
+                // git add all + commit with LLM message — the most common workflow
+                self.output_lines.push("Staging all changes...".into());
+                let _ = std::process::Command::new("git").args(["add", "-A"]).output();
+                self.pending_command = Some(PendingCommand::Git("commit".into()));
+            }
+            "/test" => {
+                // Auto-detect test runner and run
+                let cmd = if std::path::Path::new("Cargo.toml").exists() || std::path::Path::new("mc/Cargo.toml").exists() {
+                    "cargo test --workspace 2>&1 | tail -20"
+                } else if std::path::Path::new("package.json").exists() {
+                    "npm test 2>&1 | tail -20"
+                } else if std::path::Path::new("pytest.ini").exists() || std::path::Path::new("setup.py").exists() {
+                    "python -m pytest 2>&1 | tail -20"
+                } else if std::path::Path::new("go.mod").exists() {
+                    "go test ./... 2>&1 | tail -20"
+                } else if std::path::Path::new("Makefile").exists() {
+                    "make test 2>&1 | tail -20"
+                } else {
+                    self.output_lines.push("No test runner detected.".into());
+                    return;
+                };
+                self.output_lines.push(format!("Running: {}", cmd.split(" 2>&1").next().unwrap_or(cmd)));
+                match std::process::Command::new("sh").arg("-c").arg(cmd).output() {
+                    Ok(o) => {
+                        for line in String::from_utf8_lossy(&o.stdout).lines() {
+                            self.output_lines.push(format!("  {line}"));
+                        }
+                        if o.status.success() { self.output_lines.push("  ✓ Tests passed".into()); }
+                        else { self.output_lines.push("  ✗ Tests failed".into()); }
+                    }
+                    Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                }
+            }
             "/template" => {
                 if let Some(name) = parts.get(1) {
                     let prompt = match *name {
@@ -742,6 +809,10 @@ impl App {
         "/pwd",
         "/env",
         "/size",
+        "/todo",
+        "/recent",
+        "/ship",
+        "/test",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
