@@ -328,6 +328,7 @@ async fn run_tui(
                 }
                 UiMessage::PermissionPrompt { tool, input } => {
                     app.permission_pending = Some((tool, input));
+                    app.state = mc_tui::AgentState::WaitingPermission;
                 }
                 UiMessage::StreamReset => {
                     // Discard partial output from failed stream: remove lines back to last user prompt
@@ -552,17 +553,278 @@ async fn run_tui(
             pending_plan_sync = true;
             last_plan_mode = app.plan_mode;
         }
-        if app.compact_requested {
-            app.compact_requested = false;
-            pending_compact = true;
-        }
-        if let Some(name) = app.save_requested.take() {
-            pending_save = Some(name);
-        }
-        if let Some(name) = app.load_requested.take() {
-            pending_load = Some(name);
+        // Process pending command from slash commands
+        if let Some(cmd) = app.pending_command.take() {
+            use mc_tui::PendingCommand;
+            match cmd {
+                PendingCommand::Compact => pending_compact = true,
+                PendingCommand::Save(name) => pending_save = Some(name),
+                PendingCommand::Load(name) => pending_load = Some(name),
+                PendingCommand::Undo => {
+                    let rt_clone = Arc::clone(&runtime);
+                    let tx_clone = ui_tx.clone();
+                    tokio::spawn(async move {
+                        let mut rt = rt_clone.lock().await;
+                        match rt.undo_last_turn() {
+                            Ok(paths) if paths.is_empty() => {
+                                let _ =
+                                    tx_clone.try_send(UiMessage::Delta("Nothing to undo".into()));
+                            }
+                            Ok(paths) => {
+                                let _ = tx_clone.try_send(UiMessage::Delta(format!(
+                                    "↩ Reverted {} file(s): {}",
+                                    paths.len(),
+                                    paths.join(", ")
+                                )));
+                            }
+                            Err(e) => {
+                                let _ = tx_clone
+                                    .try_send(UiMessage::Error(format!("Undo failed: {e}")));
+                            }
+                        }
+                        let _ = tx_clone.try_send(UiMessage::Done {
+                            ttft_ms: 0,
+                            total_ms: 0,
+                        });
+                    });
+                }
+                PendingCommand::CostTotal => {
+                    if let Ok(rt) = runtime.try_lock() {
+                        let (i, o, c) = rt.cumulative_cost();
+                        app.output_lines.push(format!(
+                            "All-time cost: ${c:.4} ({i} input + {o} output tokens)"
+                        ));
+                    }
+                }
+                PendingCommand::ModelSwitch(name) => {
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        let resolved = config.model_aliases.get(&name).cloned().unwrap_or(name);
+                        rt.set_model(resolved.clone());
+                        app.model.clone_from(&resolved);
+                        app.output_lines
+                            .push(format!("Switched to model: {resolved}"));
+                    }
+                }
+                PendingCommand::Export => {
+                    let path = session_path("export.md");
+                    match std::fs::write(&path, app.output_lines.join("\n")) {
+                        Ok(()) => app
+                            .output_lines
+                            .push(format!("Exported to {}", path.display())),
+                        Err(e) => app.output_lines.push(format!("Export failed: {e}")),
+                    }
+                }
+                PendingCommand::Init => {
+                    let dir = std::env::current_dir()
+                        .unwrap_or_default()
+                        .join(".magic-code");
+                    let conf = dir.join("config.toml");
+                    if conf.exists() {
+                        app.output_lines
+                            .push(format!("Config exists: {}", conf.display()));
+                    } else {
+                        let _ = std::fs::create_dir_all(&dir);
+                        let tmpl = "# magic-code project config\n# model = \"claude-sonnet-4-20250514\"\n# provider = \"anthropic\"\n";
+                        if std::fs::write(&conf, tmpl).is_ok() {
+                            let _ = std::fs::write(
+                                dir.join("instructions.md"),
+                                "# Project Instructions\n",
+                            );
+                            app.output_lines.push(format!("Created {}", conf.display()));
+                        }
+                    }
+                }
+                PendingCommand::Summary => {
+                    app.output_lines.push(format!(
+                        "Session: {} lines, {}↓ {}↑ tokens, ${:.4}, model: {}",
+                        app.output_lines.len(),
+                        app.total_input_tokens,
+                        app.total_output_tokens,
+                        app.session_cost,
+                        app.model
+                    ));
+                }
+                PendingCommand::Tokens => {
+                    if let Ok(rt) = runtime.try_lock() {
+                        let est = mc_core::estimate_tokens(&rt.session);
+                        let ctx = mc_core::ModelRegistry::default().context_window(&app.model);
+                        app.output_lines.push(format!(
+                            "Tokens: ~{est} / {ctx} ({}%)",
+                            (est as u64 * 100) / u64::from(ctx.max(1))
+                        ));
+                    }
+                }
+                PendingCommand::Context => {
+                    if let Ok(rt) = runtime.try_lock() {
+                        let est = mc_core::estimate_tokens(&rt.session);
+                        app.output_lines.push(format!(
+                            "Context: {} messages, ~{est} tokens, 11 tools",
+                            rt.session.messages.len()
+                        ));
+                    }
+                }
+                PendingCommand::CopyToClipboard(text) => {
+                    let cmd = if cfg!(target_os = "macos") {
+                        "pbcopy"
+                    } else {
+                        "xclip -selection clipboard"
+                    };
+                    if let Ok(mut child) = std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(cmd)
+                        .stdin(std::process::Stdio::piped())
+                        .spawn()
+                    {
+                        if let Some(ref mut stdin) = child.stdin {
+                            use std::io::Write;
+                            let _ = stdin.write_all(text.as_bytes());
+                        }
+                        let _ = child.wait();
+                    }
+                }
+                PendingCommand::Review => {
+                    if let Ok(o) = std::process::Command::new("git")
+                        .args(["diff", "HEAD"])
+                        .output()
+                    {
+                        let diff = String::from_utf8_lossy(&o.stdout);
+                        if diff.is_empty() {
+                            app.output_lines.push("No changes.".into());
+                        } else {
+                            for line in diff.lines() {
+                                app.output_lines.push(format!("  {line}"));
+                            }
+                        }
+                    }
+                }
+                PendingCommand::Retry => {
+                    if let Some(ref text) = app.last_user_input.clone() {
+                        app.handle_event(AppEvent::UserSubmit(text.clone()));
+                    }
+                }
+                PendingCommand::Doctor => {
+                    app.output_lines.push(format!(
+                        "🩺 v{} | {} | {} | git: {}",
+                        env!("CARGO_PKG_VERSION"),
+                        app.model,
+                        config.provider,
+                        if std::process::Command::new("git")
+                            .arg("--version")
+                            .output()
+                            .is_ok_and(|o| o.status.success())
+                        {
+                            "✓"
+                        } else {
+                            "✗"
+                        }
+                    ));
+                }
+                PendingCommand::Search(query) => {
+                    let dir = session_path("")
+                        .parent()
+                        .unwrap_or(std::path::Path::new("."))
+                        .to_path_buf();
+                    let mut found = Vec::new();
+                    if let Ok(entries) = std::fs::read_dir(&dir) {
+                        for e in entries.flatten() {
+                            if e.path().extension().is_some_and(|x| x == "json") {
+                                if let Ok(c) = std::fs::read_to_string(e.path()) {
+                                    if c.contains(&query) {
+                                        found.push(
+                                            e.path()
+                                                .file_stem()
+                                                .unwrap_or_default()
+                                                .to_string_lossy()
+                                                .to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    app.output_lines.push(if found.is_empty() {
+                        format!("No sessions matching \"{query}\"")
+                    } else {
+                        format!("Found: {}", found.join(", "))
+                    });
+                }
+                PendingCommand::Memory(cmd) => {
+                    app.output_lines.push(format!("📌 memory: {cmd}"));
+                }
+                PendingCommand::ThinkingToggle => {
+                    app.output_lines.push("💭 Thinking toggled".into());
+                }
+                PendingCommand::Branch(cmd) => {
+                    app.output_lines.push(format!("🌿 branch: {cmd}"));
+                }
+                PendingCommand::ImageAttach(path) => {
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        rt.attach_image(path, "image/png".into());
+                    }
+                }
+                PendingCommand::Git(cmd) => {
+                    let args: &[&str] = match cmd.as_str() {
+                        "diff" => &["diff"],
+                        "log" => &["log", "--oneline", "-10"],
+                        "stash" => &["stash"],
+                        "stash_pop" => &["stash", "pop"],
+                        "commit" => &["diff", "--cached", "--stat"],
+                        _ => &["status"],
+                    };
+                    if let Ok(o) = std::process::Command::new("git").args(args).output() {
+                        let out = String::from_utf8_lossy(&o.stdout);
+                        if cmd == "commit" {
+                            if out.trim().is_empty() {
+                                app.output_lines.push("Nothing staged.".into());
+                            } else {
+                                app.output_lines.push("Generating commit message...".into());
+                                if let Ok(diff) = std::process::Command::new("git")
+                                    .args(["diff", "--cached"])
+                                    .output()
+                                {
+                                    let diff_text =
+                                        String::from_utf8_lossy(&diff.stdout).to_string();
+                                    let rt_c = Arc::clone(&runtime);
+                                    let prov_c = Arc::clone(&provider);
+                                    let tx_c = ui_tx.clone();
+                                    tokio::spawn(async move {
+                                        let rt = rt_c.lock().await;
+                                        let msg =
+                                            rt.generate_commit_message(&*prov_c, &diff_text).await;
+                                        match std::process::Command::new("git")
+                                            .args(["commit", "-m", &msg])
+                                            .output()
+                                        {
+                                            Ok(co) => {
+                                                let _ = tx_c.try_send(UiMessage::Delta(format!(
+                                                    "✓ {}",
+                                                    String::from_utf8_lossy(&co.stdout).trim()
+                                                )));
+                                            }
+                                            Err(e) => {
+                                                let _ = tx_c.try_send(UiMessage::Error(format!(
+                                                    "commit: {e}"
+                                                )));
+                                            }
+                                        }
+                                        let _ = tx_c.try_send(UiMessage::Done {
+                                            ttft_ms: 0,
+                                            total_ms: 0,
+                                        });
+                                    });
+                                }
+                            }
+                        } else {
+                            for line in out.lines() {
+                                app.output_lines.push(format!("  {line}"));
+                            }
+                        }
+                    }
+                }
+            }
         }
 
+        // Handle deferred operations that need runtime lock
         if let Ok(mut rt) = runtime.try_lock() {
             if pending_plan_sync {
                 rt.plan_mode = app.plan_mode;
@@ -590,401 +852,6 @@ async fn run_tui(
                     }
                     Err(e) => app.handle_event(AppEvent::Error(e.to_string())),
                 }
-            }
-        } else if pending_save.is_some() || pending_load.is_some() {
-            app.handle_event(AppEvent::StreamDelta(
-                "Queued, waiting for current turn...".into(),
-            ));
-        }
-
-        if app.undo_requested {
-            app.undo_requested = false;
-            let rt_clone = Arc::clone(&runtime);
-            let tx_clone = ui_tx.clone();
-            tokio::spawn(async move {
-                let mut rt = rt_clone.lock().await;
-                match rt.undo_last_turn() {
-                    Ok(paths) if paths.is_empty() => {
-                        let _ = tx_clone.try_send(UiMessage::Delta("Nothing to undo".into()));
-                    }
-                    Ok(paths) => {
-                        let msg =
-                            format!("↩ Reverted {} file(s): {}", paths.len(), paths.join(", "));
-                        let _ = tx_clone.try_send(UiMessage::Delta(msg));
-                    }
-                    Err(e) => {
-                        let _ = tx_clone.try_send(UiMessage::Error(format!("Undo failed: {e}")));
-                    }
-                }
-                let _ = tx_clone.try_send(UiMessage::Done {
-                    ttft_ms: 0,
-                    total_ms: 0,
-                });
-            });
-        }
-
-        if app.cost_total_requested {
-            app.cost_total_requested = false;
-            if let Ok(rt) = runtime.try_lock() {
-                let (i, o, c) = rt.cumulative_cost();
-                app.output_lines.push(format!(
-                    "All-time cost: ${c:.4} ({i} input + {o} output tokens)"
-                ));
-            }
-        }
-
-        // Handle /model switch
-        if let Some(ref new_model) = app.model_switch.take() {
-            if let Ok(mut rt) = runtime.try_lock() {
-                // Check model aliases from config
-                let resolved = config
-                    .model_aliases
-                    .get(new_model)
-                    .cloned()
-                    .unwrap_or_else(|| new_model.clone());
-                rt.set_model(resolved.clone());
-                app.model.clone_from(&resolved);
-                app.output_lines
-                    .push(format!("Switched to model: {resolved}"));
-            }
-        }
-
-        // Handle /export
-        if app.export_requested {
-            app.export_requested = false;
-            let path = session_path("export.md");
-            let content = app.output_lines.join("\n");
-            match std::fs::write(&path, &content) {
-                Ok(()) => app
-                    .output_lines
-                    .push(format!("Exported to {}", path.display())),
-                Err(e) => app.output_lines.push(format!("Export failed: {e}")),
-            }
-        }
-
-        // Handle /init
-        if app.init_requested {
-            app.init_requested = false;
-            let dir = std::env::current_dir()
-                .unwrap_or_default()
-                .join(".magic-code");
-            let conf = dir.join("config.toml");
-            if conf.exists() {
-                app.output_lines
-                    .push(format!("Config already exists: {}", conf.display()));
-            } else {
-                let _ = std::fs::create_dir_all(&dir);
-                let template = concat!(
-                    "# magic-code project config\n",
-                    "# model = \"claude-sonnet-4-20250514\"\n",
-                    "# provider = \"anthropic\"\n",
-                    "# permission_mode = \"workspace-write\"\n",
-                    "\n",
-                    "[model_aliases]\n",
-                    "# fast = \"claude-haiku\"\n",
-                    "# smart = \"claude-sonnet-4-20250514\"\n",
-                );
-                match std::fs::write(&conf, template) {
-                    Ok(()) => {
-                        // Also create instructions.md
-                        let inst = dir.join("instructions.md");
-                        let _ = std::fs::write(
-                            &inst,
-                            "# Project Instructions\n\nAdd custom instructions for the AI here.\n",
-                        );
-                        app.output_lines
-                            .push(format!("Created {} and instructions.md", conf.display()));
-                    }
-                    Err(e) => app.output_lines.push(format!("Init failed: {e}")),
-                }
-            }
-        }
-
-        // Handle /summary
-        if app.summary_requested {
-            app.summary_requested = false;
-            let line_count = app.output_lines.len();
-            app.output_lines.push(format!(
-                "Session: {} lines, {} input + {} output tokens, ${:.4} cost, model: {}",
-                line_count,
-                app.total_input_tokens,
-                app.total_output_tokens,
-                app.session_cost,
-                app.model
-            ));
-        }
-
-        // Handle /tokens
-        if app.tokens_requested {
-            app.tokens_requested = false;
-            if let Ok(rt) = runtime.try_lock() {
-                let msg_count = rt.session.messages.len();
-                let est = mc_core::estimate_tokens(&rt.session);
-                let ctx = mc_core::ModelRegistry::default().context_window(&app.model);
-                app.output_lines.push(format!(
-                    "Tokens: {est} estimated ({} messages), context window: {ctx}, usage: {}%",
-                    msg_count,
-                    (est as u64 * 100) / u64::from(ctx.max(1))
-                ));
-                app.output_lines.push(format!(
-                    "  Session: {}↓ input + {}↑ output = {} total",
-                    app.total_input_tokens,
-                    app.total_output_tokens,
-                    app.total_input_tokens + app.total_output_tokens
-                ));
-            }
-        }
-
-        // Handle /context
-        if app.context_requested {
-            app.context_requested = false;
-            if let Ok(rt) = runtime.try_lock() {
-                app.output_lines.push("Context window contents:".into());
-                app.output_lines
-                    .push(format!("  System prompt: {} chars", rt.model().len()));
-                app.output_lines
-                    .push(format!("  Messages: {}", rt.session.messages.len()));
-                app.output_lines.push("  Tools: 11 registered".into());
-                let est = mc_core::estimate_tokens(&rt.session);
-                app.output_lines.push(format!("  Estimated tokens: {est}"));
-            }
-        }
-
-        // Handle clipboard (/copy) — write to system clipboard via xclip/pbcopy
-        if let Some(ref text) = app.clipboard.take() {
-            let cmd = if cfg!(target_os = "macos") {
-                "pbcopy"
-            } else {
-                "xclip -selection clipboard"
-            };
-            let mut child = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(cmd)
-                .stdin(std::process::Stdio::piped())
-                .spawn()
-                .ok();
-            if let Some(ref mut c) = child {
-                use std::io::Write;
-                if let Some(ref mut stdin) = c.stdin {
-                    let _ = stdin.write_all(text.as_bytes());
-                }
-                let _ = c.wait();
-            }
-        }
-
-        // Handle /review — show git diff of session changes
-        if app.review_requested {
-            app.review_requested = false;
-            match std::process::Command::new("git")
-                .args(["diff", "HEAD"])
-                .output()
-            {
-                Ok(o) => {
-                    let diff = String::from_utf8_lossy(&o.stdout);
-                    if diff.is_empty() {
-                        app.output_lines.push("No changes to review.".into());
-                    } else {
-                        app.output_lines.push("📝 Changes for review:".into());
-                        for line in diff.lines() {
-                            app.output_lines.push(format!("  {line}"));
-                        }
-                    }
-                }
-                Err(e) => app.output_lines.push(format!("git diff failed: {e}")),
-            }
-        }
-
-        // Handle /retry — re-submit last user input
-        if app.retry_requested {
-            app.retry_requested = false;
-            if let Some(ref text) = app.last_user_input.clone() {
-                app.handle_event(AppEvent::UserSubmit(text.clone()));
-            }
-        }
-
-        // Handle /doctor
-        if app.doctor_requested {
-            app.doctor_requested = false;
-            app.output_lines.push("🩺 Doctor check:".into());
-            app.output_lines
-                .push(format!("  Version: v{}", env!("CARGO_PKG_VERSION")));
-            app.output_lines.push(format!("  Model: {}", app.model));
-            app.output_lines
-                .push(format!("  Provider: {}", config.provider));
-            // Check git
-            let git_ok = std::process::Command::new("git")
-                .args(["--version"])
-                .output()
-                .is_ok_and(|o| o.status.success());
-            app.output_lines.push(format!(
-                "  Git: {}",
-                if git_ok { "✓" } else { "✗ not found" }
-            ));
-            // Check config
-            let warnings = config.validate();
-            if warnings.is_empty() {
-                app.output_lines.push("  Config: ✓ valid".into());
-            } else {
-                for w in &warnings {
-                    app.output_lines.push(format!("  Config: ⚠ {w}"));
-                }
-            }
-            // Check API key
-            let key_var = match config.provider.as_str() {
-                "anthropic" => "ANTHROPIC_API_KEY",
-                "openai" => "OPENAI_API_KEY",
-                "gemini" => "GEMINI_API_KEY",
-                _ => "API_KEY",
-            };
-            let key_ok = std::env::var(key_var).is_ok_and(|v| !v.is_empty());
-            app.output_lines.push(format!(
-                "  {key_var}: {}",
-                if key_ok { "✓ set" } else { "✗ missing" }
-            ));
-            app.output_lines.push(format!("  Tools: {} registered", 11));
-            app.output_lines.push(format!(
-                "  Sessions dir: {}",
-                session_path("")
-                    .parent()
-                    .unwrap_or(std::path::Path::new("."))
-                    .display()
-            ));
-        }
-
-        // Handle /search
-        if let Some(query) = app.search_query.take() {
-            let sessions_dir = session_path("")
-                .parent()
-                .unwrap_or(std::path::Path::new("."))
-                .to_path_buf();
-            let mut found = Vec::new();
-            if let Ok(entries) = std::fs::read_dir(&sessions_dir) {
-                for entry in entries.flatten() {
-                    if entry.path().extension().is_some_and(|e| e == "json") {
-                        if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                            if content.contains(&query) {
-                                found.push(
-                                    entry
-                                        .path()
-                                        .file_stem()
-                                        .unwrap_or_default()
-                                        .to_string_lossy()
-                                        .to_string(),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            if found.is_empty() {
-                app.output_lines
-                    .push(format!("No sessions matching \"{query}\""));
-            } else {
-                app.output_lines.push(format!(
-                    "Sessions matching \"{query}\": {}",
-                    found.join(", ")
-                ));
-            }
-        }
-
-        // Handle /memory command
-        if let Some(cmd) = app.memory_command.take() {
-            if let Ok(_rt) = runtime.try_lock() {
-                // Memory display is read-only, handled inline
-                app.output_lines.push(format!(
-                    "  📌 memory: {cmd} (handled by LLM via memory tools)"
-                ));
-            }
-        }
-
-        // Handle /thinking toggle
-        if app.thinking_toggle {
-            app.thinking_toggle = false;
-            app.output_lines.push(
-                "💭 Thinking display toggled (visual only — thinking is controlled by config)"
-                    .into(),
-            );
-        }
-
-        // Handle /fork, /branches, /switch, /branch delete
-        if let Some(cmd) = app.branch_command.take() {
-            app.output_lines.push(format!(
-                "  🌿 branch: {cmd} (branch management requires BranchManager setup)"
-            ));
-        }
-
-        // Handle git commands
-        if let Some(cmd) = app.git_command.take() {
-            let git_args: &[&str] = match cmd.as_str() {
-                "diff" => &["diff"],
-                "log" => &["log", "--oneline", "-10"],
-                "stash" => &["stash"],
-                "stash_pop" => &["stash", "pop"],
-                "commit" => &["diff", "--cached", "--stat"],
-                _ => &["status"],
-            };
-            match std::process::Command::new("git").args(git_args).output() {
-                Ok(o) => {
-                    let out = String::from_utf8_lossy(&o.stdout);
-                    let err = String::from_utf8_lossy(&o.stderr);
-                    if cmd == "commit" {
-                        // Show staged diff, then auto-commit with generated message
-                        if out.trim().is_empty() {
-                            app.output_lines
-                                .push("Nothing staged. Run `git add` first.".into());
-                        } else {
-                            app.output_lines.push(format!("Staged:\n{out}"));
-                            app.output_lines.push("Generating commit message...".into());
-                            if let Ok(diff) = std::process::Command::new("git")
-                                .args(["diff", "--cached"])
-                                .output()
-                            {
-                                let diff_text = String::from_utf8_lossy(&diff.stdout).to_string();
-                                let rt_clone = Arc::clone(&runtime);
-                                let prov_clone = Arc::clone(&provider);
-                                let tx_clone = ui_tx.clone();
-                                tokio::spawn(async move {
-                                    let rt = rt_clone.lock().await;
-                                    let msg =
-                                        rt.generate_commit_message(&*prov_clone, &diff_text).await;
-                                    match std::process::Command::new("git")
-                                        .args(["commit", "-m", &msg])
-                                        .output()
-                                    {
-                                        Ok(co) => {
-                                            let _ = tx_clone.try_send(UiMessage::Delta(format!(
-                                                "✓ {}",
-                                                String::from_utf8_lossy(&co.stdout).trim()
-                                            )));
-                                        }
-                                        Err(e) => {
-                                            let _ = tx_clone.try_send(UiMessage::Error(format!(
-                                                "commit failed: {e}"
-                                            )));
-                                        }
-                                    }
-                                    let _ = tx_clone.try_send(UiMessage::Done {
-                                        ttft_ms: 0,
-                                        total_ms: 0,
-                                    });
-                                });
-                            }
-                        }
-                    } else {
-                        if !out.is_empty() {
-                            for line in out.lines() {
-                                app.output_lines.push(format!("  {line}"));
-                            }
-                        }
-                        if !err.is_empty() {
-                            app.output_lines.push(format!("  {}", err.trim()));
-                        }
-                        if out.is_empty() && err.is_empty() {
-                            app.output_lines.push("  (no output)".into());
-                        }
-                    }
-                }
-                Err(e) => app.output_lines.push(format!("  ✗ git: {e}")),
             }
         }
 

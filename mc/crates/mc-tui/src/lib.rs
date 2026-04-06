@@ -5,5 +5,5 @@ mod input;
 pub mod markdown;
 pub mod ui;
 
-pub use app::{App, AppEvent, UiMessage};
+pub use app::{AgentState, App, AppEvent, PendingCommand, UiMessage};
 pub use history::InputHistory;

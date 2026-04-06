@@ -66,12 +66,17 @@ fn draw_output(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
     let input_text = app.input.as_str();
-    let display = if input_text.is_empty() && !app.waiting {
+    let display = if input_text.is_empty() && app.state == crate::AgentState::Idle {
         "› Type your prompt here..."
     } else {
         input_text
     };
-    let style = if app.waiting {
+    let style = if matches!(
+        app.state,
+        crate::AgentState::Streaming
+            | crate::AgentState::ToolExecuting(_)
+            | crate::AgentState::WaitingPermission
+    ) {
         Style::default().fg(Color::DarkGray)
     } else {
         Style::default()
@@ -82,13 +87,14 @@ fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(para, area);
 
     // Show cursor position
-    if !app.waiting {
+    if app.state == crate::AgentState::Idle {
         let cursor_x = area.x + 1 + app.input.cursor_pos() as u16;
         let cursor_y = area.y + 1;
         frame.set_cursor_position((cursor_x.min(area.right() - 2), cursor_y));
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
     // Show permission prompt if pending
     if let Some((ref tool, ref input)) = app.permission_pending {
@@ -167,15 +173,23 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
                     .fg(Color::Magenta)
                     .add_modifier(Modifier::BOLD),
             )
-        } else if app.waiting {
-            Span::styled("⟳ thinking...", Style::default().fg(Color::Yellow))
-        } else if app.ttft_ms > 0 {
-            Span::styled(
-                format!("ready (ttft {}ms, {}ms)", app.ttft_ms, app.turn_time_ms),
-                Style::default().fg(Color::Green),
-            )
         } else {
-            Span::styled("ready", Style::default().fg(Color::Green))
+            match &app.state {
+                crate::AgentState::Streaming => {
+                    Span::styled("⟳ streaming...", Style::default().fg(Color::Yellow))
+                }
+                crate::AgentState::ToolExecuting(name) => {
+                    Span::styled(format!("⚙ {name}..."), Style::default().fg(Color::Cyan))
+                }
+                crate::AgentState::WaitingPermission => {
+                    Span::styled("⚠ permission", Style::default().fg(Color::Red))
+                }
+                crate::AgentState::Idle if app.ttft_ms > 0 => Span::styled(
+                    format!("ready (ttft {}ms, {}ms)", app.ttft_ms, app.turn_time_ms),
+                    Style::default().fg(Color::Green),
+                ),
+                crate::AgentState::Idle => Span::styled("ready", Style::default().fg(Color::Green)),
+            }
         },
         Span::raw(" │ "),
         Span::styled(
