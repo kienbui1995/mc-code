@@ -108,50 +108,9 @@ fn auto_classify(
     if matches!(tool_name, "write_file" | "edit_file" | "memory_write") {
         return PermissionOutcome::Allow;
     }
-    // Bash: classify by command
+    // Bash: deep command classification
     if tool_name == "bash" {
-        let cmd = input_summary.trim();
-        let safe_prefixes = [
-            "ls",
-            "cat",
-            "head",
-            "tail",
-            "wc",
-            "grep",
-            "find",
-            "echo",
-            "pwd",
-            "env",
-            "git status",
-            "git log",
-            "git diff",
-            "git branch",
-            "git show",
-            "cargo test",
-            "cargo build",
-            "cargo check",
-            "cargo clippy",
-            "cargo fmt",
-            "npm test",
-            "npm run",
-            "npx",
-            "node",
-            "python",
-            "pytest",
-            "go test",
-            "make",
-        ];
-        if safe_prefixes.iter().any(|p| cmd.starts_with(p)) {
-            return PermissionOutcome::Allow;
-        }
-        let dangerous = [
-            "rm -rf", "sudo", "chmod", "curl|sh", "wget|sh", "> /dev/", "mkfs", "dd if=",
-        ];
-        if dangerous.iter().any(|d| cmd.contains(d)) {
-            return PermissionOutcome::Deny {
-                reason: format!("dangerous command blocked: {cmd}"),
-            };
-        }
+        return classify_bash_command(input_summary, prompter);
     }
     // Everything else: prompt
     match prompter {
@@ -163,6 +122,211 @@ fn auto_classify(
             reason: format!("tool '{tool_name}' requires approval"),
         },
     }
+}
+
+/// Deep bash command classification with compound command support.
+fn classify_bash_command(
+    input: &str,
+    prompter: Option<&mut dyn PermissionPrompter>,
+) -> PermissionOutcome {
+    let cmd = input.trim();
+
+    // Split compound commands (&&, ||, ;, |) and check each part
+    let parts: Vec<&str> = cmd
+        .split(&['&', '|', ';'][..])
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let mut needs_prompt = false;
+    for part in &parts {
+        match classify_single_command(part) {
+            CommandRisk::Safe => {}
+            CommandRisk::Dangerous(reason) => {
+                return PermissionOutcome::Deny {
+                    reason: format!("blocked: {reason}"),
+                };
+            }
+            CommandRisk::NeedsReview => needs_prompt = true,
+        }
+    }
+
+    if needs_prompt {
+        match prompter {
+            Some(p) => p.decide(&PermissionRequest {
+                tool_name: "bash".into(),
+                input_summary: input.to_string(),
+            }),
+            None => PermissionOutcome::Deny {
+                reason: "bash command requires approval".into(),
+            },
+        }
+    } else {
+        PermissionOutcome::Allow
+    }
+}
+
+enum CommandRisk {
+    Safe,
+    NeedsReview,
+    Dangerous(String),
+}
+
+fn classify_single_command(cmd: &str) -> CommandRisk {
+    const DANGEROUS: &[&str] = &[
+        "sudo",
+        "su",
+        "mkfs",
+        "fdisk",
+        "mount",
+        "umount",
+        "iptables",
+        "systemctl",
+        "service",
+        "shutdown",
+        "reboot",
+        "passwd",
+        "useradd",
+        "userdel",
+    ];
+    const DANGEROUS_PATTERNS: &[&str] = &[
+        "rm -rf /",
+        "rm -rf ~",
+        "rm -rf /*",
+        "> /dev/",
+        "curl|sh",
+        "curl|bash",
+        "wget|sh",
+        "wget|bash",
+        "dd if=",
+        "chmod 777",
+        "eval $(",
+        "`curl",
+        "$(curl",
+    ];
+    const SAFE: &[&str] = &[
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "wc",
+        "grep",
+        "rg",
+        "find",
+        "fd",
+        "echo",
+        "printf",
+        "pwd",
+        "env",
+        "which",
+        "type",
+        "date",
+        "whoami",
+        "hostname",
+        "uname",
+        "file",
+        "stat",
+        "diff",
+        "sort",
+        "uniq",
+        "tr",
+        "cut",
+        "awk",
+        "sed",
+        "jq",
+        "tree",
+        "du",
+        "df",
+        "free",
+        "top",
+        "ps",
+        "lsof",
+        "pgrep",
+        "git status",
+        "git log",
+        "git diff",
+        "git show",
+        "git branch",
+        "git remote",
+        "git tag",
+        "git stash list",
+        "git blame",
+    ];
+    const BUILD_SAFE: &[&str] = &[
+        "cargo test",
+        "cargo build",
+        "cargo check",
+        "cargo clippy",
+        "cargo fmt",
+        "cargo run",
+        "cargo doc",
+        "cargo bench",
+        "npm test",
+        "npm run",
+        "npm install",
+        "npm ci",
+        "npx",
+        "yarn test",
+        "yarn build",
+        "yarn install",
+        "pnpm test",
+        "pnpm run",
+        "pnpm install",
+        "python",
+        "python3",
+        "pytest",
+        "pip install",
+        "go test",
+        "go build",
+        "go run",
+        "go vet",
+        "make",
+        "cmake",
+        "gradle",
+        "mvn",
+        "node",
+        "deno",
+        "bun",
+        "rustc",
+        "gcc",
+        "g++",
+        "clang",
+    ];
+    const GIT_WRITE_SAFE: &[&str] = &[
+        "git add",
+        "git commit",
+        "git push",
+        "git pull",
+        "git fetch",
+        "git checkout",
+        "git switch",
+        "git merge",
+        "git rebase",
+        "git stash",
+        "git cherry-pick",
+        "git reset",
+    ];
+
+    let first_word = cmd.split_whitespace().next().unwrap_or("");
+
+    if DANGEROUS.contains(&first_word) {
+        return CommandRisk::Dangerous(format!("{first_word} blocked"));
+    }
+    for pat in DANGEROUS_PATTERNS {
+        if cmd.contains(pat) {
+            return CommandRisk::Dangerous(format!("dangerous: {pat}"));
+        }
+    }
+    if SAFE.iter().any(|s| cmd.starts_with(s)) {
+        return CommandRisk::Safe;
+    }
+    if BUILD_SAFE.iter().any(|s| cmd.starts_with(s)) {
+        return CommandRisk::Safe;
+    }
+    if GIT_WRITE_SAFE.iter().any(|s| cmd.starts_with(s)) {
+        return CommandRisk::Safe;
+    }
+    CommandRisk::NeedsReview
 }
 
 #[cfg(test)]

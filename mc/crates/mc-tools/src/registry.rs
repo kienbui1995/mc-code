@@ -298,17 +298,41 @@ impl ToolRegistry {
         if output.len() <= self.max_output_bytes {
             return output;
         }
-        let end = output
-            .char_indices()
-            .map(|(i, _)| i)
-            .take_while(|&i| i <= self.max_output_bytes)
-            .last()
-            .unwrap_or(0);
-        format!(
-            "{}...\n[truncated, {} bytes total]",
-            &output[..end],
-            output.len()
-        )
+        // Persist large output to disk instead of truncating
+        let path = std::env::temp_dir().join(format!(
+            "mc-output-{}.txt",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        ));
+        if std::fs::write(&path, &output).is_ok() {
+            let preview_end = output
+                .char_indices()
+                .map(|(i, _)| i)
+                .take_while(|&i| i <= 2000)
+                .last()
+                .unwrap_or(0);
+            format!(
+                "{}...\n\n[Full output ({} bytes) saved to: {}]\n[Use read_file to access specific sections]",
+                &output[..preview_end],
+                output.len(),
+                path.display()
+            )
+        } else {
+            // Fallback: truncate
+            let end = output
+                .char_indices()
+                .map(|(i, _)| i)
+                .take_while(|&i| i <= self.max_output_bytes)
+                .last()
+                .unwrap_or(0);
+            format!(
+                "{}...\n[truncated, {} bytes total]",
+                &output[..end],
+                output.len()
+            )
+        }
     }
 }
 
@@ -387,8 +411,8 @@ mod tests {
     fn truncates_large_output() {
         let reg = ToolRegistry::new().with_max_output(20);
         let result = reg.truncate_output("a".repeat(100));
-        assert!(result.contains("truncated"));
-        assert!(result.contains("100 bytes"));
+        // Large output is now persisted to disk with preview
+        assert!(result.contains("saved to") || result.contains("truncated"));
     }
 
     #[tokio::test]
