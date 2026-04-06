@@ -10,6 +10,7 @@ pub struct RepoMap {
 impl RepoMap {
     /// Scan workspace and build repo map. Respects .gitignore via simple heuristics.
     #[must_use]
+    /// Build.
     pub fn build(root: &Path) -> Self {
         let mut entries = BTreeMap::new();
         scan_dir(root, root, &mut entries);
@@ -18,6 +19,7 @@ impl RepoMap {
 
     /// Format as string for system prompt injection.
     #[must_use]
+    /// To prompt section.
     pub fn to_prompt_section(&self) -> String {
         if self.entries.is_empty() {
             return String::new();
@@ -46,6 +48,7 @@ impl RepoMap {
     }
 
     #[must_use]
+    /// File count.
     pub fn file_count(&self) -> usize {
         self.entries.len()
     }

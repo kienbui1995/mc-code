@@ -7,6 +7,7 @@ pub(crate) struct SseParser {
 }
 
 impl SseParser {
+    /// Push.
     pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<AnthropicStreamEvent>, ProviderError> {
         self.buffer.extend_from_slice(chunk);
         let mut events = Vec::new();
@@ -18,6 +19,7 @@ impl SseParser {
         Ok(events)
     }
 
+    /// Finish.
     pub fn finish(&mut self) -> Result<Vec<AnthropicStreamEvent>, ProviderError> {
         if self.buffer.is_empty() {
             return Ok(Vec::new());

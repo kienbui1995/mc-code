@@ -1,4 +1,5 @@
 #[derive(Debug, thiserror::Error)]
+/// Providererror.
 pub enum ProviderError {
     #[error("[MC-E001] missing API key: set {env_var}")]
     MissingApiKey { env_var: String },
@@ -26,6 +27,7 @@ pub enum ProviderError {
 
 impl ProviderError {
     #[must_use]
+    /// Is retryable.
     pub fn is_retryable(&self) -> bool {
         match self {
             Self::Http(e) => e.is_connect() || e.is_timeout() || e.is_request(),
@@ -36,6 +38,7 @@ impl ProviderError {
 
     /// Unique error ID for debugging.
     #[must_use]
+    /// Error id.
     pub fn error_id(&self) -> &'static str {
         match self {
             Self::MissingApiKey { .. } => "MC-E001",

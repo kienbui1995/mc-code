@@ -7,6 +7,7 @@ struct CacheEntry {
     created_at: Instant,
 }
 
+/// Toolcache.
 pub struct ToolCache {
     entries: HashMap<u64, CacheEntry>,
     cacheable_tools: HashSet<String>,
@@ -16,6 +17,7 @@ pub struct ToolCache {
 
 impl ToolCache {
     #[must_use]
+    /// New.
     pub fn new(ttl_secs: u64, max_entries: usize) -> Self {
         let cacheable = ["glob_search", "grep_search", "read_file"]
             .iter()
@@ -30,6 +32,7 @@ impl ToolCache {
     }
 
     #[must_use]
+    /// Get.
     pub fn get(&self, tool: &str, input: &serde_json::Value) -> Option<&str> {
         if !self.cacheable_tools.contains(tool) {
             return None;
@@ -42,6 +45,7 @@ impl ToolCache {
         Some(&entry.output)
     }
 
+    /// Put.
     pub fn put(&mut self, tool: &str, input: &serde_json::Value, output: String) {
         if !self.cacheable_tools.contains(tool) {
             return;
@@ -75,11 +79,13 @@ impl ToolCache {
     }
 
     #[must_use]
+    /// Len.
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     #[must_use]
+    /// Is empty.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }

@@ -1,17 +1,20 @@
 use std::path::{Path, PathBuf};
 
+/// Resolvedcontext.
 pub struct ResolvedContext {
     pub path: String,
     pub content: String,
     pub token_estimate: usize,
 }
 
+/// Contextresolver.
 pub struct ContextResolver {
     workspace_root: PathBuf,
 }
 
 impl ContextResolver {
     #[must_use]
+    /// New.
     pub fn new(workspace_root: PathBuf) -> Self {
         Self { workspace_root }
     }
@@ -19,6 +22,7 @@ impl ContextResolver {
     /// Parse `@path` mentions from input, resolve to file contents.
     /// Returns `(cleaned_input, resolved_contexts)`.
     #[must_use]
+    /// Resolve.
     pub fn resolve(&self, input: &str) -> (String, Vec<ResolvedContext>) {
         let mut contexts = Vec::new();
         let mut cleaned = String::with_capacity(input.len());
@@ -54,6 +58,7 @@ impl ContextResolver {
 
     /// Build the augmented user message with file contents prepended.
     #[must_use]
+    /// Build message.
     pub fn build_message(input: &str, contexts: &[ResolvedContext]) -> String {
         if contexts.is_empty() {
             return input.to_string();

@@ -10,6 +10,7 @@ pub struct InputHistory {
 
 impl InputHistory {
     #[must_use]
+    /// New.
     pub fn new(max_entries: usize) -> Self {
         Self {
             entries: Vec::new(),
@@ -21,6 +22,7 @@ impl InputHistory {
 
     /// Load history from file. Non-fatal if missing.
     #[must_use]
+    /// Load from.
     pub fn load_from(path: PathBuf) -> Self {
         let entries: Vec<String> = std::fs::read_to_string(&path)
             .ok()
@@ -40,6 +42,7 @@ impl InputHistory {
         }
     }
 
+    /// Push.
     pub fn push(&mut self, entry: &str) {
         let trimmed = entry.trim().to_string();
         if trimmed.is_empty() {
@@ -85,6 +88,7 @@ impl InputHistory {
     }
 
     #[must_use]
+    /// Entries.
     pub fn entries(&self) -> &[String] {
         &self.entries
     }

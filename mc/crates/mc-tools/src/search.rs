@@ -2,10 +2,13 @@ use std::path::Path;
 
 use crate::error::ToolError;
 
+/// Globsearchtool.
 pub struct GlobSearchTool;
+/// Grepsearchtool.
 pub struct GrepSearchTool;
 
 impl GlobSearchTool {
+    /// Execute.
     pub fn execute(pattern: &str, base_path: Option<&str>) -> Result<String, ToolError> {
         let full_pattern = match base_path {
             Some(base) => format!("{base}/{pattern}"),
@@ -25,6 +28,7 @@ impl GlobSearchTool {
 }
 
 impl GrepSearchTool {
+    /// Execute.
     pub fn execute(
         pattern: &str,
         path: Option<&str>,

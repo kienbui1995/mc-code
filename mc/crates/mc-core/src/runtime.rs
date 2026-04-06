@@ -37,6 +37,7 @@ pub struct TurnResult {
     pub cancelled: bool,
 }
 
+/// Llmprovider.
 pub trait LlmProvider: Send + Sync {
     fn stream(&self, request: &CompletionRequest) -> ProviderStream;
 }
@@ -83,6 +84,7 @@ pub struct ConversationRuntime {
 
 impl ConversationRuntime {
     #[must_use]
+    /// New.
     pub fn new(model: String, max_tokens: u32, system_prompt: String) -> Self {
         let subagent = SubagentSpawner::new(model.clone(), max_tokens);
         let audit_log = AuditLog::default_path().map(AuditLog::new).map(Arc::new);
@@ -114,18 +116,23 @@ impl ConversationRuntime {
         }
     }
 
+    /// Set hooks.
     pub fn set_hooks(&mut self, engine: HookEngine) {
         self.hook_engine = Some(Arc::new(engine));
     }
+    /// Set tool registry.
     pub fn set_tool_registry(&mut self, registry: ToolRegistry) {
         self.tool_registry = Arc::new(registry);
     }
+    /// Set retry policy.
     pub fn set_retry_policy(&mut self, policy: RetryPolicy) {
         self.retry_policy = policy;
     }
+    /// Set token budget.
     pub fn set_token_budget(&mut self, budget: TokenBudget) {
         self.token_budget = budget;
     }
+    /// Set memory.
     pub fn set_memory(&mut self, memory: MemoryStore) {
         self.memory = Some(memory);
     }
@@ -135,9 +142,11 @@ impl ConversationRuntime {
         self.pending_image = Some((path, media_type));
     }
 
+    /// Set thinking budget.
     pub fn set_thinking_budget(&mut self, budget: Option<u32>) {
         self.thinking_budget = budget;
     }
+    /// Set context resolver.
     pub fn set_context_resolver(&mut self, resolver: ContextResolver) {
         self.context_resolver = Some(resolver);
     }
@@ -156,6 +165,7 @@ impl ConversationRuntime {
     }
 
     #[must_use]
+    /// Model.
     pub fn model(&self) -> &str {
         &self.model
     }
@@ -205,6 +215,7 @@ impl ConversationRuntime {
 
     /// Cumulative cost across all sessions from disk.
     #[must_use]
+    /// Cumulative cost.
     pub fn cumulative_cost(&self) -> (u64, u64, f64) {
         self.cost_tracker
             .as_ref()
@@ -212,6 +223,7 @@ impl ConversationRuntime {
     }
 
     #[allow(clippy::too_many_lines)]
+    /// Run turn.
     pub async fn run_turn(
         &mut self,
         provider: &dyn LlmProvider,
@@ -912,6 +924,7 @@ impl ConversationRuntime {
     }
 }
 
+/// Next event.
 pub async fn next_event(
     stream: &mut Pin<Box<dyn Stream<Item = Result<ProviderEvent, ProviderError>> + Send>>,
 ) -> Option<Result<ProviderEvent, ProviderError>> {

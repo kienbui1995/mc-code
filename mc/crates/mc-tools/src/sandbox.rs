@@ -10,6 +10,7 @@ pub struct Sandbox {
 
 impl Sandbox {
     #[must_use]
+    /// New.
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
@@ -26,12 +27,14 @@ impl Sandbox {
 
     /// Add extra protected patterns from config.
     #[must_use]
+    /// With protected.
     pub fn with_protected(mut self, patterns: Vec<String>) -> Self {
         self.protected.extend(patterns);
         self
     }
 
     #[must_use]
+    /// Root.
     pub fn root(&self) -> &Path {
         &self.root
     }

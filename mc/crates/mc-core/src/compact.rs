@@ -6,6 +6,7 @@ use crate::session::{Block, ConversationMessage, Role, Session};
 
 /// Estimate token count (rough: 4 chars ~ 1 token).
 #[must_use]
+/// Estimate tokens.
 pub fn estimate_tokens(session: &Session) -> usize {
     session
         .messages
@@ -15,6 +16,7 @@ pub fn estimate_tokens(session: &Session) -> usize {
 }
 
 #[must_use]
+/// Should compact.
 pub fn should_compact(session: &Session, context_window: usize, threshold: f64) -> bool {
     let estimated = estimate_tokens(session);
     let limit = (context_window as f64 * threshold) as usize;
@@ -68,6 +70,7 @@ pub fn snip_thinking(session: &mut Session, keep_recent: usize) {
     }
 }
 
+/// Compact session.
 pub fn compact_session(session: &mut Session, preserve_recent: usize) {
     if session.messages.len() <= preserve_recent {
         return;

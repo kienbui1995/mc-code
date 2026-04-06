@@ -18,6 +18,7 @@ use crate::web::{WebFetchTool, WebSearchTool};
 const DEFAULT_MAX_OUTPUT: usize = 100_000;
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// Toolregistry.
 pub struct ToolRegistry {
     sandbox: Option<Sandbox>,
     max_output_bytes: usize,
@@ -28,6 +29,7 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     #[must_use]
+    /// New.
     pub fn new() -> Self {
         Self {
             sandbox: None,
@@ -39,6 +41,7 @@ impl ToolRegistry {
     }
 
     #[must_use]
+    /// With workspace root.
     pub fn with_workspace_root(mut self, root: PathBuf) -> Self {
         self.sandbox = Some(Sandbox::new(root));
         self
@@ -46,6 +49,7 @@ impl ToolRegistry {
 
     /// Add file protection patterns (e.g. `.env`, `*.key`).
     #[must_use]
+    /// With protected patterns.
     pub fn with_protected_patterns(mut self, patterns: Vec<String>) -> Self {
         if let Some(ref mut sandbox) = self.sandbox {
             sandbox.protected.extend(patterns);
@@ -54,6 +58,7 @@ impl ToolRegistry {
     }
 
     #[must_use]
+    /// With max output.
     pub fn with_max_output(mut self, bytes: usize) -> Self {
         self.max_output_bytes = bytes;
         self
@@ -78,6 +83,7 @@ impl ToolRegistry {
 
     /// All tool specs including MCP tools.
     #[must_use]
+    /// All specs.
     pub fn all_specs(&self) -> Vec<ToolSpec> {
         let mut specs = all_tool_specs();
         specs.extend(self.mcp_tool_specs.clone());
@@ -85,10 +91,12 @@ impl ToolRegistry {
     }
 
     #[must_use]
+    /// Specs.
     pub fn specs() -> Vec<ToolSpec> {
         all_tool_specs()
     }
 
+    /// Execute.
     pub async fn execute(&self, name: &str, input: &Value) -> Result<String, ToolError> {
         tracing::debug!(tool = name, "executing tool");
         Self::validate_input(name, input)?;

@@ -1,6 +1,7 @@
 use crate::history::InputHistory;
 use crate::input::InputBuffer;
 
+/// Appevent.
 pub enum AppEvent {
     UserSubmit(String),
     SlashCommand(String),
@@ -13,6 +14,7 @@ pub enum AppEvent {
 
 /// Messages sent from background LLM task to TUI.
 #[derive(Debug, Clone)]
+/// Uimessage.
 pub enum UiMessage {
     Delta(String),
     ToolCall(String),
@@ -45,6 +47,7 @@ pub enum UiMessage {
 /// Commands that need processing by main.rs (require runtime/provider access).
 /// Effort level controlling thinking budget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Effortlevel.
 pub enum EffortLevel {
     /// ○ Low: minimal thinking, fast and cheap (~4K tokens).
     Low,
@@ -56,6 +59,7 @@ pub enum EffortLevel {
 
 impl EffortLevel {
     #[must_use]
+    /// Symbol.
     pub fn symbol(self) -> &'static str {
         match self {
             Self::Low => "○",
@@ -65,6 +69,7 @@ impl EffortLevel {
     }
 
     #[must_use]
+    /// Thinking budget.
     pub fn thinking_budget(self) -> Option<u32> {
         match self {
             Self::Low => None, // no extended thinking
@@ -124,6 +129,7 @@ pub enum AgentState {
 }
 
 #[allow(clippy::struct_excessive_bools)]
+/// App.
 pub struct App {
     pub input: InputBuffer,
     pub history: InputHistory,
@@ -167,6 +173,7 @@ pub struct App {
 
 impl App {
     #[must_use]
+    /// New.
     pub fn new(model: String) -> Self {
         let history_path = std::env::var_os("HOME")
             .map(|h| std::path::PathBuf::from(h).join(".local/share/magic-code/history"));
@@ -210,6 +217,7 @@ impl App {
         }
     }
 
+    /// Handle event.
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::UserSubmit(text) => {
@@ -954,6 +962,7 @@ impl App {
         }
     }
 
+    /// Submit input.
     pub fn submit_input(&mut self) -> Option<AppEvent> {
         if self.state != AgentState::Idle || self.input.is_empty() {
             return None;

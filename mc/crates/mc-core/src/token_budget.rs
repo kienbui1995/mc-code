@@ -12,6 +12,7 @@ pub struct TokenBudget {
 
 impl TokenBudget {
     #[must_use]
+    /// New.
     pub fn new(context_window: usize, response_reserve: usize) -> Self {
         Self {
             context_window,
@@ -22,6 +23,7 @@ impl TokenBudget {
     /// Tokens available for conversation history.
     /// `context_window - system_tokens - tool_schema_tokens - response_reserve`
     #[must_use]
+    /// Available for messages.
     pub fn available_for_messages(&self, system_tokens: usize, tool_schema_tokens: usize) -> usize {
         self.context_window
             .saturating_sub(system_tokens)
@@ -32,6 +34,7 @@ impl TokenBudget {
     /// Dynamically compute max output tokens based on how much context is used.
     /// Returns `min(response_reserve, context_window - used_context)`, clamped to ≥1.
     #[must_use]
+    /// Effective max tokens.
     pub fn effective_max_tokens(&self, used_context: usize) -> u32 {
         let remaining = self.context_window.saturating_sub(used_context);
         let effective = remaining.min(self.response_reserve);
@@ -40,6 +43,7 @@ impl TokenBudget {
 
     /// Estimate tokens used by a session's message history.
     #[must_use]
+    /// Session tokens.
     pub fn session_tokens(session: &Session) -> usize {
         estimate_tokens(session)
     }

@@ -10,12 +10,14 @@ pub struct CostTracker {
 
 impl CostTracker {
     #[must_use]
+    /// Default path.
     pub fn default_path() -> Option<PathBuf> {
         std::env::var_os("HOME")
             .map(|h| PathBuf::from(h).join(".local/share/magic-code/usage.jsonl"))
     }
 
     #[must_use]
+    /// New.
     pub fn new(path: PathBuf) -> Self {
         Self { path }
     }
@@ -43,6 +45,7 @@ impl CostTracker {
 
     /// Read all entries and return cumulative (`input_tokens`, `output_tokens`, cost).
     #[must_use]
+    /// Cumulative.
     pub fn cumulative(&self) -> (u64, u64, f64) {
         let Ok(file) = fs::File::open(&self.path) else {
             return (0, 0, 0.0);

@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 #[derive(Debug, thiserror::Error)]
+/// Configerror.
 pub enum ConfigError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
@@ -11,6 +12,7 @@ pub enum ConfigError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Permissionmode.
 pub enum PermissionMode {
     ReadOnly,
     #[default]
@@ -20,6 +22,7 @@ pub enum PermissionMode {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Providerconfig.
 pub struct ProviderConfig {
     pub api_key_env: String,
     pub max_retries: u32,
@@ -30,6 +33,7 @@ pub struct ProviderConfig {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Compactionconfig.
 pub struct CompactionConfig {
     pub auto_compact_threshold: Option<f64>,
     pub preserve_recent_messages: Option<usize>,
@@ -37,6 +41,7 @@ pub struct CompactionConfig {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Retryconfig.
 pub struct RetryConfig {
     pub max_attempts: Option<u32>,
     pub initial_backoff_ms: Option<u64>,
@@ -45,6 +50,7 @@ pub struct RetryConfig {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Memoryconfig.
 pub struct MemoryConfig {
     pub path: Option<String>,
     pub max_facts: Option<usize>,
@@ -52,6 +58,7 @@ pub struct MemoryConfig {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Thinkingconfig.
 pub struct ThinkingConfig {
     pub enabled: Option<bool>,
     pub budget_tokens: Option<u32>,
@@ -60,6 +67,7 @@ pub struct ThinkingConfig {
 /// Raw TOML layer — all fields Optional so we can detect explicit overrides.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Configlayer.
 pub struct ConfigLayer {
     pub default: DefaultLayer,
     pub providers: BTreeMap<String, ProviderConfig>,
@@ -76,6 +84,7 @@ pub struct ConfigLayer {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Defaultlayer.
 pub struct DefaultLayer {
     pub provider: Option<String>,
     pub model: Option<String>,
@@ -85,6 +94,7 @@ pub struct DefaultLayer {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
+/// Contextlayer.
 pub struct ContextLayer {
     pub instruction_files: Option<Vec<String>>,
     pub ignore_patterns: Option<Vec<String>>,
@@ -96,6 +106,7 @@ pub type MagicCodeConfig = ConfigLayer;
 
 /// MCP server configuration.
 #[derive(Debug, Clone, Deserialize)]
+/// Mcpserverconfig.
 pub struct McpServerConfig {
     pub name: String,
     pub command: String,
@@ -107,6 +118,7 @@ pub struct McpServerConfig {
 
 /// Hook configuration.
 #[derive(Debug, Clone, Deserialize)]
+/// Hookconfig.
 pub struct HookConfig {
     pub event: String,
     pub command: String,
@@ -116,6 +128,7 @@ pub struct HookConfig {
 
 /// Resolved runtime config after merging all layers.
 #[derive(Debug, Clone)]
+/// Runtimeconfig.
 pub struct RuntimeConfig {
     pub provider: String,
     pub fallback_provider: Option<String>,
@@ -144,6 +157,7 @@ pub struct RuntimeConfig {
 impl RuntimeConfig {
     #[must_use]
     #[allow(clippy::too_many_lines)]
+    /// From layers.
     pub fn from_layers(layers: &[ConfigLayer]) -> Self {
         let mut provider: Option<String> = None;
         let mut model: Option<String> = None;
@@ -257,6 +271,7 @@ impl RuntimeConfig {
 
     /// Validate config and return warnings for suspicious values.
     #[must_use]
+    /// Validate.
     pub fn validate(&self) -> Vec<String> {
         let mut warnings = Vec::new();
         if self.max_tokens == 0 {

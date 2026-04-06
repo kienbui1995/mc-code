@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Permissionmode.
 pub enum PermissionMode {
     Allow,
     Deny,
@@ -10,22 +11,26 @@ pub enum PermissionMode {
 }
 
 #[derive(Debug, Clone)]
+/// Permissionrequest.
 pub struct PermissionRequest {
     pub tool_name: String,
     pub input_summary: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Permissionoutcome.
 pub enum PermissionOutcome {
     Allow,
     Deny { reason: String },
 }
 
+/// Permissionprompter.
 pub trait PermissionPrompter: Send {
     fn decide(&mut self, request: &PermissionRequest) -> PermissionOutcome;
 }
 
 #[derive(Clone)]
+/// Permissionpolicy.
 pub struct PermissionPolicy {
     default_mode: PermissionMode,
     tool_modes: BTreeMap<String, PermissionMode>,
@@ -33,6 +38,7 @@ pub struct PermissionPolicy {
 
 impl PermissionPolicy {
     #[must_use]
+    /// New.
     pub fn new(default_mode: PermissionMode) -> Self {
         Self {
             default_mode,
@@ -41,12 +47,14 @@ impl PermissionPolicy {
     }
 
     #[must_use]
+    /// With tool mode.
     pub fn with_tool_mode(mut self, tool: impl Into<String>, mode: PermissionMode) -> Self {
         self.tool_modes.insert(tool.into(), mode);
         self
     }
 
     #[must_use]
+    /// Authorize.
     pub fn authorize(
         &self,
         tool_name: &str,

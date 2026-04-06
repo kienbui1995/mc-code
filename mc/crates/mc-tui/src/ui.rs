@@ -13,6 +13,7 @@ thread_local! {
     static HIGHLIGHTER: Highlighter = Highlighter::default();
 }
 
+/// Draw.
 pub fn draw(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
     app.viewport_height = area.height.saturating_sub(4); // input + status

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Fact.
 pub struct Fact {
     pub key: String,
     pub value: String,
@@ -15,6 +16,7 @@ struct MemoryFile {
     facts: Vec<Fact>,
 }
 
+/// Memorystore.
 pub struct MemoryStore {
     facts: Vec<Fact>,
     path: PathBuf,
@@ -23,6 +25,7 @@ pub struct MemoryStore {
 
 impl MemoryStore {
     #[must_use]
+    /// Load.
     pub fn load(path: &Path, max_facts: usize) -> Self {
         let facts = fs::read_to_string(path)
             .ok()
@@ -35,6 +38,7 @@ impl MemoryStore {
         }
     }
 
+    /// Save.
     pub fn save(&self) -> Result<(), std::io::Error> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
@@ -48,10 +52,12 @@ impl MemoryStore {
     }
 
     #[must_use]
+    /// Get.
     pub fn get(&self, key: &str) -> Option<&Fact> {
         self.facts.iter().find(|f| f.key == key)
     }
 
+    /// Set.
     pub fn set(&mut self, key: &str, value: &str) {
         let ts = now_iso();
         if let Some(f) = self.facts.iter_mut().find(|f| f.key == key) {
@@ -67,6 +73,7 @@ impl MemoryStore {
         }
     }
 
+    /// Delete.
     pub fn delete(&mut self, key: &str) -> bool {
         let len = self.facts.len();
         self.facts.retain(|f| f.key != key);
@@ -74,22 +81,26 @@ impl MemoryStore {
     }
 
     #[must_use]
+    /// All.
     pub fn all(&self) -> &[Fact] {
         &self.facts
     }
 
     #[must_use]
+    /// Len.
     pub fn len(&self) -> usize {
         self.facts.len()
     }
 
     #[must_use]
+    /// Is empty.
     pub fn is_empty(&self) -> bool {
         self.facts.is_empty()
     }
 
     /// Format facts for injection into system prompt. Returns "" if empty.
     #[must_use]
+    /// To prompt section.
     pub fn to_prompt_section(&self) -> String {
         if self.facts.is_empty() {
             return String::new();
@@ -104,6 +115,7 @@ impl MemoryStore {
 
     /// Handle `memory_read` tool call. Returns JSON output.
     #[must_use]
+    /// Handle read.
     pub fn handle_read(&self, input: &serde_json::Value) -> String {
         if let Some(key) = input.get("key").and_then(|v| v.as_str()) {
             match self.get(key) {

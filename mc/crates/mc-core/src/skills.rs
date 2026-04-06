@@ -2,6 +2,7 @@ use std::path::Path;
 
 /// A loaded skill from `.magic-code/skills/SKILL.md`.
 #[derive(Debug, Clone)]
+/// Skill.
 pub struct Skill {
     pub name: String,
     pub description: String,
@@ -12,6 +13,7 @@ pub struct Skill {
 
 /// Discover skills from `.magic-code/skills/` directory.
 #[must_use]
+/// Discover skills.
 pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
     let dir = workspace.join(".magic-code/skills");
     let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -80,6 +82,7 @@ fn extract_field(frontmatter: &str, key: &str) -> Option<String> {
 
 /// Build skill descriptions for the system prompt (metadata only, not full content).
 #[must_use]
+/// Skills prompt section.
 pub fn skills_prompt_section(skills: &[Skill]) -> String {
     if skills.is_empty() {
         return String::new();

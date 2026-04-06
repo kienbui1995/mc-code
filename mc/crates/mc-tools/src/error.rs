@@ -1,4 +1,5 @@
 #[derive(Debug, thiserror::Error)]
+/// Toolerror.
 pub enum ToolError {
     #[error("tool not found: {0}")]
     NotFound(String),

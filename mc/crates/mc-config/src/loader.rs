@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::types::{ConfigError, ConfigLayer, RuntimeConfig};
 
 #[allow(clippy::struct_field_names)]
+/// Configloader.
 pub struct ConfigLoader {
     global_path: PathBuf,
     project_path: PathBuf,
@@ -11,6 +12,7 @@ pub struct ConfigLoader {
 
 impl ConfigLoader {
     #[must_use]
+    /// New.
     pub fn new(cwd: &Path) -> Self {
         let global_dir = dirs_global_config();
         Self {
@@ -20,6 +22,7 @@ impl ConfigLoader {
         }
     }
 
+    /// Load.
     pub fn load(&self) -> Result<RuntimeConfig, ConfigError> {
         let mut layers = Vec::new();
         for path in [&self.global_path, &self.project_path, &self.local_path] {

@@ -135,6 +135,7 @@ impl McpClient {
 
     /// Check if the MCP server process is still alive.
     #[must_use]
+    /// Is alive.
     pub fn is_alive(&mut self) -> bool {
         self.child.try_wait().ok().flatten().is_none()
     }

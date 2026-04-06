@@ -16,6 +16,7 @@ const DEFAULT_MAX_RETRIES: u32 = 2;
 const DEFAULT_INITIAL_BACKOFF: Duration = Duration::from_millis(200);
 const DEFAULT_MAX_BACKOFF: Duration = Duration::from_secs(2);
 
+/// Anthropicprovider.
 pub struct AnthropicProvider {
     http: reqwest::Client,
     api_key: String,
@@ -26,6 +27,7 @@ pub struct AnthropicProvider {
 }
 
 impl AnthropicProvider {
+    /// From env.
     pub fn from_env() -> Result<Self, ProviderError> {
         let api_key = read_env_key("ANTHROPIC_API_KEY")?;
         let base_url =
@@ -42,6 +44,7 @@ impl AnthropicProvider {
     }
 
     #[must_use]
+    /// With config.
     pub fn with_config(api_key: String, base_url: Option<String>, max_retries: u32) -> Self {
         Self {
             http: reqwest::Client::new(),
@@ -54,6 +57,7 @@ impl AnthropicProvider {
     }
 
     #[must_use]
+    /// Model info.
     pub fn model_info(model: &str) -> ModelInfo {
         let context_window = match model {
             m if m.contains("opus") => 200_000,
