@@ -1,32 +1,52 @@
 # What's New
 
-## Version 0.2.0
+## Version 0.7.0
 
-### 🎉 New Features
+### 🎉 Highlights
+- **44+ new features** since v0.2.0
+- **11 tools** (was 9): added `web_fetch`, `web_search`
+- **141 tests** (was 123)
+- **Pure Rust repo** — removed all legacy Python/Rust code (-14,858 lines)
+- **8.1MB binary**, 1ms startup
 
-- **Image support** — Send screenshots and diagrams to the AI with `/image`
-- **Long-term memory** — The AI remembers project facts across sessions
-- **Smart thinking** — See the AI's reasoning process for complex tasks
-- **File mentions** — Type `@src/main.rs` to include file content in your prompt
-- **Undo changes** — `/undo` reverts the last set of file changes
-- **Conversation branching** — Fork conversations to try different approaches
-- **Faster tool execution** — Multiple tools now run in parallel
+### 🔧 v0.3.0 — Streaming & UX
+- Streaming bash output (real-time stdout/stderr)
+- Cost tracking persistence (`/cost --total`)
+- Mouse scroll support
+- Tab completion for slash commands
 
-### 🔧 Improvements
+### 🌐 v0.4.0 — Web & Git
+- `web_fetch` / `web_search` tools
+- Git integration: `/diff`, `/commit` (LLM-generated messages), `/log`, `/stash`
+- `/model` switch mid-session + model aliases
+- Context window usage bar in status
+- `/clear`, `/export`, `/summary`, `/search`
+- `/init` project wizard + custom instructions (`.magic-code/instructions.md`)
+- File protection (`.env`, `*.key`, `.git/*`)
+- Dry-run mode
 
-- **Lower costs** — Prompt caching reduces API costs by up to 90%
-- **Smarter responses** — Dynamic token budget adapts to conversation length
-- **More reliable** — Automatic retry when connection drops mid-response
-- **Read-only caching** — Repeated file reads are instant
+### 🚀 v0.5.0 — Polish
+- LLM-generated commit messages
+- Provider fallback config
+- Session auto-save every 5 turns
+- Terminal bell on completion
+- `/doctor` health check
 
-### 📋 New Commands
+### 🧩 v0.6.0 — Productivity
+- `/template` (review, refactor, test, explain, document, optimize, security)
+- Plugin system (`.magic-code/tools/*.sh`)
+- `/review` file changes
+- Latency metrics (TTFT + total in status bar)
+- `/retry`, `/pin`, `/theme`
 
-| Command | What it does |
-|---|---|
-| `/image <path>` | Attach an image to your prompt |
-| `/memory` | View saved project facts |
-| `/undo` | Revert last turn's file changes |
-| `/thinking` | Toggle AI reasoning display |
-| `/fork` | Fork the conversation |
-| `/branches` | List conversation branches |
-| `/switch <name>` | Switch to a branch |
+### 🏗️ v0.7.0 — Architecture
+- `/copy`, `/version`, `/history`, `/tokens`, `/context`, `/alias`
+- Context window preflight (auto-compact before oversized requests)
+- `--json` output mode for automation
+- Error IDs (MC-E001 through MC-E006)
+- System prompt v2 (tool guidelines, error recovery)
+- `PendingCommand` enum (replaced 20 boolean flags)
+- `AgentState` enum (Idle/Streaming/ToolExecuting/WaitingPermission)
+- MCP timeout + health check
+- ADR-003 permission model documentation
+- 4 new integration tests

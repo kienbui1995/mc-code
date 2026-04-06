@@ -1,55 +1,57 @@
 # Contributing to magic-code
 
-## Setup
+## Quick Start
 
 ```bash
-git clone https://github.com/kienbui1995/magic-code
-cd magic-code/mc
+git clone https://github.com/kienbui1995/mc-code.git
+cd mc-code/mc
 cargo test --workspace
+cargo run -- "hello"
 ```
 
 ## Development
 
 ```bash
-# Run with debug logging
-cargo run -- -v "hello"
-
-# Run TUI
-cargo run
-
-# Check everything
-cargo clippy --workspace --all-targets
-cargo test --workspace
-cargo fmt --all -- --check
+just check          # fmt + clippy + test (what CI runs)
+just run "prompt"   # run in debug mode
+just build          # release build
 ```
 
 ## Architecture
 
-See `mc/README.md` for crate-level architecture.
+6 crates, strict dependency rules:
 
-Key principles:
-- Each crate has clear boundaries enforced at compile time
-- `mc-provider` and `mc-tools` have no dependency on each other
-- `mc-core` orchestrates everything
-- All tool execution is async
-- All LLM communication is streaming
+```
+mc-cli → mc-tui, mc-core, mc-provider, mc-tools, mc-config
+mc-core → mc-provider, mc-tools, mc-config
+mc-tui, mc-provider, mc-tools, mc-config → standalone
+```
 
-## Adding a new tool
+- `mc-provider` and `mc-tools` must NEVER depend on each other
+- `mc-tui` must NEVER depend on mc-core/mc-provider/mc-tools
+- Business logic goes in `mc-core`, not `mc-tui`
 
-1. Add implementation in `mc-tools/src/your_tool.rs`
-2. Add `ToolSpec` in `mc-tools/src/spec.rs`
-3. Add match arm in `mc-tools/src/registry.rs`
-4. Add tests
+## Adding Features
 
-## Adding a new provider
+- **New tool**: `mc-tools/src/{tool}.rs` → spec in `spec.rs` → dispatch in `registry.rs`
+- **New provider**: `mc-provider/src/{provider}.rs` → `LlmProvider` impl in `runtime.rs`
+- **New slash command**: `mc-tui/src/app.rs` (add to `PendingCommand` enum) → handle in `mc-cli/src/main.rs`
+- **New core feature**: `mc-core/src/{feature}.rs` → integrate in `runtime.rs`
 
-1. Add implementation in `mc-provider/src/your_provider.rs`
-2. Export from `mc-provider/src/lib.rs`
-3. Add `LlmProvider` impl in `mc-core/src/runtime.rs`
-4. Add CLI dispatch in `mc-cli/src/main.rs`
+## Code Style
 
-## Pull Requests
+- `unsafe` is forbidden
+- Clippy pedantic enabled, zero warnings required
+- `#[must_use]` on public functions returning values
+- `thiserror` for errors, `anyhow` only in binary crate
+- All async uses `tokio`
 
-- Run `cargo clippy --workspace` — zero warnings required
-- Run `cargo test --workspace` — all tests must pass
-- Keep PRs focused — one feature or fix per PR
+## CI
+
+- `RUSTFLAGS=-Dwarnings` — all warnings are errors
+- Format, clippy, test, release build
+- Cross-compile: Linux x86_64, macOS x86_64 + ARM64
+
+## License
+
+MIT
