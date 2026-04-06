@@ -13,7 +13,7 @@
 
 ## Release
 ```bash
-VERSION=0.2.0
+VERSION=0.7.0
 git add -A
 git commit -m "feat: v${VERSION} release"
 git tag "v${VERSION}"
