@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.0 (unreleased)
+## v0.7.0 (2026-04-06)
 
 ### New Features
 - **`/copy`** — copy last assistant response to system clipboard (pbcopy/xclip)
@@ -16,7 +16,7 @@
 - Binary already optimized: LTO + strip + codegen-units=1 in release profile
 - 137 tests
 
-## v0.6.0 (unreleased)
+## v0.6.0
 
 ### New Features
 - **`/template` command** — pre-built prompts: review, refactor, test, explain, document, optimize, security
@@ -34,7 +34,7 @@
 - `ConversationRuntime::generate_commit_message()` uses LLM for conventional commit messages
 - 137 tests (was 135)
 
-## v0.5.0 (unreleased)
+## v0.5.0
 
 ### New Features
 - **LLM-generated commit messages** — `/commit` sends staged diff to LLM for a conventional commit message
@@ -50,7 +50,7 @@
 - Turn counter with periodic auto-save to `~/.local/share/magic-code/sessions/last.json`
 - 135 tests
 
-## v0.4.0 (unreleased)
+## v0.4.0
 
 ### New Features — Tools
 - **`web_fetch` tool** — LLM can fetch URL content (HTML stripped to plain text)
@@ -86,7 +86,7 @@
 - `Sandbox` now enforces file protection patterns
 - `CostTracker` persists usage, `ModelRegistry.set_model()` for mid-session switch
 
-## v0.3.0 (unreleased)
+## v0.3.0
 
 ### New Features
 - **Streaming bash output** — stdout/stderr from bash tool execution now streams line-by-line to the TUI in real-time instead of waiting for the command to finish. Long-running commands (e.g. `cargo build`, `npm install`) show progress as it happens.
@@ -103,7 +103,7 @@
 - New `CostTracker` in mc-core for persistent usage tracking
 - 132 tests (was 123)
 
-## v0.2.0 (unreleased)
+## v0.2.0 (2026-04-05)
 
 ### New Features
 - **Extended thinking** — Anthropic thinking/reasoning blocks streamed and stored in session
