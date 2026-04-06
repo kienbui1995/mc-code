@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>magic-code — AI Coding Agent in Your Terminal</title>
+<meta name="description" content="Open-source TUI agentic AI coding agent. Built in Rust. Fast. Multi-provider.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a1a;--surface:#111128;--border:#1e1e3a;--text:#e0e0f0;--muted:#8888aa;--accent:#64b5f6;--green:#4caf50;--yellow:#ffd54f;--red:#ef5350;--cyan:#26c6da}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+
+/* Nav */
+nav{padding:1rem 0;border-bottom:1px solid var(--border)}
+nav .container{display:flex;justify-content:space-between;align-items:center}
+nav .logo{font-size:1.2rem;font-weight:700;color:#fff}
+nav .logo span{color:var(--accent)}
+nav .links a{margin-left:1.5rem;color:var(--muted);font-size:.9rem}
+nav .links a:hover{color:#fff}
+
+/* Hero */
+.hero{padding:6rem 0 4rem;text-align:center}
+.hero h1{font-size:3rem;font-weight:800;color:#fff;margin-bottom:1rem}
+.hero h1 span{color:var(--accent)}
+.hero p{font-size:1.2rem;color:var(--muted);max-width:600px;margin:0 auto 2rem}
+.badges{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:2.5rem}
+.badge{padding:.4rem .8rem;border-radius:6px;font-size:.85rem;font-weight:600}
+.badge.rust{background:#3e2723;color:#ffab91}
+.badge.tools{background:#1a237e;color:#90caf9}
+.badge.tests{background:#1b5e20;color:#a5d6a7}
+.badge.size{background:#311b92;color:#b39ddb}
+.cta{display:inline-flex;gap:1rem;margin-top:1rem}
+.btn{padding:.7rem 1.5rem;border-radius:8px;font-weight:600;font-size:.95rem;transition:all .2s}
+.btn-primary{background:var(--accent);color:#000}.btn-primary:hover{background:#90caf9;text-decoration:none}
+.btn-secondary{border:1px solid var(--border);color:var(--text)}.btn-secondary:hover{border-color:var(--accent);text-decoration:none}
+
+/* Terminal */
+.terminal{background:#0d1117;border:1px solid var(--border);border-radius:12px;max-width:700px;margin:3rem auto 0;text-align:left;overflow:hidden}
+.terminal-bar{background:#161b22;padding:.5rem 1rem;display:flex;gap:.4rem}
+.terminal-bar span{width:12px;height:12px;border-radius:50%}
+.terminal-bar .r{background:var(--red)}.terminal-bar .y{background:var(--yellow)}.terminal-bar .g{background:var(--green)}
+.terminal-body{padding:1.2rem;font-family:'SF Mono',Consolas,monospace;font-size:.85rem;line-height:1.8}
+.terminal-body .prompt{color:var(--green)}
+.terminal-body .tool{color:var(--cyan)}
+.terminal-body .output{color:var(--muted)}
+.terminal-body .status{color:var(--yellow)}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem;padding:4rem 0;text-align:center}
+.stat-num{font-size:2.5rem;font-weight:800;color:#fff}
+.stat-label{color:var(--muted);font-size:.9rem;margin-top:.3rem}
+
+/* Features */
+.features{padding:4rem 0}
+.features h2{text-align:center;font-size:2rem;color:#fff;margin-bottom:.5rem}
+.features .sub{text-align:center;color:var(--muted);margin-bottom:3rem}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem}
+.card .icon{font-size:1.5rem;margin-bottom:.8rem}
+.card h3{font-size:1rem;color:#fff;margin-bottom:.5rem}
+.card p{font-size:.85rem;color:var(--muted);line-height:1.5}
+
+/* Tools table */
+.tools{padding:4rem 0}
+.tools h2{text-align:center;font-size:2rem;color:#fff;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:12px;overflow:hidden}
+th{background:#161b22;padding:.8rem 1rem;text-align:left;font-size:.85rem;color:var(--muted);font-weight:600}
+td{padding:.7rem 1rem;border-top:1px solid var(--border);font-size:.85rem}
+td code{background:#1a1a2e;padding:2px 6px;border-radius:4px;color:var(--cyan);font-size:.8rem}
+
+/* Commands */
+.commands{padding:4rem 0}
+.commands h2{text-align:center;font-size:2rem;color:#fff;margin-bottom:2rem}
+.cmd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.cmd{display:flex;gap:1rem;padding:.5rem .8rem;border-radius:6px}
+.cmd code{color:var(--accent);font-family:monospace;min-width:100px}
+.cmd span{color:var(--muted);font-size:.85rem}
+
+/* Install */
+.install{padding:4rem 0;text-align:center}
+.install h2{font-size:2rem;color:#fff;margin-bottom:2rem}
+.install-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:600px;margin:0 auto;font-family:monospace;font-size:.9rem;text-align:left}
+.install-box .comment{color:var(--muted)}
+.install-box .cmd{color:var(--green)}
+
+/* Footer */
+footer{padding:2rem 0;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:.85rem}
+
+@media(max-width:768px){
+.hero h1{font-size:2rem}
+.stats{grid-template-columns:repeat(2,1fr)}
+.grid{grid-template-columns:1fr}
+.cmd-grid{grid-template-columns:1fr}
+nav .links{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="container">
+<div class="logo">magic<span>-code</span></div>
+<div class="links">
+<a href="#features">Features</a>
+<a href="#tools">Tools</a>
+<a href="#commands">Commands</a>
+<a href="#install">Install</a>
+<a href="https://github.com/kienbui1995/mc-code">GitHub</a>
+</div>
+</div></nav>
+
+<section class="hero"><div class="container">
+<div class="badges">
+<span class="badge rust">🦀 Rust</span>
+<span class="badge tools">11 Tools</span>
+<span class="badge tests">141 Tests</span>
+<span class="badge size">8.1MB Binary</span>
+</div>
+<h1>AI coding agent<br>in your <span>terminal</span></h1>
+<p>Open-source TUI agentic AI coding agent. Multi-provider. Fast. Built in Rust with zero unsafe code.</p>
+<div class="cta">
+<a href="#install" class="btn btn-primary">Get Started</a>
+<a href="https://github.com/kienbui1995/mc-code" class="btn btn-secondary">⭐ Star on GitHub</a>
+</div>
+
+<div class="terminal">
+<div class="terminal-bar"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+<div class="terminal-body">
+<span class="prompt">›</span> Fix the failing test in src/auth.rs<br><br>
+<span class="tool">  ⚙ grep_search</span> <span class="output">→ found error at line 42</span><br>
+<span class="tool">  ⚙ read_file</span> <span class="output">→ src/auth.rs (lines 38-50)</span><br>
+<span class="tool">  ⚙ edit_file</span> <span class="output">→ fixed lifetime bound</span><br>
+<span class="tool">  ⚙ bash</span> <span class="output">→ streaming output...</span><br>
+<span class="output">    running 47 tests</span><br>
+<span class="output">    test auth::login ... ok</span><br>
+<span class="output">    test auth::token ... ok</span><br>
+<span class="output">    test result: 47 passed ✓</span><br><br>
+<span class="status">claude-sonnet │ ctx ████████░░ 62% │ 12K↓ 2K↑ $0.066 │ ready (ttft 340ms)</span>
+</div>
+</div>
+</div></section>
+
+<section class="container">
+<div class="stats">
+<div><div class="stat-num">11</div><div class="stat-label">Built-in Tools</div></div>
+<div><div class="stat-num">141</div><div class="stat-label">Tests</div></div>
+<div><div class="stat-num">1ms</div><div class="stat-label">Startup Time</div></div>
+<div><div class="stat-num">6</div><div class="stat-label">Providers</div></div>
+</div>
+</section>
+
+<section class="features" id="features"><div class="container">
+<h2>Everything you need</h2>
+<p class="sub">A complete AI coding assistant that runs entirely in your terminal</p>
+<div class="grid">
+<div class="card"><div class="icon">🌐</div><h3>Multi-Provider</h3><p>Anthropic, OpenAI, Gemini, Ollama, LiteLLM. Switch mid-session with /model.</p></div>
+<div class="card"><div class="icon">⚡</div><h3>True Streaming</h3><p>Tokens render as they arrive. Bash output streams line-by-line. Cancel anytime with Ctrl+C.</p></div>
+<div class="card"><div class="icon">🧠</div><h3>Smart Context</h3><p>LLM-based compaction, auto-compact preflight, dynamic token budget. Never waste context.</p></div>
+<div class="card"><div class="icon">🔒</div><h3>Permission Control</h3><p>Read-only, workspace-write, full-access modes. File protection for .env, *.key. Audit log.</p></div>
+<div class="card"><div class="icon">🔌</div><h3>MCP & Plugins</h3><p>Connect MCP servers via config. User scripts in .magic-code/tools/ auto-discovered as tools.</p></div>
+<div class="card"><div class="icon">💾</div><h3>Session Management</h3><p>Save, load, resume, search, export, branch conversations. Auto-save every 5 turns.</p></div>
+<div class="card"><div class="icon">🎨</div><h3>Rich TUI</h3><p>Syntax highlighting, markdown rendering, scroll, mouse support, context bar, latency metrics.</p></div>
+<div class="card"><div class="icon">📝</div><h3>Git Integration</h3><p>/diff, /commit (LLM-generated messages), /log, /stash. Review changes before committing.</p></div>
+<div class="card"><div class="icon">🧩</div><h3>Extensible</h3><p>Templates, aliases, custom instructions, hooks, web search. Make it yours.</p></div>
+</div>
+</div></section>
+
+<section class="tools" id="tools"><div class="container">
+<h2>11 Built-in Tools</h2>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>bash</code></td><td>Execute shell commands with streaming output</td></tr>
+<tr><td><code>read_file</code></td><td>Read files with optional offset/limit</td></tr>
+<tr><td><code>write_file</code></td><td>Create or overwrite files</td></tr>
+<tr><td><code>edit_file</code></td><td>Surgical text replacement with diff preview</td></tr>
+<tr><td><code>glob_search</code></td><td>Find files by pattern</td></tr>
+<tr><td><code>grep_search</code></td><td>Search file contents with regex</td></tr>
+<tr><td><code>subagent</code></td><td>Delegate tasks to isolated sub-conversations</td></tr>
+<tr><td><code>memory_read</code></td><td>Read persistent project facts</td></tr>
+<tr><td><code>memory_write</code></td><td>Save facts across sessions</td></tr>
+<tr><td><code>web_fetch</code></td><td>Fetch URL content</td></tr>
+<tr><td><code>web_search</code></td><td>Search DuckDuckGo</td></tr>
+</table>
+</div></section>
+
+<section class="commands" id="commands"><div class="container">
+<h2>30+ Slash Commands</h2>
+<div class="cmd-grid">
+<div class="cmd"><code>/model</code> <span>Switch provider mid-session</span></div>
+<div class="cmd"><code>/diff</code> <span>Show git diff</span></div>
+<div class="cmd"><code>/commit</code> <span>LLM-generated commit message</span></div>
+<div class="cmd"><code>/template</code> <span>Pre-built prompts (review, test...)</span></div>
+<div class="cmd"><code>/cost</code> <span>Session & all-time cost tracking</span></div>
+<div class="cmd"><code>/doctor</code> <span>Health check</span></div>
+<div class="cmd"><code>/undo</code> <span>Revert last file changes</span></div>
+<div class="cmd"><code>/export</code> <span>Export conversation to markdown</span></div>
+<div class="cmd"><code>/search</code> <span>Search across saved sessions</span></div>
+<div class="cmd"><code>/copy</code> <span>Copy response to clipboard</span></div>
+<div class="cmd"><code>/init</code> <span>Project setup wizard</span></div>
+<div class="cmd"><code>/review</code> <span>Review all file changes</span></div>
+<div class="cmd"><code>/tokens</code> <span>Token breakdown</span></div>
+<div class="cmd"><code>/dry-run</code> <span>Preview without executing</span></div>
+</div>
+</div></section>
+
+<section class="install" id="install"><div class="container">
+<h2>Get Started in 30 Seconds</h2>
+<div class="install-box">
+<span class="comment"># One-line install</span><br>
+<span class="cmd">curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh | sh</span><br><br>
+<span class="comment"># Or build from source</span><br>
+<span class="cmd">git clone https://github.com/kienbui1995/mc-code.git</span><br>
+<span class="cmd">cd mc-code/mc && cargo install --path crates/mc-cli</span><br><br>
+<span class="comment"># Run</span><br>
+<span class="cmd">export ANTHROPIC_API_KEY="your-key"</span><br>
+<span class="cmd">magic-code</span>
+</div>
+</div></section>
+
+<footer><div class="container">
+magic-code v0.7.0 · MIT License · Built with 🦀 Rust<br>
+<a href="https://github.com/kienbui1995/mc-code">GitHub</a> · <a href="https://github.com/kienbui1995/mc-code/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/kienbui1995/mc-code/blob/main/CONTRIBUTING.md">Contributing</a>
+</div></footer>
+
+</body>
+</html>
