@@ -24,7 +24,7 @@ jobs:
       - name: Copy site
         run: cp -r docs/site _site
       - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
       - id: deployment
