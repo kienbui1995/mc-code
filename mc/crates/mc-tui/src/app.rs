@@ -42,81 +42,70 @@ pub enum UiMessage {
     ToolOutputDelta(String),
 }
 
+/// Commands that need processing by main.rs (require runtime/provider access).
+#[derive(Debug, Clone)]
+pub enum PendingCommand {
+    Compact,
+    Save(String),
+    Load(String),
+    Undo,
+    CostTotal,
+    ImageAttach(String),
+    Memory(String),
+    ThinkingToggle,
+    Branch(String),
+    Git(String),
+    ModelSwitch(String),
+    Export,
+    Init,
+    Summary,
+    Search(String),
+    Doctor,
+    Review,
+    Retry,
+    Tokens,
+    Context,
+    CopyToClipboard(String),
+}
+
+/// Agent processing state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgentState {
+    Idle,
+    Streaming,
+    ToolExecuting(String),
+    WaitingPermission,
+}
+
 #[allow(clippy::struct_excessive_bools)]
 pub struct App {
     pub input: InputBuffer,
     pub history: InputHistory,
     pub output_lines: Vec<String>,
     pub scroll_offset: u16,
-    pub waiting: bool,
+    pub state: AgentState,
     pub model: String,
     pub total_input_tokens: u32,
     pub total_output_tokens: u32,
     pub session_cost: f64,
-    /// Context window usage percentage (0-100).
     pub context_usage_pct: u8,
     pub should_quit: bool,
     pub plan_mode: bool,
-    pub compact_requested: bool,
-    pub save_requested: Option<String>,
-    pub load_requested: Option<String>,
-    pub undo_requested: bool,
+    pub dry_run: bool,
+    /// Command queue — consumed by main.rs each frame.
+    pub pending_command: Option<PendingCommand>,
     /// Whether user has manually scrolled up (disables auto-scroll).
     auto_scroll: bool,
-    /// Terminal height for scroll calculations.
     pub viewport_height: u16,
     /// Pending permission prompt (tool, input).
     pub permission_pending: Option<(String, String)>,
-    /// User's response to permission prompt: Some(true) = allow, Some(false) = deny.
     pub permission_response: Option<bool>,
-    /// Tools always allowed (user pressed 'A').
     pub always_allowed: std::collections::HashSet<String>,
-    /// User requested `/cost --total`.
-    pub cost_total_requested: bool,
-    /// Pending image attachment path.
-    pub image_pending: Option<String>,
-    /// Pending memory command.
-    pub memory_command: Option<String>,
-    /// Toggle thinking display.
-    pub thinking_toggle: bool,
-    /// Pending branch command.
-    pub branch_command: Option<String>,
-    /// Git command requested.
-    pub git_command: Option<String>,
-    /// Model switch requested.
-    pub model_switch: Option<String>,
-    /// Export conversation requested.
-    pub export_requested: bool,
-    /// Init wizard requested.
-    pub init_requested: bool,
-    /// Summary requested.
-    pub summary_requested: bool,
-    /// Session search query.
-    pub search_query: Option<String>,
-    /// Dry-run mode: show tool calls without executing.
-    pub dry_run: bool,
-    pub doctor_requested: bool,
-    /// Review file changes requested.
-    pub review_requested: bool,
-    /// Retry last turn requested.
-    pub retry_requested: bool,
-    /// Pinned message indices (survive compaction).
     pub pinned_messages: Vec<usize>,
-    /// Last user input (for /retry).
     pub last_user_input: Option<String>,
-    /// Time-to-first-token in ms (updated each turn).
     pub ttft_ms: u64,
-    /// Total turn time in ms.
     pub turn_time_ms: u64,
-    /// Color theme: "dark" (default), "light".
     pub theme: String,
-    /// Clipboard content (for /copy).
-    pub clipboard: Option<String>,
-    /// Token breakdown requested.
-    pub tokens_requested: bool,
-    /// Context info requested.
-    pub context_requested: bool,
-    /// User-defined command aliases.
     pub aliases: std::collections::HashMap<String, String>,
 }
 
@@ -132,7 +121,6 @@ impl App {
             history,
             output_lines: vec!["Welcome to magic-code. Type /help for commands.".into()],
             scroll_offset: 0,
-            waiting: false,
             model,
             total_input_tokens: 0,
             total_output_tokens: 0,
@@ -140,39 +128,20 @@ impl App {
             context_usage_pct: 0,
             should_quit: false,
             plan_mode: false,
-            compact_requested: false,
-            save_requested: None,
-            load_requested: None,
-            undo_requested: false,
+            dry_run: false,
+            pending_command: None,
             auto_scroll: true,
             viewport_height: 20,
             permission_pending: None,
             permission_response: None,
             always_allowed: std::collections::HashSet::new(),
-            cost_total_requested: false,
-            image_pending: None,
-            memory_command: None,
-            thinking_toggle: false,
-            branch_command: None,
-            git_command: None,
-            model_switch: None,
-            export_requested: false,
-            init_requested: false,
-            summary_requested: false,
-            search_query: None,
-            dry_run: false,
-            doctor_requested: false,
-            review_requested: false,
-            retry_requested: false,
             pinned_messages: Vec::new(),
             last_user_input: None,
             ttft_ms: 0,
             turn_time_ms: 0,
             theme: "dark".into(),
-            clipboard: None,
-            tokens_requested: false,
-            context_requested: false,
             aliases: std::collections::HashMap::new(),
+            state: AgentState::Idle,
         }
     }
 
@@ -182,7 +151,7 @@ impl App {
                 self.history.push(&text);
                 self.output_lines.push(format!("\n› {text}"));
                 self.output_lines.push(String::new());
-                self.waiting = true;
+                self.state = AgentState::Streaming;
                 self.auto_scroll = true;
                 self.scroll_to_bottom();
             }
@@ -209,13 +178,14 @@ impl App {
                 }
             }
             AppEvent::StreamDone => {
-                self.waiting = false;
+                self.state = AgentState::Idle;
                 self.output_lines.push(String::new());
                 if self.auto_scroll {
                     self.scroll_to_bottom();
                 }
             }
             AppEvent::ToolCall(name) => {
+                self.state = AgentState::ToolExecuting(name.clone());
                 self.output_lines.push(format!("  ⚙ tool: {name}"));
                 if self.auto_scroll {
                     self.scroll_to_bottom();
@@ -223,7 +193,7 @@ impl App {
             }
             AppEvent::Error(msg) => {
                 self.output_lines.push(format!("  ✗ error: {msg}"));
-                self.waiting = false;
+                self.state = AgentState::Idle;
                 if self.auto_scroll {
                     self.scroll_to_bottom();
                 }
@@ -266,14 +236,14 @@ impl App {
             }
             "/compact" => {
                 self.output_lines.push("Compaction requested.".into());
-                self.compact_requested = true;
+                self.pending_command = Some(PendingCommand::Compact);
             }
             "/undo" => {
-                self.undo_requested = true;
+                self.pending_command = Some(PendingCommand::Undo);
             }
             "/cost" => {
                 if parts.get(1) == Some(&"--total") {
-                    self.cost_total_requested = true;
+                    self.pending_command = Some(PendingCommand::CostTotal);
                 } else {
                     self.output_lines.push(format!(
                         "Session cost: ${:.4} ({} input + {} output tokens)",
@@ -285,38 +255,40 @@ impl App {
                 let name = parts.get(1).unwrap_or(&"default");
                 self.output_lines
                     .push(format!("Session save requested: {name}"));
-                self.save_requested = Some(name.to_string());
+                self.pending_command = Some(PendingCommand::Save(name.to_string()));
             }
             "/load" => {
                 let name = parts.get(1).unwrap_or(&"default");
                 self.output_lines
                     .push(format!("Session load requested: {name}"));
-                self.load_requested = Some(name.to_string());
+                self.pending_command = Some(PendingCommand::Load(name.to_string()));
             }
             "/image" => {
                 if let Some(path) = parts.get(1) {
                     self.output_lines.push(format!("  🖼 image: {path}"));
-                    self.image_pending = Some(path.to_string());
+                    self.pending_command = Some(PendingCommand::ImageAttach(path.to_string()));
                 } else {
                     self.output_lines
                         .push("Usage: /image <path> [prompt]".into());
                 }
             }
             "/memory" => {
-                self.memory_command = Some(parts.get(1).unwrap_or(&"list").to_string());
+                self.pending_command = Some(PendingCommand::Memory(
+                    parts.get(1).unwrap_or(&"list").to_string(),
+                ));
             }
             "/thinking" => {
-                self.thinking_toggle = true;
+                self.pending_command = Some(PendingCommand::ThinkingToggle);
             }
             "/fork" => {
-                self.branch_command = Some("fork".into());
+                self.pending_command = Some(PendingCommand::Branch("fork".into()));
             }
             "/branches" => {
-                self.branch_command = Some("list".into());
+                self.pending_command = Some(PendingCommand::Branch("list".into()));
             }
             "/switch" => {
                 if let Some(name) = parts.get(1) {
-                    self.branch_command = Some(format!("switch {name}"));
+                    self.pending_command = Some(PendingCommand::Branch(format!("switch {name}")));
                 } else {
                     self.output_lines
                         .push("Usage: /switch <branch-name>".into());
@@ -324,21 +296,22 @@ impl App {
             }
             "/branch" => {
                 if let Some(args) = parts.get(1) {
-                    self.branch_command = Some(args.to_string());
+                    self.pending_command = Some(PendingCommand::Branch(args.to_string()));
                 } else {
                     self.output_lines
                         .push("Usage: /branch delete <name>".into());
                 }
             }
-            "/diff" => self.git_command = Some("diff".into()),
-            "/log" => self.git_command = Some("log".into()),
-            "/commit" => self.git_command = Some("commit".into()),
+            "/diff" => self.pending_command = Some(PendingCommand::Git("diff".into())),
+            "/log" => self.pending_command = Some(PendingCommand::Git("log".into())),
+            "/commit" => self.pending_command = Some(PendingCommand::Git("commit".into())),
             "/stash" => {
-                if parts.get(1) == Some(&"pop") {
-                    self.git_command = Some("stash_pop".into());
+                let sub = if parts.get(1) == Some(&"pop") {
+                    "stash_pop"
                 } else {
-                    self.git_command = Some("stash".into());
-                }
+                    "stash"
+                };
+                self.pending_command = Some(PendingCommand::Git(sub.into()));
             }
             "/clear" => {
                 self.output_lines.clear();
@@ -346,10 +319,10 @@ impl App {
                     .push("Output cleared. Session history preserved.".into());
                 self.scroll_offset = 0;
             }
-            "/export" => self.export_requested = true,
+            "/export" => self.pending_command = Some(PendingCommand::Export),
             "/model" => {
                 if let Some(name) = parts.get(1) {
-                    self.model_switch = Some(name.to_string());
+                    self.pending_command = Some(PendingCommand::ModelSwitch(name.to_string()));
                 } else {
                     self.output_lines.push(format!(
                         "Current model: {}. Usage: /model <name>",
@@ -357,11 +330,11 @@ impl App {
                     ));
                 }
             }
-            "/init" => self.init_requested = true,
-            "/summary" => self.summary_requested = true,
+            "/init" => self.pending_command = Some(PendingCommand::Init),
+            "/summary" => self.pending_command = Some(PendingCommand::Summary),
             "/search" => {
                 if let Some(q) = parts.get(1) {
-                    self.search_query = Some(q.to_string());
+                    self.pending_command = Some(PendingCommand::Search(q.to_string()));
                 } else {
                     self.output_lines.push("Usage: /search <keyword>".into());
                 }
@@ -377,12 +350,12 @@ impl App {
                     }
                 ));
             }
-            "/doctor" => self.doctor_requested = true,
-            "/review" => self.review_requested = true,
+            "/doctor" => self.pending_command = Some(PendingCommand::Doctor),
+            "/review" => self.pending_command = Some(PendingCommand::Review),
             "/retry" => {
                 if let Some(ref input) = self.last_user_input.clone() {
                     self.output_lines.push(format!("⟳ Retrying: {input}"));
-                    self.retry_requested = true;
+                    self.pending_command = Some(PendingCommand::Retry);
                 } else {
                     self.output_lines.push("Nothing to retry.".into());
                 }
@@ -413,7 +386,7 @@ impl App {
                     .cloned()
                     .collect::<Vec<_>>()
                     .join("\n");
-                self.clipboard = Some(last_response);
+                self.pending_command = Some(PendingCommand::CopyToClipboard(last_response));
                 self.output_lines.push("📋 Copied to clipboard.".into());
             }
             "/version" => {
@@ -430,8 +403,8 @@ impl App {
                     self.output_lines.push(format!("  {}: {entry}", i + 1));
                 }
             }
-            "/tokens" => self.tokens_requested = true,
-            "/context" => self.context_requested = true,
+            "/tokens" => self.pending_command = Some(PendingCommand::Tokens),
+            "/context" => self.pending_command = Some(PendingCommand::Context),
             "/alias" => {
                 if let (Some(name), Some(expansion)) = (parts.get(1), parts.get(2)) {
                     self.aliases
@@ -480,7 +453,7 @@ impl App {
     }
 
     pub fn submit_input(&mut self) -> Option<AppEvent> {
-        if self.waiting || self.input.is_empty() {
+        if self.state != AgentState::Idle || self.input.is_empty() {
             return None;
         }
         let text = self.input.take();
