@@ -66,6 +66,11 @@ pub enum PendingCommand {
     Tokens,
     Context,
     CopyToClipboard(String),
+    Rewind(usize),
+    Debug,
+    Btw(String),
+    Loop { interval_secs: u64, prompt: String },
+    LoopStop,
 }
 
 /// Agent processing state.
@@ -109,6 +114,12 @@ pub struct App {
     pub aliases: std::collections::HashMap<String, String>,
     pub session_start: std::time::Instant,
     pub last_tool_output: Option<String>,
+    /// Vim mode: None = disabled, Some(mode) = active.
+    pub vim_mode: Option<crate::input::VimMode>,
+    /// Transcript mode: show raw conversation.
+    pub transcript_mode: bool,
+    /// Custom commands loaded from .magic-code/commands/*.md.
+    pub custom_commands: Vec<(String, String)>,
 }
 
 impl App {
@@ -148,6 +159,9 @@ impl App {
             aliases: std::collections::HashMap::new(),
             session_start: std::time::Instant::now(),
             last_tool_output: None,
+            vim_mode: None,
+            transcript_mode: false,
+            custom_commands: load_custom_commands(),
             state: AgentState::Idle,
         }
     }
@@ -813,8 +827,64 @@ impl App {
                     self.output_lines.push("Usage: /template <name>".into());
                 }
             }
+            "/vim" => {
+                self.vim_mode = if self.vim_mode.is_some() {
+                    self.output_lines.push("Vim mode: OFF".into());
+                    None
+                } else {
+                    self.output_lines.push("Vim mode: ON (Esc=Normal, i=Insert)".into());
+                    Some(crate::input::VimMode::Insert)
+                };
+            }
+            "/rewind" => {
+                let n = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
+                self.pending_command = Some(PendingCommand::Rewind(n));
+            }
+            "/debug" => self.pending_command = Some(PendingCommand::Debug),
+            "/btw" => {
+                if parts.len() > 1 {
+                    let q = parts[1..].join(" ");
+                    self.pending_command = Some(PendingCommand::Btw(q));
+                } else {
+                    self.output_lines.push("Usage: /btw <question>".into());
+                }
+            }
+            "/loop" => {
+                if parts.get(1) == Some(&"stop") {
+                    self.pending_command = Some(PendingCommand::LoopStop);
+                } else if let (Some(interval), Some(_)) = (parts.get(1), parts.get(2)) {
+                    let secs = parse_interval(interval);
+                    if secs > 0 {
+                        let prompt = parts[2..].join(" ");
+                        self.pending_command = Some(PendingCommand::Loop {
+                            interval_secs: secs,
+                            prompt,
+                        });
+                        self.output_lines.push(format!("🔄 Loop: every {secs}s"));
+                    } else {
+                        self.output_lines.push("Invalid interval. Use: /loop 5m <prompt>".into());
+                    }
+                } else {
+                    self.output_lines.push("Usage: /loop <interval> <prompt> | /loop stop".into());
+                }
+            }
             _ => {
-                self.output_lines.push(format!("Unknown command: {cmd}"));
+                // Check custom markdown commands
+                let cmd_name = parts[0].trim_start_matches('/');
+                if let Some((_, content)) = self.custom_commands.iter().find(|(n, _)| n == cmd_name)
+                {
+                    let args = if parts.len() > 1 {
+                        parts[1..].join(" ")
+                    } else {
+                        String::new()
+                    };
+                    let prompt = content.replace("$ARGUMENTS", &args);
+                    self.input.set(&prompt);
+                    self.output_lines
+                        .push(format!("📋 Command: {cmd_name}"));
+                } else {
+                    self.output_lines.push(format!("Unknown command: {cmd}"));
+                }
             }
         }
     }
@@ -898,6 +968,11 @@ impl App {
         "/add",
         "/sessions",
         "/spec",
+        "/vim",
+        "/rewind",
+        "/debug",
+        "/btw",
+        "/loop",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
@@ -977,6 +1052,34 @@ impl App {
         let visible = self.viewport_height.saturating_sub(2);
         total.saturating_sub(visible)
     }
+}
+
+fn parse_interval(s: &str) -> u64 {
+    if let Some(m) = s.strip_suffix('m') {
+        m.parse::<u64>().unwrap_or(0) * 60
+    } else if let Some(h) = s.strip_suffix('h') {
+        h.parse::<u64>().unwrap_or(0) * 3600
+    } else if let Some(sec) = s.strip_suffix('s') {
+        sec.parse::<u64>().unwrap_or(0)
+    } else {
+        s.parse::<u64>().unwrap_or(0)
+    }
+}
+
+fn load_custom_commands() -> Vec<(String, String)> {
+    let dir = std::path::Path::new(".magic-code/commands");
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "md"))
+        .filter_map(|e| {
+            let name = e.path().file_stem()?.to_string_lossy().to_string();
+            let content = std::fs::read_to_string(e.path()).ok()?;
+            Some((name, content))
+        })
+        .collect()
 }
 
 fn random_tip() -> &'static str {

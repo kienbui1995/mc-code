@@ -143,5 +143,19 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["query"]
             }),
         },
+        ToolSpec {
+            name: "lsp_query".into(),
+            description: "Query a Language Server for code intelligence. Supports: definition (go-to-def), references (find usages), hover (type info). Requires LSP server installed for the language.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file": { "type": "string", "description": "File path" },
+                    "line": { "type": "integer", "description": "Line number (0-based)" },
+                    "column": { "type": "integer", "description": "Column number (0-based)" },
+                    "method": { "type": "string", "enum": ["definition", "references", "hover"], "description": "Query type" }
+                },
+                "required": ["file", "line", "column", "method"]
+            }),
+        },
     ]
 }

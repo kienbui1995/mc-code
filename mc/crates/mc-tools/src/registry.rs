@@ -217,6 +217,7 @@ impl ToolRegistry {
                 WebFetchTool::execute(&url).await
             }
             "web_search" => {
+        assert!(names.contains(&"lsp_query"));
                 let query = str_field(input, "query")?;
                 WebSearchTool::execute(&query).await
             }
@@ -332,13 +333,14 @@ mod tests {
     #[test]
     fn specs_has_all_tools() {
         let specs = ToolRegistry::specs();
-        assert_eq!(specs.len(), 11);
+        assert_eq!(specs.len(), 12);
         let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"bash"));
         assert!(names.contains(&"edit_file"));
         assert!(names.contains(&"subagent"));
         assert!(names.contains(&"web_fetch"));
         assert!(names.contains(&"web_search"));
+        assert!(names.contains(&"lsp_query"));
     }
 
     #[test]
