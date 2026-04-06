@@ -107,6 +107,8 @@ pub struct App {
     pub turn_time_ms: u64,
     pub theme: String,
     pub aliases: std::collections::HashMap<String, String>,
+    pub session_start: std::time::Instant,
+    pub last_tool_output: Option<String>,
 }
 
 impl App {
@@ -119,7 +121,10 @@ impl App {
         Self {
             input: InputBuffer::default(),
             history,
-            output_lines: vec!["Welcome to magic-code. Type /help for commands.".into()],
+            output_lines: vec![
+                "Welcome to magic-code. Type /help for commands.".into(),
+                random_tip().into(),
+            ],
             scroll_offset: 0,
             model,
             total_input_tokens: 0,
@@ -141,6 +146,8 @@ impl App {
             turn_time_ms: 0,
             theme: "dark".into(),
             aliases: std::collections::HashMap::new(),
+            session_start: std::time::Instant::now(),
+            last_tool_output: None,
             state: AgentState::Idle,
         }
     }
@@ -186,6 +193,7 @@ impl App {
             }
             AppEvent::ToolCall(name) => {
                 self.state = AgentState::ToolExecuting(name.clone());
+                self.last_tool_output = None;
                 self.output_lines.push(format!("  ⚙ tool: {name}"));
                 if self.auto_scroll {
                     self.scroll_to_bottom();
@@ -420,6 +428,94 @@ impl App {
                     }
                 }
             }
+            "/run" => {
+                if parts.len() > 1 {
+                    let full = parts[1..].join(" ");
+                    self.output_lines.push(format!("$ {full}"));
+                    match std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(&full)
+                        .output()
+                    {
+                        Ok(o) => {
+                            let out = String::from_utf8_lossy(&o.stdout);
+                            let err = String::from_utf8_lossy(&o.stderr);
+                            for line in out.lines() {
+                                self.output_lines.push(format!("  {line}"));
+                            }
+                            if !err.is_empty() {
+                                self.output_lines.push(format!("  STDERR: {}", err.trim()));
+                            }
+                            self.last_tool_output = Some(out.to_string());
+                        }
+                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                    }
+                } else {
+                    self.output_lines.push("Usage: /run <command>".into());
+                }
+            }
+            "/grep" => {
+                if let Some(pattern) = parts.get(1) {
+                    let args = if let Some(path) = parts.get(2) {
+                        vec!["grep", "-rn", "--color=never", pattern, path]
+                    } else {
+                        vec!["grep", "-rn", "--color=never", pattern, "."]
+                    };
+                    match std::process::Command::new(args[0])
+                        .args(&args[1..])
+                        .output()
+                    {
+                        Ok(o) => {
+                            let out = String::from_utf8_lossy(&o.stdout);
+                            let lines: Vec<&str> = out.lines().take(30).collect();
+                            if lines.is_empty() {
+                                self.output_lines.push("No matches.".into());
+                            } else {
+                                for line in &lines {
+                                    self.output_lines.push(format!("  {line}"));
+                                }
+                                let total = out.lines().count();
+                                if total > 30 {
+                                    self.output_lines
+                                        .push(format!("  ... and {} more", total - 30));
+                                }
+                            }
+                        }
+                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
+                    }
+                } else {
+                    self.output_lines
+                        .push("Usage: /grep <pattern> [path]".into());
+                }
+            }
+            "/time" => {
+                let elapsed = self.session_start.elapsed();
+                let mins = elapsed.as_secs() / 60;
+                let secs = elapsed.as_secs() % 60;
+                self.output_lines
+                    .push(format!("Session time: {mins}m {secs}s"));
+            }
+            "/whoami" => {
+                self.output_lines.push(format!(
+                    "Model: {} | Plan: {} | Dry-run: {} | Theme: {}",
+                    self.model,
+                    if self.plan_mode { "ON" } else { "OFF" },
+                    if self.dry_run { "ON" } else { "OFF" },
+                    self.theme,
+                ));
+            }
+            "/tip" => {
+                self.output_lines.push(format!("💡 {}", random_tip()));
+            }
+            "/last" => {
+                if let Some(ref out) = self.last_tool_output {
+                    for line in out.lines().take(50) {
+                        self.output_lines.push(format!("  {line}"));
+                    }
+                } else {
+                    self.output_lines.push("No tool output yet.".into());
+                }
+            }
             "/template" => {
                 if let Some(name) = parts.get(1) {
                     let prompt = match *name {
@@ -505,6 +601,12 @@ impl App {
         "/tokens",
         "/context",
         "/alias",
+        "/run",
+        "/grep",
+        "/time",
+        "/whoami",
+        "/tip",
+        "/last",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
@@ -584,6 +686,31 @@ impl App {
         let visible = self.viewport_height.saturating_sub(2);
         total.saturating_sub(visible)
     }
+}
+
+fn random_tip() -> &'static str {
+    const TIPS: &[&str] = &[
+        "Use @filename to include file content in your prompt",
+        "Press Tab to auto-complete slash commands",
+        "/template review — get a code review from the AI",
+        "/model <name> — switch models mid-session",
+        "/diff — see what files changed",
+        "/commit — auto-generate commit messages with AI",
+        "/undo — revert the last turn's file changes",
+        "/run <cmd> — quick shell command without AI",
+        "/grep <pattern> — quick search without AI",
+        "/cost --total — see all-time spending",
+        "Ctrl+C cancels the current turn, not the app",
+        "Mouse scroll works in the output area",
+        "/doctor — check your setup",
+        "/export — save conversation as markdown",
+        "/dry-run — preview tool calls without executing",
+    ];
+    TIPS[std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as usize
+        % TIPS.len()]
 }
 
 #[cfg(test)]

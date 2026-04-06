@@ -319,8 +319,23 @@ async fn run_tui(
                             let _ = rt.session.save(&session_path("last"));
                         }
                     }
-                    // Terminal bell
+                    // Desktop notification + bell
                     print!("\x07");
+                    #[cfg(target_os = "linux")]
+                    {
+                        let _ = std::process::Command::new("notify-send")
+                            .args(["magic-code", "Turn complete"])
+                            .spawn();
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = std::process::Command::new("osascript")
+                            .args([
+                                "-e",
+                                "display notification \"Turn complete\" with title \"magic-code\"",
+                            ])
+                            .spawn();
+                    }
                 }
                 UiMessage::Error(e) => {
                     app.handle_event(AppEvent::Error(e));
