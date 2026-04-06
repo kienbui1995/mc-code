@@ -242,3 +242,109 @@ fn compaction_works_end_to_end() {
     assert_eq!(session.messages.len(), 5); // 1 summary + 4 preserved
     assert!(session.messages[0].contains_text("compacted"));
 }
+
+#[tokio::test]
+async fn streaming_bash_tool_produces_output() {
+    let provider = MockProvider::new(vec![
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "bash".into(),
+                input: r#"{"command":"echo line1; echo line2; echo line3"}"#.into(),
+            },
+            ProviderEvent::MessageStop,
+        ],
+        vec![
+            ProviderEvent::TextDelta("done".into()),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+    let mut runtime = ConversationRuntime::new("test".into(), 100, "test".into());
+
+    let mut tool_output_chunks = Vec::new();
+    let result = runtime
+        .run_turn(
+            &provider,
+            "run multi-line",
+            &policy,
+            &mut None,
+            &mut |ev| {
+                if let ProviderEvent::ToolOutputDelta(t) = ev {
+                    tool_output_chunks.push(t.clone());
+                }
+            },
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.tool_calls, vec!["bash"]);
+    // Should have received streaming chunks
+    assert!(!tool_output_chunks.is_empty());
+}
+
+#[tokio::test]
+async fn web_tools_registered_in_specs() {
+    let specs = mc_tools::ToolRegistry::specs();
+    let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
+    assert!(names.contains(&"web_fetch"));
+    assert!(names.contains(&"web_search"));
+}
+
+#[tokio::test]
+async fn multiple_tool_calls_in_parallel() {
+    let provider = MockProvider::new(vec![
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "bash".into(),
+                input: r#"{"command":"echo a"}"#.into(),
+            },
+            ProviderEvent::ToolUse {
+                id: "t2".into(),
+                name: "bash".into(),
+                input: r#"{"command":"echo b"}"#.into(),
+            },
+            ProviderEvent::MessageStop,
+        ],
+        vec![
+            ProviderEvent::TextDelta("both done".into()),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+    let mut runtime = ConversationRuntime::new("test".into(), 100, "test".into());
+
+    let result = runtime
+        .run_turn(
+            &provider,
+            "run both",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.tool_calls.len(), 2);
+    assert!(result.text.contains("both done"));
+}
+
+#[test]
+fn cost_tracker_roundtrip() {
+    let path = std::env::temp_dir().join(format!("mc-cost-integ-{}.jsonl", std::process::id()));
+    let tracker = mc_core::CostTracker::new(path.clone());
+    tracker.record("claude", 1000, 200, 0.01);
+    tracker.record("gpt-4o", 500, 100, 0.005);
+    let (i, o, c) = tracker.cumulative();
+    assert_eq!(i, 1500);
+    assert_eq!(o, 300);
+    assert!((c - 0.015).abs() < 1e-9);
+    std::fs::remove_file(path).ok();
+}
