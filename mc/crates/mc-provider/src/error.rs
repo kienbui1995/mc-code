@@ -1,12 +1,12 @@
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError {
-    #[error("missing API key: set {env_var}")]
+    #[error("[MC-E001] missing API key: set {env_var}")]
     MissingApiKey { env_var: String },
 
-    #[error("http error: {0}")]
+    #[error("[MC-E002] http error: {0}")]
     Http(#[from] reqwest::Error),
 
-    #[error("api error {status}: {message}")]
+    #[error("[MC-E003] api error {status}: {message}")]
     Api {
         status: u16,
         error_type: Option<String>,
@@ -14,13 +14,13 @@ pub enum ProviderError {
         retryable: bool,
     },
 
-    #[error("retries exhausted after {attempts} attempts: {last_message}")]
+    #[error("[MC-E004] retries exhausted after {attempts} attempts: {last_message}")]
     RetriesExhausted { attempts: u32, last_message: String },
 
-    #[error("invalid SSE frame: {0}")]
+    #[error("[MC-E005] invalid SSE frame: {0}")]
     InvalidSse(String),
 
-    #[error("json error: {0}")]
+    #[error("[MC-E006] json error: {0}")]
     Json(#[from] serde_json::Error),
 }
 
@@ -31,6 +31,19 @@ impl ProviderError {
             Self::Http(e) => e.is_connect() || e.is_timeout() || e.is_request(),
             Self::Api { retryable, .. } => *retryable,
             _ => false,
+        }
+    }
+
+    /// Unique error ID for debugging.
+    #[must_use]
+    pub fn error_id(&self) -> &'static str {
+        match self {
+            Self::MissingApiKey { .. } => "MC-E001",
+            Self::Http(_) => "MC-E002",
+            Self::Api { .. } => "MC-E003",
+            Self::RetriesExhausted { .. } => "MC-E004",
+            Self::InvalidSse(_) => "MC-E005",
+            Self::Json(_) => "MC-E006",
         }
     }
 }

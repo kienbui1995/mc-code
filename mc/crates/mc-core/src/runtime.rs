@@ -219,6 +219,23 @@ impl ConversationRuntime {
         on_event: &mut (dyn FnMut(&ProviderEvent) + Send),
         cancel: &CancellationToken,
     ) -> Result<TurnResult, ProviderError> {
+        // Context window preflight: reject if session already exceeds context window
+        let ctx_window = self.model_registry.context_window(&self.model) as usize;
+        let estimated = crate::compact::estimate_tokens(&self.session);
+        if estimated > ctx_window {
+            tracing::warn!(
+                "context window preflight: {estimated} tokens > {ctx_window} limit, auto-compacting"
+            );
+            let preserve = 4;
+            if let Err(e) =
+                crate::compact::smart_compact(provider, &mut self.session, &self.model, preserve)
+                    .await
+            {
+                tracing::warn!("preflight compact failed: {e}");
+                crate::compact::compact_session(&mut self.session, preserve);
+            }
+        }
+
         // Resolve @-mentions in user input
         let effective_input = if let Some(ref resolver) = self.context_resolver {
             let (cleaned, contexts) = resolver.resolve(user_input);
