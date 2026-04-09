@@ -253,6 +253,7 @@ impl App {
             AppEvent::StreamDone => {
                 self.state = AgentState::Idle;
                 self.output_lines.push(String::new());
+                self.cap_output_lines();
                 if self.auto_scroll {
                     self.scroll_to_bottom();
                 }
@@ -498,24 +499,7 @@ impl App {
                 if parts.len() > 1 {
                     let full = parts[1..].join(" ");
                     self.output_lines.push(format!("$ {full}"));
-                    match std::process::Command::new("sh")
-                        .arg("-c")
-                        .arg(&full)
-                        .output()
-                    {
-                        Ok(o) => {
-                            let out = String::from_utf8_lossy(&o.stdout);
-                            let err = String::from_utf8_lossy(&o.stderr);
-                            for line in out.lines() {
-                                self.output_lines.push(format!("  {line}"));
-                            }
-                            if !err.is_empty() {
-                                self.output_lines.push(format!("  STDERR: {}", err.trim()));
-                            }
-                            self.last_tool_output = Some(out.to_string());
-                        }
-                        Err(e) => self.output_lines.push(format!("  ✗ {e}")),
-                    }
+                    self.pending_command = Some(PendingCommand::Btw(format!("__run__{full}")));
                 } else {
                     self.output_lines.push("Usage: /run <command>".into());
                 }
@@ -690,7 +674,7 @@ impl App {
                 for var in &["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "EDITOR", "SHELL", "HOME"] {
                     let val = std::env::var(var).unwrap_or_else(|_| "(not set)".into());
                     let masked = if var.contains("KEY") && val.len() > 8 {
-                        format!("{}...{}", &val[..4], &val[val.len()-4..])
+                        format!("...{}", &val[val.len()-4..])
                     } else { val };
                     self.output_lines.push(format!("  {var}={masked}"));
                 }
@@ -1130,6 +1114,16 @@ impl App {
 
     fn scroll_to_bottom(&mut self) {
         self.scroll_offset = self.max_scroll();
+    }
+
+    /// Cap output_lines to prevent unbounded memory growth.
+    fn cap_output_lines(&mut self) {
+        const MAX_OUTPUT_LINES: usize = 10_000;
+        if self.output_lines.len() > MAX_OUTPUT_LINES {
+            let drain = self.output_lines.len() - MAX_OUTPUT_LINES;
+            self.output_lines.drain(..drain);
+            self.output_lines.insert(0, "[...earlier output trimmed...]".into());
+        }
     }
 
     fn max_scroll(&self) -> u16 {

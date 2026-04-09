@@ -339,7 +339,7 @@ async fn multiple_tool_calls_in_parallel() {
 #[test]
 fn cost_tracker_roundtrip() {
     let path = std::env::temp_dir().join(format!("mc-cost-integ-{}.jsonl", std::process::id()));
-    let tracker = mc_core::CostTracker::new(path.clone());
+    let mut tracker = mc_core::CostTracker::new(path.clone());
     tracker.record("claude", 1000, 200, 0.01);
     tracker.record("gpt-4o", 500, 100, 0.005);
     let (i, o, c) = tracker.cumulative();

@@ -25,6 +25,7 @@ pub struct ToolRegistry {
     tool_timeout: Duration,
     mcp_clients: HashMap<String, Mutex<McpClient>>,
     mcp_tool_specs: Vec<ToolSpec>,
+    cached_specs: std::sync::OnceLock<Vec<ToolSpec>>,
 }
 
 impl ToolRegistry {
@@ -37,6 +38,7 @@ impl ToolRegistry {
             tool_timeout: DEFAULT_TOOL_TIMEOUT,
             mcp_clients: HashMap::new(),
             mcp_tool_specs: Vec::new(),
+            cached_specs: std::sync::OnceLock::new(),
         }
     }
 
@@ -76,6 +78,7 @@ impl ToolRegistry {
         let tools = client.discover_tools().await?;
         let count = tools.len();
         self.mcp_tool_specs.extend(tools);
+        self.cached_specs = std::sync::OnceLock::new(); // invalidate cache
         self.mcp_clients
             .insert(name.to_string(), Mutex::new(client));
         Ok(count)
@@ -84,10 +87,12 @@ impl ToolRegistry {
     /// All tool specs including MCP tools.
     #[must_use]
     /// All specs.
-    pub fn all_specs(&self) -> Vec<ToolSpec> {
-        let mut specs = all_tool_specs();
-        specs.extend(self.mcp_tool_specs.clone());
-        specs
+    pub fn all_specs(&self) -> &[ToolSpec] {
+        self.cached_specs.get_or_init(|| {
+            let mut specs = all_tool_specs();
+            specs.extend(self.mcp_tool_specs.clone());
+            specs
+        })
     }
 
     #[must_use]

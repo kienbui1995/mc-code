@@ -3,17 +3,25 @@ use crate::error::ToolError;
 const MAX_BODY_BYTES: usize = 100_000;
 const TIMEOUT_SECS: u64 = 30;
 
+fn shared_client() -> &'static reqwest::Client {
+    use std::sync::OnceLock;
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+            .user_agent("magic-code/0.4")
+            .build()
+            .expect("failed to build HTTP client")
+    })
+}
+
 /// Fetch content from a URL, strip HTML tags.
 pub struct WebFetchTool;
 
 impl WebFetchTool {
     /// Fetch URL content, strip HTML tags, return plain text (truncated).
     pub async fn execute(url: &str) -> Result<String, ToolError> {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
-            .user_agent("magic-code/0.4")
-            .build()
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let client = shared_client();
 
         let resp = client
             .get(url)
@@ -58,11 +66,7 @@ pub struct WebSearchTool;
 impl WebSearchTool {
     /// Search `DuckDuckGo` instant answers (no API key required).
     pub async fn execute(query: &str) -> Result<String, ToolError> {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
-            .user_agent("magic-code/0.4")
-            .build()
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let client = shared_client();
 
         let resp = client
             .get("https://api.duckduckgo.com/")

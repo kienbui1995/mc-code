@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +14,7 @@ struct TurnSnapshot {
 /// Undomanager.
 pub struct UndoManager {
     current: Vec<FileSnapshot>,
-    turns: Vec<TurnSnapshot>,
+    turns: VecDeque<TurnSnapshot>,
     max_turns: usize,
 }
 
@@ -23,7 +24,7 @@ impl UndoManager {
     pub fn new(max_turns: usize) -> Self {
         Self {
             current: Vec::new(),
-            turns: Vec::new(),
+            turns: VecDeque::new(),
             max_turns,
         }
     }
@@ -49,9 +50,9 @@ impl UndoManager {
         let snap = TurnSnapshot {
             files: std::mem::take(&mut self.current),
         };
-        self.turns.push(snap);
+        self.turns.push_back(snap);
         while self.turns.len() > self.max_turns {
-            self.turns.remove(0);
+            self.turns.pop_front();
         }
     }
 
@@ -59,7 +60,7 @@ impl UndoManager {
     pub fn undo_last_turn(&mut self) -> Result<Vec<String>, std::io::Error> {
         let snap = self
             .turns
-            .pop()
+            .pop_back()
             .ok_or_else(|| std::io::Error::other("Nothing to undo"))?;
         let mut reverted = Vec::new();
         for file in &snap.files {
@@ -170,7 +171,7 @@ mod tests {
         mgr.snapshot_before_write(&file); // duplicate
         mgr.end_turn();
 
-        assert_eq!(mgr.turns.last().unwrap().files.len(), 1);
+        assert_eq!(mgr.turns.back().unwrap().files.len(), 1);
         fs::remove_dir_all(dir).ok();
     }
 }

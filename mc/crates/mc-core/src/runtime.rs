@@ -316,6 +316,10 @@ impl ConversationRuntime {
                     && !trimmed.ends_with('?')
                     && !trimmed.ends_with("```")
                     && !trimmed.ends_with('\n')
+                    && !trimmed.ends_with('}')
+                    && !trimmed.ends_with(')')
+                    && !trimmed.ends_with(']')
+                    && !trimmed.ends_with(';')
                     && iterations < MAX_ITERATIONS - 1
                     && iterations < 2; // only auto-continue once
                 if looks_cut_off {
@@ -438,7 +442,7 @@ impl ConversationRuntime {
         self.maybe_compact(provider).await;
         self.undo_manager.end_turn();
         // Persist cost
-        if let Some(ref tracker) = self.cost_tracker {
+        if let Some(ref mut tracker) = self.cost_tracker {
             let cost = self.model_registry.estimate_cost(
                 &self.model,
                 turn_usage.input_tokens,
@@ -646,14 +650,6 @@ impl ConversationRuntime {
         let input_val: serde_json::Value =
             serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({"raw": input}));
 
-        // Snapshot files before write operations for undo
-        if matches!(name, "write_file" | "edit_file") {
-            if let Some(path) = input_val.get("path").and_then(|v| v.as_str()) {
-                self.undo_manager
-                    .snapshot_before_write(std::path::Path::new(path));
-            }
-        }
-
         if name == "memory_read" {
             return match self.memory {
                 Some(ref store) => (store.handle_read(&input_val), false),
@@ -764,11 +760,12 @@ impl ConversationRuntime {
                 && trimmed.len() < 200
             {
                 let key = format!(
-                    "auto_{}",
+                    "auto_{}_{}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs()
+                        .as_millis(),
+                    trimmed.len(),
                 );
                 memory.set(&key, trimmed);
                 let _ = memory.save();
@@ -957,10 +954,8 @@ pub async fn next_event(
 }
 
 fn resolve_image_base64(path: &str) -> Option<String> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path).ok()?;
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf).ok()?;
+    let path = path.to_string();
+    let buf = std::fs::read(&path).ok()?;
     Some(base64_encode(&buf))
 }
 
