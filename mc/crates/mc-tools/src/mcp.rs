@@ -13,6 +13,9 @@ pub struct McpClient {
     stdout: BufReader<tokio::process::ChildStdout>,
     next_id: AtomicU64,
     pub server_name: String,
+    command: String,
+    args: Vec<String>,
+    env: Vec<(String, String)>,
 }
 
 impl McpClient {
@@ -48,6 +51,9 @@ impl McpClient {
             stdout: BufReader::new(stdout),
             next_id: AtomicU64::new(1),
             server_name: name.to_string(),
+            command: command.to_string(),
+            args: args.to_vec(),
+            env: env.to_vec(),
         };
 
         // Initialize handshake
@@ -106,12 +112,61 @@ impl McpClient {
         Ok(tools)
     }
 
+    /// Reconnect to the MCP server by re-spawning the process and re-doing the handshake.
+    pub async fn reconnect(&mut self) -> Result<(), ToolError> {
+        // Best-effort kill old process
+        let _ = self.child.kill().await;
+
+        let mut cmd = Command::new(&self.command);
+        cmd.args(&self.args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null());
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
+
+        let mut child = cmd.spawn().map_err(ToolError::Io)?;
+        self.stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| ToolError::ExecutionFailed("failed to open MCP stdin".into()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| ToolError::ExecutionFailed("failed to open MCP stdout".into()))?;
+        self.stdout = BufReader::new(stdout);
+        self.child = child;
+        self.next_id = AtomicU64::new(1);
+
+        // Re-do initialize handshake
+        let init = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": self.next_id(),
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "magic-code", "version": "0.1.0"}
+            }
+        });
+        self.send(&init).await?;
+        self.recv().await?;
+
+        Ok(())
+    }
+
     /// Call a tool on the MCP server (with timeout).
     pub async fn call_tool(
         &mut self,
         name: &str,
         arguments: &serde_json::Value,
     ) -> Result<String, ToolError> {
+        // Auto-reconnect if the server process has died
+        if !self.is_alive() {
+            self.reconnect().await?;
+        }
+
         let id = self.next_id();
         let req = serde_json::json!({
             "jsonrpc": "2.0",
