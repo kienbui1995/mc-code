@@ -377,6 +377,7 @@ impl App {
         "/ship",
         "/test",
         "/permissions",
+        "/providers",
         "/config",
         "/add",
         "/sessions",
@@ -387,6 +388,7 @@ impl App {
         "/debug",
         "/btw",
         "/loop",
+        "/connect",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.
