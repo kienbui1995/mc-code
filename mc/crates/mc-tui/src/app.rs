@@ -390,6 +390,7 @@ impl App {
         "/debug",
         "/btw",
         "/loop",
+        "/cron",
         "/connect",
         "/tasks",
         "/resume",

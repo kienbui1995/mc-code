@@ -257,5 +257,21 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["todos"]
             }),
         },
+        ToolSpec {
+            name: "worktree_enter".into(),
+            description: "Create a git worktree for a branch and switch the working directory to it. Use for isolated work on a separate branch.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "branch": {"type": "string", "description": "Branch name for the worktree"}
+                },
+                "required": ["branch"]
+            }),
+        },
+        ToolSpec {
+            name: "worktree_exit".into(),
+            description: "Remove the current worktree and return to the main working directory.".into(),
+            input_schema: serde_json::json!({"type": "object", "properties": {}}),
+        },
     ]
 }
