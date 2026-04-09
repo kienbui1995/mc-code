@@ -711,6 +711,52 @@ impl ConversationRuntime {
             return ("Invalid todos format".into(), true);
         }
 
+        if name == "worktree_enter" {
+            let branch = input_val.get("branch").and_then(|v| v.as_str()).unwrap_or("temp");
+            let wt_path = format!(".worktrees/{branch}");
+            let output = std::process::Command::new("git")
+                .args(["worktree", "add", &wt_path, "-b", branch])
+                .output();
+            return match output {
+                Ok(o) if o.status.success() => {
+                    let abs = std::fs::canonicalize(&wt_path).unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
+                    (format!("Worktree created at {}", abs.display()), false)
+                }
+                Ok(o) => {
+                    // Branch might already exist, try without -b
+                    let output2 = std::process::Command::new("git")
+                        .args(["worktree", "add", &wt_path, branch])
+                        .output();
+                    match output2 {
+                        Ok(o2) if o2.status.success() => {
+                            let abs = std::fs::canonicalize(&wt_path).unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
+                            (format!("Worktree created at {}", abs.display()), false)
+                        }
+                        _ => (String::from_utf8_lossy(&o.stderr).to_string(), true),
+                    }
+                }
+                Err(e) => (format!("git worktree: {e}"), true),
+            };
+        }
+        if name == "worktree_exit" {
+            // Find and remove worktrees
+            let output = std::process::Command::new("git")
+                .args(["worktree", "list", "--porcelain"])
+                .output();
+            if let Ok(o) = output {
+                let text = String::from_utf8_lossy(&o.stdout);
+                let worktrees: Vec<&str> = text.lines()
+                    .filter(|l| l.starts_with("worktree ") && l.contains(".worktrees/"))
+                    .filter_map(|l| l.strip_prefix("worktree "))
+                    .collect();
+                for wt in &worktrees {
+                    let _ = std::process::Command::new("git").args(["worktree", "remove", "--force", wt]).output();
+                }
+                return (format!("Removed {} worktree(s)", worktrees.len()), false);
+            }
+            return ("No worktrees found".into(), false);
+        }
+
         // Snapshot for undo before write operations
         if matches!(name, "write_file" | "edit_file") {
             if let Some(p) = input_val.get("path").and_then(|v| v.as_str()) {

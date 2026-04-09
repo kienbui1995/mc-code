@@ -155,6 +155,9 @@ impl ToolRegistry {
             // BashTool::execute_streaming has its own timeout handling
             BashTool::execute_streaming(&cmd, timeout.or(Some(self.tool_timeout)), output_tx)
                 .await?
+        } else if name == "web_fetch" {
+            let url = str_field(input, "url")?;
+            WebFetchTool::execute_streaming(&url, output_tx).await?
         } else {
             tokio::time::timeout(self.tool_timeout, self.execute_inner(name, input))
                 .await
@@ -461,7 +464,7 @@ mod tests {
     #[test]
     fn specs_has_all_tools() {
         let specs = ToolRegistry::specs();
-        assert_eq!(specs.len(), 19);
+        assert_eq!(specs.len(), 21);
         let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"bash"));
         assert!(names.contains(&"edit_file"));

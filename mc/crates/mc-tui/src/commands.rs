@@ -7,7 +7,7 @@ pub fn handle(app: &mut App, cmd: &str) {
     let arg = parts.get(1).copied().unwrap_or("");
 
     match parts[0] {
-        "/help" => app.push("Commands: /help /quit /status /cost /plan /compact /undo /update /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init /summary /search /doctor /template /review /retry /pin /theme /copy /version /history /tokens /context /alias /run /grep /tree /head /tail /cat /files /wc /todo /recent /test /ship /open /pwd /env /size /models /time /whoami /tip /last /spec /vim /effort /rewind /debug /btw /loop /config /add /sessions /permissions /dry-run"),
+        "/help" => app.push("Commands: /help /quit /status /cost /plan /compact /undo /update /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init /summary /search /doctor /template /review /retry /pin /theme /copy /version /history /tokens /context /alias /run /grep /tree /head /tail /cat /files /wc /todo /recent /test /ship /open /pwd /env /size /models /time /whoami /tip /last /spec /vim /effort /rewind /debug /btw /loop /cron /config /add /sessions /permissions /dry-run"),
         "/quit" => app.should_quit = true,
         "/status" => cmd_status(app),
         "/plan" => cmd_plan(app),
@@ -73,6 +73,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/permissions" => cmd_permissions(app, arg),
         "/btw" => if arg.is_empty() { app.push("Usage: /btw <question>"); } else { app.pending_command = Some(PendingCommand::Btw(arg.into())); },
         "/loop" => cmd_loop(app, arg),
+        "/cron" => cmd_cron(app, arg),
         "/rewind" => if let Ok(n) = arg.parse::<usize>() { app.pending_command = Some(PendingCommand::Rewind(n)); } else { app.push("Usage: /rewind <n>"); },
 
         // --- Async shell commands (non-blocking via PendingCommand::RunShell) ---
@@ -139,8 +140,33 @@ fn cmd_image(app: &mut App, arg: &str) {
 }
 
 fn cmd_model(app: &mut App, arg: &str) {
+    const MODELS: &[(&str, &str, &str)] = &[
+        ("claude-sonnet-4-20250514", "anthropic", "200K ctx, $3/$15"),
+        ("claude-haiku-3-5-20241022", "anthropic", "200K ctx, $0.8/$4"),
+        ("gpt-4o", "openai", "128K ctx, $2.5/$10"),
+        ("gpt-4o-mini", "openai", "128K ctx, $0.15/$0.6"),
+        ("gemini-2.5-flash", "gemini", "1M ctx, $0.15/$0.6"),
+        ("gemini-2.5-pro", "gemini", "1M ctx, $1.25/$10"),
+        ("llama-3.3-70b-versatile", "groq", "128K ctx, fast"),
+        ("deepseek-chat", "deepseek", "128K ctx, $0.14/$0.28"),
+        ("mistral-large-latest", "mistral", "128K ctx, $2/$6"),
+        ("grok-2", "xai", "131K ctx, $2/$10"),
+        ("sonar-pro", "perplexity", "200K ctx, search-augmented"),
+        ("command-r-plus", "cohere", "128K ctx, $2.5/$10"),
+    ];
     if arg.is_empty() {
-        app.push(&format!("Current model: {}. Usage: /model <name>", app.model));
+        app.push(&format!("Current: {} | Select by number or name:", app.model));
+        for (i, (name, provider, info)) in MODELS.iter().enumerate() {
+            let marker = if *name == app.model { " ←" } else { "" };
+            app.push(&format!("  {:>2}. {:<32} {:<12} {}{}", i + 1, name, provider, info, marker));
+        }
+        app.push("  Usage: /model <number> or /model <name>");
+    } else if let Ok(n) = arg.parse::<usize>() {
+        if n >= 1 && n <= MODELS.len() {
+            app.pending_command = Some(PendingCommand::ModelSwitch(MODELS[n - 1].0.to_string()));
+        } else {
+            app.push(&format!("Invalid number. Use 1-{}", MODELS.len()));
+        }
     } else {
         app.pending_command = Some(PendingCommand::ModelSwitch(arg.into()));
     }
@@ -297,6 +323,38 @@ fn cmd_loop(app: &mut App, arg: &str) {
     }
 }
 
+fn cmd_cron(app: &mut App, arg: &str) {
+    if arg.is_empty() {
+        app.push("Usage: /cron add <name> <interval> <prompt>");
+        app.push("       /cron remove <name>");
+        app.push("       /cron list");
+        app.push("Intervals: 30s, 5m, 1h");
+    } else if arg == "list" {
+        app.push("Cron triggers: (managed by runtime)");
+        app.pending_command = Some(PendingCommand::Btw("__cron_list__".into()));
+    } else if arg.starts_with("remove ") {
+        let name = arg.strip_prefix("remove ").unwrap_or("").trim();
+        app.push(&format!("Removing cron trigger: {name}"));
+        app.pending_command = Some(PendingCommand::Btw(format!("__cron_remove__{name}")));
+    } else if arg.starts_with("add ") {
+        let parts: Vec<&str> = arg.strip_prefix("add ").unwrap_or("").splitn(3, ' ').collect();
+        if parts.len() >= 3 {
+            let (name, interval, prompt) = (parts[0], parts[1], parts[2]);
+            let secs = parse_interval(interval);
+            if secs > 0 {
+                app.pending_command = Some(PendingCommand::Loop { interval_secs: secs, prompt: format!("__cron_add__{name}__{prompt}") });
+                app.push(&format!("Cron trigger '{name}' added: every {secs}s"));
+            } else {
+                app.push("Invalid interval. Use: 30s, 5m, 1h");
+            }
+        } else {
+            app.push("Usage: /cron add <name> <interval> <prompt>");
+        }
+    } else {
+        app.push("Unknown cron subcommand. Use: add, remove, list");
+    }
+}
+
 fn cmd_grep(app: &mut App, arg: &str) {
     if arg.is_empty() {
         app.push("Usage: /grep <pattern> [path]");
@@ -414,7 +472,9 @@ fn cmd_unknown(app: &mut App, cmd: &str, cmd_name: &str) {
 
 fn parse_interval(s: &str) -> u64 {
     let s = s.trim();
-    if let Some(n) = s.strip_suffix('m') {
+    if let Some(n) = s.strip_suffix('s') {
+        n.parse::<u64>().unwrap_or(0)
+    } else if let Some(n) = s.strip_suffix('m') {
         n.parse::<u64>().unwrap_or(0) * 60
     } else if let Some(n) = s.strip_suffix('h') {
         n.parse::<u64>().unwrap_or(0) * 3600

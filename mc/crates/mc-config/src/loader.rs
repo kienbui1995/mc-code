@@ -46,6 +46,32 @@ fn dirs_global_config() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".config").join("magic-code"))
 }
 
+/// Load a single config layer from a TOML file.
+pub fn load_layer(path: &Path) -> Result<ConfigLayer, ConfigError> {
+    let contents = std::fs::read_to_string(path).map_err(ConfigError::Io)?;
+    Ok(toml::from_str(&contents)?)
+}
+
+/// Check if config file has been modified since last load.
+/// Returns the new modification time if changed, None if unchanged.
+pub fn config_changed(path: &std::path::Path, last_mtime: &std::time::SystemTime) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .filter(|mtime| mtime > last_mtime)
+}
+
+/// Reload config if the file has changed. Returns Some(new_config) if reloaded.
+pub fn maybe_reload(
+    path: &std::path::Path,
+    last_mtime: &mut std::time::SystemTime,
+) -> Option<super::types::ConfigLayer> {
+    let new_mtime = config_changed(path, last_mtime)?;
+    let config = load_layer(path).ok()?;
+    *last_mtime = new_mtime;
+    Some(config)
+}
+
 fn read_optional_config(path: &Path) -> Result<Option<ConfigLayer>, ConfigError> {
     match std::fs::read_to_string(path) {
         Ok(contents) if contents.trim().is_empty() => Ok(None),
