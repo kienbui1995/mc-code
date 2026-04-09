@@ -50,7 +50,13 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/whoami" => app.push(&format!("Model: {} | Plan: {} | Dry-run: {} | Theme: {}", app.model, if app.plan_mode { "ON" } else { "OFF" }, if app.dry_run { "ON" } else { "OFF" }, app.theme)),
         "/tip" => app.push(&format!("💡 {}", random_tip())),
         "/last" => cmd_last(app),
-        "/models" => { app.push("Known models:"); for m in ["claude-sonnet-4-20250514","claude-haiku","gpt-4o","gpt-4o-mini","gemini-2.5-flash","gemini-2.5-pro","llama3","mistral"] { app.push(&format!("  {m}")); } }
+        "/models" => { app.push("Known models:"); for m in [
+                    "claude-sonnet-4-20250514", "claude-haiku", "gpt-4o", "gpt-4o-mini",
+                    "gemini-2.5-flash", "gemini-2.5-pro",
+                    "llama-3.3-70b-versatile", "deepseek-chat", "mistral-large-latest",
+                    "grok-2", "sonar-pro", "command-r-plus",
+                ] { app.push(&format!("  {m}")); } }
+        "/providers" => cmd_providers(app),
         "/pwd" => app.push(&format!("  {}", std::env::current_dir().unwrap_or_default().display())),
         "/env" => cmd_env(app),
         "/vim" => { app.vim_mode = if app.vim_mode.is_some() { app.push("Vim mode: OFF"); None } else { app.push("Vim mode: ON (Esc=Normal, i=Insert)"); Some(crate::input::VimMode::Insert) }; }
@@ -80,6 +86,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/size" => if arg.is_empty() { app.push("Usage: /size <file>"); } else { app.pending_command = Some(PendingCommand::RunShell(format!("stat --printf='%s bytes' {arg} 2>/dev/null || stat -f '%z bytes' {arg}"))); },
         "/add" => cmd_add(app, arg),
         "/sessions" => cmd_sessions(app, arg),
+        "/connect" => cmd_connect(app, arg),
 
         _ => cmd_unknown(app, cmd, parts[0]),
     }
@@ -396,6 +403,74 @@ fn parse_interval(s: &str) -> u64 {
         n.parse::<u64>().unwrap_or(0) * 3600
     } else {
         s.parse::<u64>().unwrap_or(0)
+    }
+}
+
+fn cmd_providers(app: &mut App) {
+    app.push("Configured providers (use /model <name> to switch):");
+    let providers = [
+        ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet-4-20250514"),
+        ("openai", "OPENAI_API_KEY", "gpt-4o"),
+        ("gemini", "GEMINI_API_KEY", "gemini-2.5-flash"),
+        ("groq", "GROQ_API_KEY", "llama-3.3-70b-versatile"),
+        ("deepseek", "DEEPSEEK_API_KEY", "deepseek-chat"),
+        ("mistral", "MISTRAL_API_KEY", "mistral-large-latest"),
+        ("xai", "XAI_API_KEY", "grok-2"),
+        ("openrouter", "OPENROUTER_API_KEY", "anthropic/claude-sonnet-4"),
+        ("together", "TOGETHER_API_KEY", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+        ("perplexity", "PERPLEXITY_API_KEY", "sonar-pro"),
+        ("cohere", "COHERE_API_KEY", "command-r-plus"),
+        ("cerebras", "CEREBRAS_API_KEY", "llama3.1-70b"),
+        ("ollama", "(local)", "llama3"),
+        ("lmstudio", "(local)", "default"),
+        ("llamacpp", "(local)", "default"),
+    ];
+    for (name, env_var, default_model) in providers {
+        let status = if env_var.starts_with('(') {
+            "local".to_string()
+        } else if std::env::var(env_var).ok().filter(|k| !k.is_empty()).is_some() {
+            "✓ configured".to_string()
+        } else {
+            "✗ no key".to_string()
+        };
+        app.push(&format!("  {name:<12} {status:<14} default: {default_model}"));
+    }
+}
+
+fn cmd_connect(app: &mut App, arg: &str) {
+    if arg.is_empty() {
+        app.push("Usage: /connect <provider>");
+        app.push("Available: anthropic, openai, gemini, groq, deepseek, mistral, xai, openrouter, together, perplexity, cohere, cerebras, ollama, lmstudio, llamacpp");
+        app.push("Example: /connect groq");
+        return;
+    }
+    let (env_var, url) = match arg.trim() {
+        "anthropic" => ("ANTHROPIC_API_KEY", "https://console.anthropic.com/"),
+        "openai" => ("OPENAI_API_KEY", "https://platform.openai.com/api-keys"),
+        "gemini" => ("GEMINI_API_KEY", "https://aistudio.google.com/apikey"),
+        "groq" => ("GROQ_API_KEY", "https://console.groq.com/keys"),
+        "deepseek" => ("DEEPSEEK_API_KEY", "https://platform.deepseek.com/api_keys"),
+        "mistral" => ("MISTRAL_API_KEY", "https://console.mistral.ai/api-keys"),
+        "xai" => ("XAI_API_KEY", "https://console.x.ai/"),
+        "openrouter" => ("OPENROUTER_API_KEY", "https://openrouter.ai/keys"),
+        "together" => ("TOGETHER_API_KEY", "https://api.together.xyz/settings/api-keys"),
+        "perplexity" => ("PERPLEXITY_API_KEY", "https://www.perplexity.ai/settings/api"),
+        "cohere" => ("COHERE_API_KEY", "https://dashboard.cohere.com/api-keys"),
+        "cerebras" => ("CEREBRAS_API_KEY", "https://cloud.cerebras.ai/"),
+        "ollama" => { app.push("Ollama: no key needed. Install from https://ollama.ai and run `ollama pull llama3`"); app.push("Then: /model llama3"); return; }
+        "lmstudio" => { app.push("LM Studio: no key needed. Download from https://lmstudio.ai"); app.push("Start server, then: /model default --provider lmstudio"); return; }
+        "llamacpp" => { app.push("llama.cpp: no key needed. Run `llama-server -m model.gguf`"); app.push("Then: /model default --provider llamacpp"); return; }
+        other => { app.push(&format!("Unknown provider: {other}. Run /connect for list.")); return; }
+    };
+    let has_key = std::env::var(env_var).ok().filter(|k| !k.is_empty()).is_some();
+    if has_key {
+        app.push(&format!("✓ {arg} already configured ({env_var} is set)"));
+        app.push(&format!("  Switch with: /model <model-name>"));
+    } else {
+        app.push(&format!("To connect {arg}:"));
+        app.push(&format!("  1. Get API key: {url}"));
+        app.push(&format!("  2. Set: export {env_var}=<your-key>"));
+        app.push(&format!("  3. Switch: /model <model-name>"));
     }
 }
 

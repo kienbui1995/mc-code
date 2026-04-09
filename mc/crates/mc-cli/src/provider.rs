@@ -11,17 +11,24 @@ pub fn detect_provider(model: &str) -> Option<String> {
         Some("openai".into())
     } else if m.starts_with("gemini") {
         Some("gemini".into())
+    } else if m.starts_with("deepseek") {
+        Some("deepseek".into())
+    } else if m.starts_with("mistral") {
+        Some("mistral".into())
+    } else if m.starts_with("grok") {
+        Some("xai".into())
+    } else if m.starts_with("command-r") || m.starts_with("command-a") {
+        Some("cohere".into())
+    } else if m.starts_with("sonar") {
+        Some("perplexity".into())
     } else if m.starts_with("llama")
         || m.starts_with("codellama")
-        || m.starts_with("deepseek")
-        || m.starts_with("mistral")
         || m.starts_with("phi")
         || m.starts_with("qwen")
     {
         Some("ollama".into())
     } else if m.contains('/') {
-        // Catch-all for litellm-style "provider/model" format
-        Some("litellm".into())
+        Some("openrouter".into())
     } else {
         None
     }
@@ -85,6 +92,68 @@ pub fn create_provider(
                 .map(String::from)
                 .or_else(|| resolve_api_key(config));
             Ok(Box::new(mc_provider::GenericProvider::new(base, key)))
+        }
+        "groq" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("GROQ_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set GROQ_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.groq.com/openai".into(), Some(key))))
+        }
+        "deepseek" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("DEEPSEEK_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set DEEPSEEK_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.deepseek.com".into(), Some(key))))
+        }
+        "mistral" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("MISTRAL_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set MISTRAL_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.mistral.ai".into(), Some(key))))
+        }
+        "xai" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("XAI_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set XAI_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.x.ai".into(), Some(key))))
+        }
+        "openrouter" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("OPENROUTER_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set OPENROUTER_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://openrouter.ai/api".into(), Some(key))))
+        }
+        "together" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("TOGETHER_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set TOGETHER_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.together.xyz".into(), Some(key))))
+        }
+        "perplexity" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("PERPLEXITY_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set PERPLEXITY_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.perplexity.ai".into(), Some(key))))
+        }
+        "cohere" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("COHERE_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set COHERE_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.cohere.com/v2".into(), Some(key))))
+        }
+        "cerebras" => {
+            let key = cli_api_key.map(String::from)
+                .or_else(|| std::env::var("CEREBRAS_API_KEY").ok().filter(|k| !k.is_empty()))
+                .context("set CEREBRAS_API_KEY")?;
+            Ok(Box::new(mc_provider::GenericProvider::new("https://api.cerebras.ai".into(), Some(key))))
+        }
+        "lmstudio" => {
+            let host = std::env::var("LM_STUDIO_HOST").unwrap_or_else(|_| "http://localhost:1234".into());
+            Ok(Box::new(mc_provider::GenericProvider::new(host, None)))
+        }
+        "llamacpp" => {
+            let host = std::env::var("LLAMA_CPP_HOST").unwrap_or_else(|_| "http://localhost:8080".into());
+            Ok(Box::new(mc_provider::GenericProvider::new(host, None)))
         }
         _ => {
             if let Some(base) = &config.base_url {

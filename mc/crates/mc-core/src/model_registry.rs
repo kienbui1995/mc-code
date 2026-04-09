@@ -54,6 +54,40 @@ impl Default for ModelRegistry {
         models.insert("codellama".into(), m(16_384, false, 0.0, 0.0));
         models.insert("deepseek-coder".into(), m(128_000, true, 0.0, 0.0));
 
+        // Groq
+        models.insert("llama-3.3-70b-versatile".into(), m(128_000, true, 0.59, 0.79));
+        models.insert("llama-3.1-8b-instant".into(), m(128_000, true, 0.05, 0.08));
+
+        // DeepSeek
+        models.insert("deepseek-chat".into(), m(128_000, true, 0.14, 0.28));
+        models.insert("deepseek-reasoner".into(), m(128_000, true, 0.55, 2.19));
+
+        // Mistral
+        models.insert("mistral-large-latest".into(), m(128_000, true, 2.0, 6.0));
+        models.insert("mistral-small-latest".into(), m(128_000, true, 0.1, 0.3));
+
+        // xAI
+        models.insert("grok-2".into(), m(131_072, true, 2.0, 10.0));
+        models.insert("grok-3-mini".into(), m(131_072, true, 0.3, 0.5));
+
+        // OpenRouter (pass-through, use provider pricing)
+        models.insert("anthropic/claude-sonnet-4".into(), m(200_000, true, 3.0, 15.0));
+        models.insert("meta-llama/llama-3.3-70b-instruct".into(), m(128_000, true, 0.59, 0.79));
+
+        // Together
+        models.insert("meta-llama/Llama-3.3-70B-Instruct-Turbo".into(), m(128_000, true, 0.88, 0.88));
+
+        // Perplexity
+        models.insert("sonar-pro".into(), m(200_000, true, 3.0, 15.0));
+        models.insert("sonar".into(), m(128_000, true, 1.0, 1.0));
+
+        // Cohere
+        models.insert("command-r-plus".into(), m(128_000, true, 2.5, 10.0));
+        models.insert("command-r".into(), m(128_000, true, 0.15, 0.6));
+
+        // Cerebras
+        models.insert("llama3.1-70b".into(), m(128_000, true, 0.0, 0.0));
+
         Self { models }
     }
 }
