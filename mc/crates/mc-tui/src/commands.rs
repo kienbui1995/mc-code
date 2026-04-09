@@ -88,6 +88,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/add" => cmd_add(app, arg),
         "/sessions" => cmd_sessions(app, arg),
         "/connect" => cmd_connect(app, arg),
+        "/tasks" => { app.push("Listing tasks..."); app.pending_command = Some(PendingCommand::Btw("__tasks_list__".into())); },
 
         _ => cmd_unknown(app, cmd, parts[0]),
     }
