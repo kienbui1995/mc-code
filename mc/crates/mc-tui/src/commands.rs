@@ -75,7 +75,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/todo" => app.pending_command = Some(PendingCommand::RunShell("grep -rn --color=never 'TODO\\|FIXME\\|HACK\\|XXX' . --include='*.rs' --include='*.py' --include='*.ts' --include='*.js' --include='*.go' 2>/dev/null | grep -v target/ | head -30".into())),
         "/recent" => app.pending_command = Some(PendingCommand::RunShell("find . -name '*.rs' -o -name '*.py' -o -name '*.ts' -o -name '*.js' -o -name '*.go' -o -name '*.toml' -o -name '*.md' | xargs ls -lt 2>/dev/null | head -15".into())),
         "/test" => cmd_test(app),
-        "/ship" => { app.push("Staging all changes..."); app.pending_command = Some(PendingCommand::RunShell("git add -A && echo 'Staged.'".into())); },
+        "/ship" => { app.push("Staging all changes..."); app.pending_command = Some(PendingCommand::Git("ship".into())); },
         "/open" => if arg.is_empty() { app.push("Usage: /open <file>"); } else { let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".into()); app.push(&format!("Opening {arg} in {editor}...")); let _ = std::process::Command::new(&editor).arg(arg).status(); },
         "/size" => if arg.is_empty() { app.push("Usage: /size <file>"); } else { app.pending_command = Some(PendingCommand::RunShell(format!("stat --printf='%s bytes' {arg} 2>/dev/null || stat -f '%z bytes' {arg}"))); },
         "/add" => cmd_add(app, arg),
@@ -288,8 +288,10 @@ fn cmd_grep(app: &mut App, arg: &str) {
     } else {
         let parts: Vec<&str> = arg.splitn(2, ' ').collect();
         let (pattern, path) = (parts[0], parts.get(1).unwrap_or(&"."));
+        // Shell-escape pattern to prevent injection
+        let escaped = pattern.replace('\'', "'\\''");
         app.pending_command = Some(PendingCommand::RunShell(
-            format!("grep -rn --color=never {pattern} {path} | head -30")
+            format!("grep -rn --color=never '{escaped}' {path} | head -30")
         ));
     }
 }

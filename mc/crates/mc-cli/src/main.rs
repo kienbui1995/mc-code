@@ -858,7 +858,12 @@ async fn run_tui(
                     }
                 }
                 PendingCommand::Git(cmd) => {
-                    let args: &[&str] = match cmd.as_str() {
+                    // /ship = git add -A then commit
+                    if cmd == "ship" {
+                        let _ = std::process::Command::new("git").args(["add", "-A"]).output();
+                    }
+                    let effective = if cmd == "ship" { "commit".to_string() } else { cmd };
+                    let args: &[&str] = match effective.as_str() {
                         "diff" => &["diff"],
                         "log" => &["log", "--oneline", "-10"],
                         "stash" => &["stash"],
@@ -868,7 +873,7 @@ async fn run_tui(
                     };
                     if let Ok(o) = std::process::Command::new("git").args(args).output() {
                         let out = String::from_utf8_lossy(&o.stdout);
-                        if cmd == "commit" {
+                        if effective == "commit" {
                             if out.trim().is_empty() {
                                 app.output_lines.push("Nothing staged.".into());
                             } else {
