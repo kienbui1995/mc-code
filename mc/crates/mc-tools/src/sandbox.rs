@@ -6,6 +6,7 @@ use crate::error::ToolError;
 pub struct Sandbox {
     root: PathBuf,
     pub(crate) protected: Vec<String>,
+    pub(crate) extra_roots: Vec<PathBuf>,
 }
 
 impl Sandbox {
@@ -22,6 +23,7 @@ impl Sandbox {
                 "*.key".into(),
                 "id_rsa*".into(),
             ],
+            extra_roots: Vec::new(),
         }
     }
 
@@ -30,6 +32,13 @@ impl Sandbox {
     /// With protected.
     pub fn with_protected(mut self, patterns: Vec<String>) -> Self {
         self.protected.extend(patterns);
+        self
+    }
+
+    /// Add an additional allowed root directory.
+    #[must_use]
+    pub fn with_extra_root(mut self, root: PathBuf) -> Self {
+        self.extra_roots.push(root);
         self
     }
 
@@ -50,7 +59,9 @@ impl Sandbox {
         // Canonicalize what exists, then check prefix
         let resolved = resolve_path(&target);
 
-        if resolved.starts_with(&self.root) {
+        if resolved.starts_with(&self.root)
+            || self.extra_roots.iter().any(|r| resolved.starts_with(r))
+        {
             // Check protected patterns
             let rel = resolved
                 .strip_prefix(&self.root)

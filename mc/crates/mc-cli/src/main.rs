@@ -81,6 +81,9 @@ struct Cli {
     max_turns: Option<u32>,
     #[arg(long, hide = true)]
     completions: Option<String>,
+    /// Grant access to additional directories outside workspace.
+    #[arg(long, value_name = "DIR")]
+    add_dir: Vec<String>,
     prompt: Vec<String>,
 }
 
@@ -166,6 +169,7 @@ fn main() -> Result<()> {
             &config,
             cli.max_budget_usd,
             cli.max_turns,
+            &cli.add_dir,
         ))
     } else {
         rt.block_on(run_single(
@@ -178,6 +182,7 @@ fn main() -> Result<()> {
             hooks,
             cli.output,
             cli.json,
+            &cli.add_dir,
         ))
     }
 }
@@ -227,6 +232,7 @@ async fn run_tui(
     config: &mc_config::RuntimeConfig,
     cli_max_budget: Option<f64>,
     cli_max_turns: Option<u32>,
+    extra_dirs: &[String],
 ) -> Result<()> {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -251,6 +257,12 @@ async fn run_tui(
 
     let mut tool_registry = mc_tools::ToolRegistry::new()
         .with_workspace_root(std::env::current_dir().unwrap_or_default());
+    for dir in extra_dirs {
+        let path = std::path::PathBuf::from(dir);
+        if path.is_dir() {
+            tool_registry = tool_registry.with_extra_root(path);
+        }
+    }
     for mcp in &config.mcp_servers {
         let env: Vec<(String, String)> = mcp
             .env
@@ -1141,14 +1153,20 @@ async fn run_single(
     hooks: Vec<mc_tools::Hook>,
     output_path: Option<String>,
     json_output: bool,
+    extra_dirs: &[String],
 ) -> Result<()> {
     let cancel = CancellationToken::new();
     let mut runtime =
         mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
-    runtime.set_tool_registry(
-        mc_tools::ToolRegistry::new()
-            .with_workspace_root(std::env::current_dir().unwrap_or_default()),
-    );
+    let mut tool_registry = mc_tools::ToolRegistry::new()
+        .with_workspace_root(std::env::current_dir().unwrap_or_default());
+    for dir in extra_dirs {
+        let path = std::path::PathBuf::from(dir);
+        if path.is_dir() {
+            tool_registry = tool_registry.with_extra_root(path);
+        }
+    }
+    runtime.set_tool_registry(tool_registry);
     if !hooks.is_empty() {
         runtime.set_hooks(mc_tools::HookEngine::new(hooks));
     }

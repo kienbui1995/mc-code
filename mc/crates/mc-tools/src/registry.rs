@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::bash::BashTool;
 use crate::error::ToolError;
-use crate::file_ops::{EditFileTool, ReadFileTool, WriteFileTool};
+use crate::file_ops::{BatchEditTool, EditFileTool, ReadFileTool, WriteFileTool};
 use crate::mcp::McpClient;
 use crate::sandbox::Sandbox;
 use crate::search::{GlobSearchTool, GrepSearchTool};
@@ -57,6 +57,15 @@ impl ToolRegistry {
     pub fn with_protected_patterns(mut self, patterns: Vec<String>) -> Self {
         if let Some(ref mut sandbox) = self.sandbox {
             sandbox.protected.extend(patterns);
+        }
+        self
+    }
+
+    /// Grant access to an additional directory outside the workspace root.
+    #[must_use]
+    pub fn with_extra_root(mut self, root: PathBuf) -> Self {
+        if let Some(ref mut sandbox) = self.sandbox {
+            sandbox.extra_roots.push(root);
         }
         self
     }
@@ -242,6 +251,14 @@ impl ToolRegistry {
                 .await
                 .map_err(|e| ToolError::ExecutionFailed(e.to_string()))??;
                 Ok(result)
+            }
+            "batch_edit" => {
+                let edits = input.get("edits").and_then(|v| v.as_array())
+                    .ok_or_else(|| ToolError::InvalidInput("missing 'edits' array".into()))?;
+                let edits_clone = edits.clone();
+                tokio::task::spawn_blocking(move || BatchEditTool::execute(&edits_clone))
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
             }
             "glob_search" => {
                 let pattern = str_field(input, "pattern")?;
@@ -438,7 +455,7 @@ mod tests {
     #[test]
     fn specs_has_all_tools() {
         let specs = ToolRegistry::specs();
-        assert_eq!(specs.len(), 16);
+        assert_eq!(specs.len(), 17);
         let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"bash"));
         assert!(names.contains(&"edit_file"));

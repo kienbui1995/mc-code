@@ -188,6 +188,30 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
             input_schema: json!({"type": "object", "properties": {}}),
         },
         ToolSpec {
+            name: "batch_edit".into(),
+            description: "Apply multiple file edits in a single call. More efficient than calling edit_file repeatedly. Aborts if any edit fails.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "edits": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {"type": "string"},
+                                "old_string": {"type": "string"},
+                                "new_string": {"type": "string"},
+                                "replace_all": {"type": "boolean"}
+                            },
+                            "required": ["path", "old_string", "new_string"]
+                        },
+                        "description": "Array of edits to apply"
+                    }
+                },
+                "required": ["edits"]
+            }),
+        },
+        ToolSpec {
             name: "task_stop".into(),
             description: "Stop a running background task.".into(),
             input_schema: json!({
