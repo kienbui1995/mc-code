@@ -26,6 +26,7 @@ pub struct ToolRegistry {
     mcp_clients: HashMap<String, Mutex<McpClient>>,
     mcp_tool_specs: Vec<ToolSpec>,
     cached_specs: std::sync::OnceLock<Vec<ToolSpec>>,
+    read_files: std::sync::Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
 }
 
 impl ToolRegistry {
@@ -39,6 +40,7 @@ impl ToolRegistry {
             mcp_clients: HashMap::new(),
             mcp_tool_specs: Vec::new(),
             cached_specs: std::sync::OnceLock::new(),
+            read_files: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
         }
     }
 
@@ -99,6 +101,13 @@ impl ToolRegistry {
     /// Specs.
     pub fn specs() -> Vec<ToolSpec> {
         all_tool_specs()
+    }
+
+    /// Clear the set of tracked read files (useful for session reset).
+    pub fn clear_read_tracking(&self) {
+        if let Ok(mut reads) = self.read_files.lock() {
+            reads.clear();
+        }
     }
 
     /// Execute.
@@ -172,12 +181,29 @@ impl ToolRegistry {
                     .get("limit")
                     .and_then(Value::as_u64)
                     .map(|v| v as usize);
-                tokio::task::spawn_blocking(move || ReadFileTool::execute(&path, offset, limit))
+                let path_clone = path.clone();
+                let result = tokio::task::spawn_blocking(move || ReadFileTool::execute(&path_clone, offset, limit))
                     .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+                if let Ok(ref _output) = result {
+                    if let Ok(mut reads) = self.read_files.lock() {
+                        reads.insert(path.clone());
+                    }
+                }
+                result
             }
             "write_file" => {
                 let path = self.check_path(str_field(input, "path")?)?;
+                // Read-before-write enforcement
+                {
+                    let reads = self.read_files.lock().unwrap_or_else(|e| e.into_inner());
+                    let file_exists = std::path::Path::new(&path).exists();
+                    if file_exists && !reads.contains(&path) {
+                        return Err(ToolError::ExecutionFailed(
+                            format!("Cannot write to '{}': file has not been read in this session. Use read_file first.", path)
+                        ));
+                    }
+                }
                 let content = str_field(input, "content")?;
                 let old = std::fs::read_to_string(&path).unwrap_or_default();
                 let result = tokio::task::spawn_blocking(move || {
@@ -190,6 +216,16 @@ impl ToolRegistry {
             }
             "edit_file" => {
                 let path = self.check_path(str_field(input, "path")?)?;
+                // Read-before-write enforcement
+                {
+                    let reads = self.read_files.lock().unwrap_or_else(|e| e.into_inner());
+                    let file_exists = std::path::Path::new(&path).exists();
+                    if file_exists && !reads.contains(&path) {
+                        return Err(ToolError::ExecutionFailed(
+                            format!("Cannot write to '{}': file has not been read in this session. Use read_file first.", path)
+                        ));
+                    }
+                }
                 let old_str = str_field(input, "old_string")?;
                 let new_str = str_field(input, "new_string")?;
                 let all = input

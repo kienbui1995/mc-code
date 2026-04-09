@@ -7,7 +7,7 @@ pub fn handle(app: &mut App, cmd: &str) {
     let arg = parts.get(1).copied().unwrap_or("");
 
     match parts[0] {
-        "/help" => app.push("Commands: /help /quit /status /cost /plan /compact /undo /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init /summary /search /doctor /template /review /retry /pin /theme /copy /version /history /tokens /context /alias /run /grep /tree /head /tail /cat /files /wc /todo /recent /test /ship /open /pwd /env /size /models /time /whoami /tip /last /spec /vim /effort /rewind /debug /btw /loop /config /add /sessions /permissions /dry-run"),
+        "/help" => app.push("Commands: /help /quit /status /cost /plan /compact /undo /update /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init /summary /search /doctor /template /review /retry /pin /theme /copy /version /history /tokens /context /alias /run /grep /tree /head /tail /cat /files /wc /todo /recent /test /ship /open /pwd /env /size /models /time /whoami /tip /last /spec /vim /effort /rewind /debug /btw /loop /config /add /sessions /permissions /dry-run"),
         "/quit" => app.should_quit = true,
         "/status" => cmd_status(app),
         "/plan" => cmd_plan(app),
@@ -17,6 +17,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/load" => { let n = if arg.is_empty() { "default" } else { arg }; app.push(&format!("Session load requested: {n}")); app.pending_command = Some(PendingCommand::Load(n.into())); }
         "/compact" => { app.push("Compaction requested."); app.pending_command = Some(PendingCommand::Compact); }
         "/undo" => app.pending_command = Some(PendingCommand::Undo),
+        "/update" => { app.push("Checking for updates..."); app.pending_command = Some(PendingCommand::RunShell("curl -sf https://api.github.com/repos/kienbui1995/mc-code/releases/latest | grep -o '\"tag_name\":\"[^\"]*' | cut -d'\"' -f4".into())); },
         "/image" => cmd_image(app, arg),
         "/memory" => app.pending_command = Some(PendingCommand::Memory(if arg.is_empty() { "list".into() } else { arg.into() })),
         "/thinking" => app.pending_command = Some(PendingCommand::ThinkingToggle),
