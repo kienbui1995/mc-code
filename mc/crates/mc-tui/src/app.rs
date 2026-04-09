@@ -325,6 +325,7 @@ impl App {
         "/plan",
         "/compact",
         "/undo",
+        "/update",
         "/save",
         "/load",
         "/image",

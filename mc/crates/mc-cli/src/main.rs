@@ -73,6 +73,12 @@ struct Cli {
     /// Output results as JSON (for automation/scripting).
     #[arg(long)]
     json: bool,
+    /// Stop after spending this many USD.
+    #[arg(long)]
+    max_budget_usd: Option<f64>,
+    /// Stop after this many model turns.
+    #[arg(long)]
+    max_turns: Option<u32>,
     #[arg(long, hide = true)]
     completions: Option<String>,
     prompt: Vec<String>,
@@ -158,6 +164,8 @@ fn main() -> Result<()> {
             hooks,
             resume_session,
             &config,
+            cli.max_budget_usd,
+            cli.max_turns,
         ))
     } else {
         rt.block_on(run_single(
@@ -217,6 +225,8 @@ async fn run_tui(
     hooks: Vec<mc_tools::Hook>,
     resume_session: Option<String>,
     config: &mc_config::RuntimeConfig,
+    cli_max_budget: Option<f64>,
+    cli_max_turns: Option<u32>,
 ) -> Result<()> {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -314,6 +324,25 @@ async fn run_tui(
                     turn_cancel = None;
                     // Auto-save every 5 turns
                     turn_count += 1;
+                    // Check budget/turn limits
+                    if let Some(max_usd) = cli_max_budget {
+                        if app.session_cost >= max_usd {
+                            app.handle_event(AppEvent::Error(format!(
+                                "Budget limit reached: ${:.2}",
+                                max_usd
+                            )));
+                            break;
+                        }
+                    }
+                    if let Some(max_t) = cli_max_turns {
+                        if turn_count >= max_t {
+                            app.handle_event(AppEvent::Error(format!(
+                                "Turn limit reached: {}",
+                                max_t
+                            )));
+                            break;
+                        }
+                    }
                     if turn_count.is_multiple_of(5) {
                         if let Ok(rt) = runtime.try_lock() {
                             let _ = rt.session.save(&session_path("last"));
