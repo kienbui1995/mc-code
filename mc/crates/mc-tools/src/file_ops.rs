@@ -17,6 +17,13 @@ impl ReadFileTool {
         offset: Option<usize>,
         limit: Option<usize>,
     ) -> Result<String, ToolError> {
+        // Jupyter notebook support: extract cell sources as readable text
+        if path.ends_with(".ipynb") {
+            let content = std::fs::read_to_string(path)
+                .map_err(|e| ToolError::ExecutionFailed(format!("read {path}: {e}")))?;
+            return Ok(extract_notebook_cells(&content));
+        }
+
         let content = fs::read_to_string(path).map_err(ToolError::Io)?;
         let lines: Vec<&str> = content.lines().collect();
         let total = lines.len();
@@ -142,6 +149,31 @@ fn generate_diff(path: &str, old: &str, new: &str) -> String {
         }
     }
     out
+}
+
+/// Extract cell sources from a Jupyter notebook JSON.
+fn extract_notebook_cells(json: &str) -> String {
+    let Ok(nb) = serde_json::from_str::<serde_json::Value>(json) else {
+        return json.to_string(); // fallback: return raw JSON
+    };
+    let Some(cells) = nb.get("cells").and_then(|c| c.as_array()) else {
+        return json.to_string();
+    };
+    let mut output = String::new();
+    for (i, cell) in cells.iter().enumerate() {
+        let cell_type = cell.get("cell_type").and_then(|t| t.as_str()).unwrap_or("unknown");
+        let source = cell.get("source").map(|s| {
+            if let Some(arr) = s.as_array() {
+                arr.iter().filter_map(|v| v.as_str()).collect::<String>()
+            } else {
+                s.as_str().unwrap_or("").to_string()
+            }
+        }).unwrap_or_default();
+        if !source.trim().is_empty() {
+            output.push_str(&format!("# Cell {} [{}]\n{}\n\n", i + 1, cell_type, source));
+        }
+    }
+    if output.is_empty() { json.to_string() } else { output }
 }
 
 #[cfg(test)]
