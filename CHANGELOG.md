@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.1.0 (2026-04-09)
+
+### Release Highlights
+
+**26 tools, 15 providers, 152 tests, 13.6K lines of Rust.**
+
+Since v1.0.0:
+- **Interactive `/model` picker** — numbered list with pricing, select by # or name
+- **Git worktree tools** — `worktree_enter`/`worktree_exit` for isolated branch work
+- **Cron triggers** — `/cron add|remove|list` for scheduled prompts
+- **Config hot-reload** — detect config file changes via mtime polling
+- **Streaming `web_fetch`** — progress messages during HTTP fetch
+- **`apply_patch` tool** — apply unified diff patches (git diff format)
+- **`todo_write` tool** — LLM-managed TODO list tracking
+- **`ask_user` tool** — LLM pauses to ask user for clarification
+- **`sleep` tool** — pause execution for polling loops
+- **`notebook_edit` tool** — edit/insert/delete Jupyter notebook cells
+- **MCP resource tools** — `mcp_list_resources` + `mcp_read_resource`
+- **`/resume`** — resume previous sessions with fuzzy search
+- **`/security-review`** — dedicated security audit command
+- **`/agents`** — manage sub-agents
+- **`/cron`** — scheduled trigger management
+- **9 command aliases** — `/h`, `/?`, `/q`, `/exit`, `/new`, `/reset`, `/continue`, `/v`, `/settings`
+- **`--max-tokens-total`** — budget limit on total tokens
+- **Model whitelist/blacklist** — per-provider model filtering
+- **Hierarchical AGENTS.md** — loads instructions root→cwd (wired into system prompt)
+- **Task kill** — `task_stop` now actually aborts the process
+- **Async worktree** — non-blocking git worktree operations
+
 ## v1.0.0 (2026-04-09)
 
 ### 🎉 v1.0 Release
