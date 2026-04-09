@@ -104,24 +104,31 @@ impl BatchEditTool {
     pub fn execute(edits: &[serde_json::Value]) -> Result<String, ToolError> {
         let mut planned: Vec<(String, String, String)> = Vec::new();
         for edit in edits {
-            let path = edit.get("path").and_then(|v| v.as_str())
+            let path = edit
+                .get("path")
+                .and_then(|v| v.as_str())
                 .ok_or_else(|| ToolError::InvalidInput("edit missing 'path'".into()))?;
-            let old_str = edit.get("old_string").and_then(|v| v.as_str())
+            let old_str = edit
+                .get("old_string")
+                .and_then(|v| v.as_str())
                 .ok_or_else(|| ToolError::InvalidInput("edit missing 'old_string'".into()))?;
-            let new_str = edit.get("new_string").and_then(|v| v.as_str())
+            let new_str = edit
+                .get("new_string")
+                .and_then(|v| v.as_str())
                 .ok_or_else(|| ToolError::InvalidInput("edit missing 'new_string'".into()))?;
             let content = std::fs::read_to_string(path)
                 .map_err(|e| ToolError::ExecutionFailed(format!("read {path}: {e}")))?;
             if !content.contains(old_str) {
-                return Err(ToolError::ExecutionFailed(
-                    format!("old_string not found in {path}")
-                ));
+                return Err(ToolError::ExecutionFailed(format!(
+                    "old_string not found in {path}"
+                )));
             }
             planned.push((path.to_string(), old_str.to_string(), new_str.to_string()));
         }
         let mut count = 0;
         for (path, old_str, new_str) in &planned {
-            let replace_all = edits.get(count)
+            let replace_all = edits
+                .get(count)
                 .and_then(|e| e.get("replace_all"))
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
@@ -160,7 +167,9 @@ impl ApplyPatchTool {
             Ok(o) if o.status.success() => Ok(format!("Patch applied successfully\n{stat}")),
             Ok(o) => {
                 let err = String::from_utf8_lossy(&o.stderr);
-                Err(ToolError::ExecutionFailed(format!("git apply failed: {err}")))
+                Err(ToolError::ExecutionFailed(format!(
+                    "git apply failed: {err}"
+                )))
             }
             Err(e) => Err(ToolError::ExecutionFailed(format!("git apply: {e}"))),
         }
@@ -196,19 +205,29 @@ fn extract_notebook_cells(json: &str) -> String {
     };
     let mut output = String::new();
     for (i, cell) in cells.iter().enumerate() {
-        let cell_type = cell.get("cell_type").and_then(|t| t.as_str()).unwrap_or("unknown");
-        let source = cell.get("source").map(|s| {
-            if let Some(arr) = s.as_array() {
-                arr.iter().filter_map(|v| v.as_str()).collect::<String>()
-            } else {
-                s.as_str().unwrap_or("").to_string()
-            }
-        }).unwrap_or_default();
+        let cell_type = cell
+            .get("cell_type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("unknown");
+        let source = cell
+            .get("source")
+            .map(|s| {
+                if let Some(arr) = s.as_array() {
+                    arr.iter().filter_map(|v| v.as_str()).collect::<String>()
+                } else {
+                    s.as_str().unwrap_or("").to_string()
+                }
+            })
+            .unwrap_or_default();
         if !source.trim().is_empty() {
             output.push_str(&format!("# Cell {} [{}]\n{}\n\n", i + 1, cell_type, source));
         }
     }
-    if output.is_empty() { json.to_string() } else { output }
+    if output.is_empty() {
+        json.to_string()
+    } else {
+        output
+    }
 }
 
 #[cfg(test)]

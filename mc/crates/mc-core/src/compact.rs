@@ -31,9 +31,24 @@ pub fn micro_compact(session: &mut Session) {
             if let Block::ToolResult { output, .. } = block {
                 if output.len() > 2000 {
                     let total = output.len();
-                    let first_end = output.char_indices().map(|(i, _)| i).take_while(|&i| i <= 500).last().unwrap_or(0);
-                    let last_start = output.char_indices().rev().take_while(|&(i, _)| total - i <= 500).last().map(|(i, _)| i).unwrap_or(total);
-                    *output = format!("{}...[trimmed {total}B]...{}", &output[..first_end], &output[last_start..]);
+                    let first_end = output
+                        .char_indices()
+                        .map(|(i, _)| i)
+                        .take_while(|&i| i <= 500)
+                        .last()
+                        .unwrap_or(0);
+                    let last_start = output
+                        .char_indices()
+                        .rev()
+                        .take_while(|&(i, _)| total - i <= 500)
+                        .last()
+                        .map(|(i, _)| i)
+                        .unwrap_or(total);
+                    *output = format!(
+                        "{}...[trimmed {total}B]...{}",
+                        &output[..first_end],
+                        &output[last_start..]
+                    );
                 }
             }
         }

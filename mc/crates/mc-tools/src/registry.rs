@@ -40,7 +40,9 @@ impl ToolRegistry {
             mcp_clients: HashMap::new(),
             mcp_tool_specs: Vec::new(),
             cached_specs: std::sync::OnceLock::new(),
-            read_files: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+            read_files: std::sync::Arc::new(
+                std::sync::Mutex::new(std::collections::HashSet::new()),
+            ),
         }
     }
 
@@ -194,9 +196,11 @@ impl ToolRegistry {
                     .and_then(Value::as_u64)
                     .map(|v| v as usize);
                 let path_clone = path.clone();
-                let result = tokio::task::spawn_blocking(move || ReadFileTool::execute(&path_clone, offset, limit))
-                    .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+                let result = tokio::task::spawn_blocking(move || {
+                    ReadFileTool::execute(&path_clone, offset, limit)
+                })
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
                 if let Ok(ref _output) = result {
                     if let Ok(mut reads) = self.read_files.lock() {
                         reads.insert(path.clone());
@@ -256,7 +260,9 @@ impl ToolRegistry {
                 Ok(result)
             }
             "batch_edit" => {
-                let edits = input.get("edits").and_then(|v| v.as_array())
+                let edits = input
+                    .get("edits")
+                    .and_then(|v| v.as_array())
                     .ok_or_else(|| ToolError::InvalidInput("missing 'edits' array".into()))?;
                 let edits_clone = edits.clone();
                 tokio::task::spawn_blocking(move || BatchEditTool::execute(&edits_clone))

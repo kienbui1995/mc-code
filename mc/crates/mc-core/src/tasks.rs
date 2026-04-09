@@ -67,8 +67,7 @@ impl TaskManager {
             if let Some(entry) = map.get_mut(&task_id) {
                 match result {
                     Ok(output) => {
-                        entry.info.output =
-                            String::from_utf8_lossy(&output.stdout).to_string();
+                        entry.info.output = String::from_utf8_lossy(&output.stdout).to_string();
                         if !output.stderr.is_empty() {
                             entry.info.output.push_str("\nSTDERR: ");
                             entry
@@ -92,10 +91,13 @@ impl TaskManager {
             }
         });
 
-        self.tasks
-            .lock()
-            .await
-            .insert(id.clone(), TaskEntry { info, handle: Some(handle) });
+        self.tasks.lock().await.insert(
+            id.clone(),
+            TaskEntry {
+                info,
+                handle: Some(handle),
+            },
+        );
         id
     }
 
