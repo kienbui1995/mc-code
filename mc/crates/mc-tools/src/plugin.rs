@@ -52,8 +52,14 @@ pub async fn execute_plugin(
     let script = find_plugin_script(workspace, name)
         .ok_or_else(|| ToolError::NotFound(format!("plugin script not found: {name}")))?;
 
+    let interpreter = if script.extension().is_some_and(|e| e == "py") {
+        "python3"
+    } else {
+        "sh"
+    };
+
     let output = tokio::time::timeout(Duration::from_secs(60), async {
-        Command::new("sh")
+        Command::new(interpreter)
             .arg(&script)
             .env("PLUGIN_INPUT", input)
             .output()

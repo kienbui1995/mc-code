@@ -24,15 +24,16 @@ pub fn should_compact(session: &Session, context_window: usize, threshold: f64) 
 }
 
 /// Naive compaction: truncate old messages and insert text summary.
-/// Micro-compact: trim long tool outputs to first/last 500 chars.
+/// Micro-compact: trim long tool outputs to first/last ~500 chars (UTF-8 safe).
 pub fn micro_compact(session: &mut Session) {
     for msg in &mut session.messages {
         for block in &mut msg.blocks {
             if let Block::ToolResult { output, .. } = block {
                 if output.len() > 2000 {
-                    let first = &output[..500];
-                    let last = &output[output.len() - 500..];
-                    *output = format!("{first}\n...[trimmed {}B]...\n{last}", output.len());
+                    let total = output.len();
+                    let first_end = output.char_indices().map(|(i, _)| i).take_while(|&i| i <= 500).last().unwrap_or(0);
+                    let last_start = output.char_indices().rev().take_while(|&(i, _)| total - i <= 500).last().map(|(i, _)| i).unwrap_or(total);
+                    *output = format!("{}...[trimmed {total}B]...{}", &output[..first_end], &output[last_start..]);
                 }
             }
         }

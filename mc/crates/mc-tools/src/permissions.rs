@@ -131,16 +131,12 @@ fn classify_bash_command(
 ) -> PermissionOutcome {
     let cmd = input.trim();
 
-    // Split compound commands (&&, ||, ;, |) and check each part
-    let parts: Vec<&str> = cmd
-        .split(&['&', '|', ';'][..])
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .collect();
+    // Split compound commands outside of quotes
+    let parts = split_shell_commands(cmd);
 
     let mut needs_prompt = false;
     for part in &parts {
-        match classify_single_command(part) {
+        match classify_single_command(part.trim()) {
             CommandRisk::Safe => {}
             CommandRisk::Dangerous(reason) => {
                 return PermissionOutcome::Deny {
@@ -164,6 +160,43 @@ fn classify_bash_command(
     } else {
         PermissionOutcome::Allow
     }
+}
+
+/// Split shell command on ;, &&, || operators while respecting quotes.
+fn split_shell_commands(cmd: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0;
+    let mut in_single = false;
+    let mut in_double = false;
+    let bytes = cmd.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c == b'\'' && !in_double { in_single = !in_single; }
+        else if c == b'"' && !in_single { in_double = !in_double; }
+        else if !in_single && !in_double {
+            if c == b';' {
+                parts.push(&cmd[start..i]);
+                start = i + 1;
+            } else if c == b'&' && i + 1 < bytes.len() && bytes[i + 1] == b'&' {
+                parts.push(&cmd[start..i]);
+                start = i + 2;
+                i += 1;
+            } else if c == b'|' && i + 1 < bytes.len() && bytes[i + 1] == b'|' {
+                parts.push(&cmd[start..i]);
+                start = i + 2;
+                i += 1;
+            } else if c == b'|' {
+                parts.push(&cmd[start..i]);
+                start = i + 1;
+            }
+        }
+        i += 1;
+    }
+    if start < cmd.len() {
+        parts.push(&cmd[start..]);
+    }
+    parts
 }
 
 enum CommandRisk {

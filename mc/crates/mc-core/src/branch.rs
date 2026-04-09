@@ -15,15 +15,19 @@ pub struct BranchInfo {
 pub struct BranchManager {
     branches_dir: PathBuf,
     max_branches: usize,
+    next_counter: std::sync::atomic::AtomicUsize,
 }
 
 impl BranchManager {
     #[must_use]
     /// New.
     pub fn new(branches_dir: PathBuf, max_branches: usize) -> Self {
+        // Initialize counter from existing branches
+        let count = fs::read_dir(&branches_dir).map_or(0, |e| e.count());
         Self {
             branches_dir,
             max_branches,
+            next_counter: std::sync::atomic::AtomicUsize::new(count + 1),
         }
     }
 
@@ -103,7 +107,7 @@ impl BranchManager {
     }
 
     fn next_id(&self) -> usize {
-        self.list_branches().len() + 1
+        self.next_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
 }
 

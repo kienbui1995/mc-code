@@ -1,5 +1,133 @@
 # Changelog
 
+## v0.8.3 (2026-04-09)
+
+### Bug Fixes
+- **Fix UTF-8 panic in micro_compact** — byte-slicing long tool outputs could panic on multibyte characters; now uses `char_indices` for safe boundaries
+- **Fix duplicate undo snapshot** — `dispatch_tool` was snapshotting files twice before write operations
+- **Fix MCP server hang** — `recv()` had no timeout; MCP servers that stop responding would hang magic-code forever; now 30s timeout on all MCP reads
+- **Fix bash classification bypass** — command splitting on `&|;` chars broke quoted strings (e.g. `echo "a;b"`); now uses quote-aware shell parsing
+- **Fix auto_save_memory key collision** — two facts saved within the same second would overwrite each other; now uses millisecond + content-length key
+- **Fix /env API key leak** — was showing first 4 + last 4 chars of keys; now only shows `...xxxx` (last 4)
+- **Fix plugin .py interpreter** — Python plugins were run via `sh` instead of `python3`
+- **Fix /run blocking TUI** — `/run` command used blocking `std::process::Command`, freezing the entire TUI; now routes through async `PendingCommand`
+
+### Performance
+- **Cache `all_specs()` with `OnceLock`** — tool specs were re-allocated every LLM iteration; now cached and returned as `&[ToolSpec]`
+- **Reuse `reqwest::Client`** — `web_fetch` and `web_search` created a new HTTP client per call; now share a static client with connection pooling
+- **`CostTracker` in-memory cache** — `/cost --total` read and parsed the entire `usage.jsonl` file every call; now caches running totals in memory
+- **`UndoManager` uses `VecDeque`** — evicting oldest turn was O(n) with `Vec::remove(0)`; now O(1)
+- **`BranchManager` atomic counter** — `next_id()` was scanning the entire branches directory; now uses `AtomicUsize`
+
+### Improvements
+- **Output lines capped at 10K** — prevents unbounded memory growth in long sessions
+- **Auto-continue heuristic hardened** — added `}`, `)`, `]`, `;` as end-of-content markers to reduce false positives
+- **Renamed `now_iso()` → `epoch_secs()`** — function name now matches what it returns
+
+### Infrastructure
+- 146 tests (all pass)
+- 17 fixes across 12 files
+
+## v0.9.0 (Roadmap)
+
+### Planned — Stability & Architecture
+- **Async slash commands** — migrate remaining ~12 blocking commands (`/grep`, `/cat`, `/head`, `/tail`, `/files`, `/tree`, `/wc`, `/todo`, `/recent`, `/test`, `/ship`, `/open`) from `std::process::Command` to async `PendingCommand` pattern
+- **Split `handle_slash_command`** — extract 900-line, 40+ arm match into dedicated `commands` module with command registry pattern
+- **Replace hand-rolled `base64_encode`** — use `base64` crate instead of custom implementation
+- **Async image loading** — `resolve_image_base64` currently does blocking file I/O in `build_request`; move to `tokio::task::spawn_blocking`
+- **MCP reconnection** — auto-reconnect to MCP servers after disconnect/crash
+- **HTML parser upgrade** — `strip_html` breaks on `<script>`/`<style>` tags; use proper tag-aware stripping
+
+### Planned — Features
+- **Streaming tool output for all providers** — currently only bash streams; extend to web_fetch, plugins
+- **Session search improvements** — full-text search across session content, not just filenames
+- **Config hot-reload** — watch `.magic-code/config.toml` for changes without restart
+
+## v0.8.2 (2026-04-06)
+
+### New Features
+- **Auto-continue** — if LLM output appears truncated by token limit, automatically sends "continue"
+- **Large result persistence** — tool outputs exceeding 100KB saved to temp file with preview + path reference
+- **Bash security hardening** — deep command classification with compound command support, dangerous pattern detection
+
+### Infrastructure
+- 398 doc comments, 100% public API coverage
+- CI: sandbox testing, pre-release workflow, smoke tests
+
+## v0.8.1
+
+### New Features
+- **Effort levels** — `/effort low|medium|high` controls thinking budget (○ none, ◐ 10K, ● 32K tokens)
+
+## v0.8.0
+
+### New Features — Claude Code Architectural Patterns
+- **`PendingCommand` enum** — replaced 20+ boolean flags with typed command queue
+- **`AgentState` enum** — `Idle`/`Streaming`/`ToolExecuting`/`WaitingPermission` state machine
+- **Context window preflight** — auto-compact before oversized requests
+- **`--json` output mode** — structured output for automation/scripting
+- **Error IDs** — `MC-E001` through `MC-E006` for categorized errors
+- **System prompt v2** — tool guidelines, error recovery instructions
+- **MCP timeout + health check** — 60s tool call timeout, `is_alive()` check
+- **ADR-003** — permission model documentation
+
+## v0.7.6
+
+### New Features — Claude Code Feature Parity
+- **`/run`** — execute shell commands directly from TUI
+- **`/grep`** — search codebase from TUI
+- **`/vim`** — toggle vim keybindings (Esc=Normal, i=Insert)
+- **`/spec`** — generate technical specification before coding
+- **`/config`** — show current runtime configuration
+- **`/add`** — add file/directory content to next prompt
+- **`/sessions`** — list and delete saved sessions
+- **`/permissions`** — show and toggle permission modes
+- **Transcript mode** — show raw conversation
+- **Custom commands** — `.magic-code/commands/*.md` auto-discovered
+
+## v0.7.5
+
+### New Features
+- **Deep bash permission classification** — safe/dangerous/needs-review with compound command support
+- **`/config` command** — show runtime config
+- **`/add` command** — add file content to input
+- **`/sessions` command** — list/delete saved sessions
+- **`/spec` command** — generate spec before coding
+
+## v0.7.4
+
+### New Features
+- **`/todo`** — find all TODO/FIXME/HACK in codebase
+- **`/recent`** — show recently modified files
+- **`/ship`** — git add all + LLM commit message (one command)
+- **`/test`** — auto-detect test runner and run tests
+
+## v0.7.3
+
+### New Features
+- **`/tree`** — directory tree with depth control
+- **`/head`** / **`/tail`** — view file start/end
+- **`/pwd`** — show current directory
+- **`/env`** — show environment variables (keys masked)
+- **`/size`** — show file size
+
+## v0.7.2
+
+### New Features
+- **`/files`** — list directory contents
+- **`/cat`** — view file contents
+- **`/models`** — list known models
+- **`/wc`** — count lines of code in workspace
+
+## v0.7.1
+
+### New Features
+- **`/tip`** — random productivity tip
+- **`/time`** — session elapsed time
+- **`/whoami`** — show current config summary
+- **`/last`** — show last tool output
+- **`/open`** — open file in $EDITOR
+
 ## v0.7.0 (2026-04-06)
 
 ### New Features

@@ -1,11 +1,14 @@
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Persists per-turn cost entries to `usage.jsonl` and reads cumulative totals.
 /// Persists per-turn usage to disk for cumulative cost tracking.
 pub struct CostTracker {
     path: PathBuf,
+    cached_in: u64,
+    cached_out: u64,
+    cached_cost: f64,
 }
 
 impl CostTracker {
@@ -19,11 +22,13 @@ impl CostTracker {
     #[must_use]
     /// New.
     pub fn new(path: PathBuf) -> Self {
-        Self { path }
+        // Load existing totals on init
+        let (cached_in, cached_out, cached_cost) = Self::read_totals(&path);
+        Self { path, cached_in, cached_out, cached_cost }
     }
 
     /// Append a usage entry after each turn.
-    pub fn record(&self, model: &str, input_tokens: u32, output_tokens: u32, cost: f64) {
+    pub fn record(&mut self, model: &str, input_tokens: u32, output_tokens: u32, cost: f64) {
         if let Some(parent) = self.path.parent() {
             let _ = fs::create_dir_all(parent);
         }
@@ -41,13 +46,21 @@ impl CostTracker {
             return;
         };
         let _ = writeln!(f, "{line}");
+        // Update in-memory cache
+        self.cached_in += u64::from(input_tokens);
+        self.cached_out += u64::from(output_tokens);
+        self.cached_cost += cost;
     }
 
     /// Read all entries and return cumulative (`input_tokens`, `output_tokens`, cost).
     #[must_use]
     /// Cumulative.
     pub fn cumulative(&self) -> (u64, u64, f64) {
-        let Ok(file) = fs::File::open(&self.path) else {
+        (self.cached_in, self.cached_out, self.cached_cost)
+    }
+
+    fn read_totals(path: &Path) -> (u64, u64, f64) {
+        let Ok(file) = fs::File::open(path) else {
             return (0, 0, 0.0);
         };
         let mut total_in: u64 = 0;
@@ -71,7 +84,7 @@ mod tests {
     #[test]
     fn record_and_read_cumulative() {
         let path = std::env::temp_dir().join(format!("mc-cost-{}.jsonl", std::process::id()));
-        let tracker = CostTracker::new(path.clone());
+        let mut tracker = CostTracker::new(path.clone());
         tracker.record("claude", 1000, 200, 0.005);
         tracker.record("claude", 500, 100, 0.002);
         let (i, o, c) = tracker.cumulative();

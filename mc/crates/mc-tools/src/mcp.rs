@@ -155,14 +155,17 @@ impl McpClient {
     }
 
     async fn recv(&mut self) -> Result<serde_json::Value, ToolError> {
+        self.recv_with_timeout(std::time::Duration::from_secs(30)).await
+    }
+
+    async fn recv_with_timeout(&mut self, timeout: std::time::Duration) -> Result<serde_json::Value, ToolError> {
         let mut line = String::new();
         // Read lines until we get valid JSON (skip empty lines)
         loop {
             line.clear();
-            let n = self
-                .stdout
-                .read_line(&mut line)
+            let n = tokio::time::timeout(timeout, self.stdout.read_line(&mut line))
                 .await
+                .map_err(|_| ToolError::Timeout(timeout.as_millis() as u64))?
                 .map_err(ToolError::Io)?;
             if n == 0 {
                 return Err(ToolError::ExecutionFailed(

@@ -59,7 +59,7 @@ impl MemoryStore {
 
     /// Set.
     pub fn set(&mut self, key: &str, value: &str) {
-        let ts = now_iso();
+        let ts = epoch_secs();
         if let Some(f) = self.facts.iter_mut().find(|f| f.key == key) {
             f.value = value.to_string();
             f.updated_at = ts;
@@ -163,8 +163,7 @@ impl MemoryStore {
     }
 }
 
-fn now_iso() -> String {
-    // Simple UTC timestamp without chrono dependency
+fn epoch_secs() -> String {
     let d = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
