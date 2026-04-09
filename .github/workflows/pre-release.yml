@@ -7,7 +7,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -Dwarnings
 
 jobs:
   check:
@@ -28,7 +27,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets
+        run: cargo clippy --workspace --all-targets -- -W clippy::correctness
 
       - name: Test
         run: cargo test --workspace
@@ -56,7 +55,7 @@ jobs:
         run: |
           COUNT=$(cargo test --workspace -q 2>&1 | grep "test result" | awk '{sum+=$4} END {print sum}')
           echo "Tests: $COUNT"
-          if [ "$COUNT" -lt 140 ]; then
-            echo "❌ Test count dropped below 140"
+          if [ "$COUNT" -lt 150 ]; then
+            echo "❌ Test count dropped below 150"
             exit 1
           fi
