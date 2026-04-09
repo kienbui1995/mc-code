@@ -159,5 +159,44 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["file", "line", "column", "method"]
             }),
         },
+        ToolSpec {
+            name: "task_create".into(),
+            description: "Create a background task that runs a shell command asynchronously. Returns a task ID for polling.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string", "description": "What this task does"},
+                    "command": {"type": "string", "description": "Shell command to run"}
+                },
+                "required": ["description", "command"]
+            }),
+        },
+        ToolSpec {
+            name: "task_get".into(),
+            description: "Get the status and output of a background task by ID.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string", "description": "Task ID returned by task_create"}
+                },
+                "required": ["task_id"]
+            }),
+        },
+        ToolSpec {
+            name: "task_list".into(),
+            description: "List all background tasks with their statuses.".into(),
+            input_schema: json!({"type": "object", "properties": {}}),
+        },
+        ToolSpec {
+            name: "task_stop".into(),
+            description: "Stop a running background task.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string", "description": "Task ID to stop"}
+                },
+                "required": ["task_id"]
+            }),
+        },
     ]
 }

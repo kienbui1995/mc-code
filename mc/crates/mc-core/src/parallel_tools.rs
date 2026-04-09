@@ -26,6 +26,8 @@ fn is_read_tool(name: &str) -> bool {
             | "web_search"
             | "lsp_query"
             | "memory_read"
+            | "task_get"
+            | "task_list"
     )
 }
 

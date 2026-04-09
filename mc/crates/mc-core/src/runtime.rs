@@ -81,6 +81,7 @@ pub struct ConversationRuntime {
     undo_manager: UndoManager,
     tool_cache: ToolCache,
     cost_tracker: Option<crate::cost::CostTracker>,
+    task_manager: crate::tasks::TaskManager,
 }
 
 impl ConversationRuntime {
@@ -114,6 +115,7 @@ impl ConversationRuntime {
             tool_cache: ToolCache::default(),
             cost_tracker: crate::cost::CostTracker::default_path()
                 .map(crate::cost::CostTracker::new),
+            task_manager: crate::tasks::TaskManager::new(),
         }
     }
 
@@ -665,6 +667,33 @@ impl ConversationRuntime {
                     (out, false)
                 }
                 None => ("Memory not configured".into(), true),
+            };
+        }
+
+        if name == "task_create" {
+            let desc = input_val.get("description").and_then(|v| v.as_str()).unwrap_or("");
+            let cmd = input_val.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            let id = self.task_manager.create(desc, cmd).await;
+            return (format!("Task created: {id}"), false);
+        }
+        if name == "task_get" {
+            let id = input_val.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+            return match self.task_manager.get(id).await {
+                Some(t) => (serde_json::json!({"id": t.id, "status": format!("{:?}", t.status), "output": t.output, "exit_code": t.exit_code}).to_string(), false),
+                None => (format!("Task not found: {id}"), true),
+            };
+        }
+        if name == "task_list" {
+            let tasks = self.task_manager.list().await;
+            let list: Vec<serde_json::Value> = tasks.iter().map(|t| serde_json::json!({"id": t.id, "description": t.description, "status": format!("{:?}", t.status)})).collect();
+            return (serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()), false);
+        }
+        if name == "task_stop" {
+            let id = input_val.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+            return if self.task_manager.stop(id).await {
+                (format!("Task {id} stopped"), false)
+            } else {
+                (format!("Task {id} not found or not running"), true)
             };
         }
 

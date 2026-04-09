@@ -390,6 +390,7 @@ impl App {
         "/btw",
         "/loop",
         "/connect",
+        "/tasks",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.

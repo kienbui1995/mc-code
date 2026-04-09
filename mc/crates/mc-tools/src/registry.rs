@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn specs_has_all_tools() {
         let specs = ToolRegistry::specs();
-        assert_eq!(specs.len(), 12);
+        assert_eq!(specs.len(), 16);
         let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"bash"));
         assert!(names.contains(&"edit_file"));
