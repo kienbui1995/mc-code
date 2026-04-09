@@ -18,18 +18,23 @@ pub struct CronManager {
 impl CronManager {
     #[must_use]
     pub fn new() -> Self {
-        Self { triggers: HashMap::new() }
+        Self {
+            triggers: HashMap::new(),
+        }
     }
 
     /// Add a trigger. schedule_secs is the interval in seconds.
     pub fn add(&mut self, name: &str, schedule_secs: u64, prompt: &str) {
-        self.triggers.insert(name.to_string(), CronTrigger {
-            name: name.to_string(),
-            schedule_secs,
-            prompt: prompt.to_string(),
-            enabled: true,
-            last_run: None,
-        });
+        self.triggers.insert(
+            name.to_string(),
+            CronTrigger {
+                name: name.to_string(),
+                schedule_secs,
+                prompt: prompt.to_string(),
+                enabled: true,
+                last_run: None,
+            },
+        );
     }
 
     /// Remove a trigger by name.
@@ -48,7 +53,9 @@ impl CronManager {
         let now = std::time::Instant::now();
         let mut due = Vec::new();
         for trigger in self.triggers.values_mut() {
-            if !trigger.enabled { continue; }
+            if !trigger.enabled {
+                continue;
+            }
             let should_fire = match trigger.last_run {
                 None => true,
                 Some(last) => now.duration_since(last).as_secs() >= trigger.schedule_secs.max(1),
@@ -73,7 +80,9 @@ impl CronManager {
 }
 
 impl Default for CronManager {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]

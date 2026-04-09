@@ -24,7 +24,12 @@ impl CostTracker {
     pub fn new(path: PathBuf) -> Self {
         // Load existing totals on init
         let (cached_in, cached_out, cached_cost) = Self::read_totals(&path);
-        Self { path, cached_in, cached_out, cached_cost }
+        Self {
+            path,
+            cached_in,
+            cached_out,
+            cached_cost,
+        }
     }
 
     /// Append a usage entry after each turn.

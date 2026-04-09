@@ -115,9 +115,15 @@ pub enum PendingCommand {
     Rewind(usize),
     Debug,
     Btw(String),
-    Loop { interval_secs: u64, prompt: String },
+    Loop {
+        interval_secs: u64,
+        prompt: String,
+    },
     LoopStop,
-    AcceptEdit { path: String, diff: String },
+    AcceptEdit {
+        path: String,
+        diff: String,
+    },
     /// Run a shell command asynchronously (main.rs handles via tokio).
     RunShell(String),
 }
@@ -474,7 +480,8 @@ impl App {
         if self.output_lines.len() > MAX_OUTPUT_LINES {
             let drain = self.output_lines.len() - MAX_OUTPUT_LINES;
             self.output_lines.drain(..drain);
-            self.output_lines.insert(0, "[...earlier output trimmed...]".into());
+            self.output_lines
+                .insert(0, "[...earlier output trimmed...]".into());
         }
     }
 

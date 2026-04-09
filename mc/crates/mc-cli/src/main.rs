@@ -294,7 +294,8 @@ async fn run_tui(
         let cwd = std::env::current_dir().unwrap_or_default();
         let instructions = mc_config::load_hierarchical_instructions(&cwd);
         if !instructions.is_empty() {
-            let combined: String = instructions.iter()
+            let combined: String = instructions
+                .iter()
                 .map(|(path, content)| {
                     let resolved = mc_config::resolve_includes(
                         path.parent().unwrap_or(std::path::Path::new(".")),
@@ -376,7 +377,9 @@ async fn run_tui(
                         }
                     }
                     if let Some(max_tok) = cli_max_tokens_total {
-                        if (app.total_input_tokens as u64 + app.total_output_tokens as u64) >= max_tok {
+                        if (app.total_input_tokens as u64 + app.total_output_tokens as u64)
+                            >= max_tok
+                        {
                             app.handle_event(AppEvent::Error(format!(
                                 "Token limit reached: {}",
                                 max_tok
@@ -930,9 +933,15 @@ async fn run_tui(
                 PendingCommand::Git(cmd) => {
                     // /ship = git add -A then commit
                     if cmd == "ship" {
-                        let _ = std::process::Command::new("git").args(["add", "-A"]).output();
+                        let _ = std::process::Command::new("git")
+                            .args(["add", "-A"])
+                            .output();
                     }
-                    let effective = if cmd == "ship" { "commit".to_string() } else { cmd };
+                    let effective = if cmd == "ship" {
+                        "commit".to_string()
+                    } else {
+                        cmd
+                    };
                     let args: &[&str] = match effective.as_str() {
                         "diff" => &["diff"],
                         "log" => &["log", "--oneline", "-10"],
@@ -1086,7 +1095,10 @@ async fn run_tui(
                                     result.push_str(&format!("  STDERR: {}", stderr.trim()));
                                 }
                                 let _ = tx_clone.try_send(UiMessage::Delta(result));
-                                let _ = tx_clone.try_send(UiMessage::Done { ttft_ms: 0, total_ms: 0 });
+                                let _ = tx_clone.try_send(UiMessage::Done {
+                                    ttft_ms: 0,
+                                    total_ms: 0,
+                                });
                             }
                             Err(e) => {
                                 let _ = tx_clone.try_send(UiMessage::Error(e.to_string()));
@@ -1203,7 +1215,8 @@ async fn run_single(
     let cwd = std::env::current_dir().unwrap_or_default();
     let instructions = mc_config::load_hierarchical_instructions(&cwd);
     if !instructions.is_empty() {
-        let combined: String = instructions.iter()
+        let combined: String = instructions
+            .iter()
             .map(|(path, content)| {
                 let resolved = mc_config::resolve_includes(
                     path.parent().unwrap_or(std::path::Path::new(".")),

@@ -55,7 +55,10 @@ impl Default for ModelRegistry {
         models.insert("deepseek-coder".into(), m(128_000, true, 0.0, 0.0));
 
         // Groq
-        models.insert("llama-3.3-70b-versatile".into(), m(128_000, true, 0.59, 0.79));
+        models.insert(
+            "llama-3.3-70b-versatile".into(),
+            m(128_000, true, 0.59, 0.79),
+        );
         models.insert("llama-3.1-8b-instant".into(), m(128_000, true, 0.05, 0.08));
 
         // DeepSeek
@@ -71,11 +74,20 @@ impl Default for ModelRegistry {
         models.insert("grok-3-mini".into(), m(131_072, true, 0.3, 0.5));
 
         // OpenRouter (pass-through, use provider pricing)
-        models.insert("anthropic/claude-sonnet-4".into(), m(200_000, true, 3.0, 15.0));
-        models.insert("meta-llama/llama-3.3-70b-instruct".into(), m(128_000, true, 0.59, 0.79));
+        models.insert(
+            "anthropic/claude-sonnet-4".into(),
+            m(200_000, true, 3.0, 15.0),
+        );
+        models.insert(
+            "meta-llama/llama-3.3-70b-instruct".into(),
+            m(128_000, true, 0.59, 0.79),
+        );
 
         // Together
-        models.insert("meta-llama/Llama-3.3-70B-Instruct-Turbo".into(), m(128_000, true, 0.88, 0.88));
+        models.insert(
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo".into(),
+            m(128_000, true, 0.88, 0.88),
+        );
 
         // Perplexity
         models.insert("sonar-pro".into(), m(200_000, true, 3.0, 15.0));

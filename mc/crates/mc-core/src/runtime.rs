@@ -368,7 +368,10 @@ impl ConversationRuntime {
             let mut sequential = Vec::new();
             let mut parallel = Vec::new();
             for tool in pending_tools {
-                if matches!(tool.1.as_str(), "subagent" | "memory_read" | "memory_write" | "ask_user" | "sleep") {
+                if matches!(
+                    tool.1.as_str(),
+                    "subagent" | "memory_read" | "memory_write" | "ask_user" | "sleep"
+                ) {
                     sequential.push(tool);
                 } else {
                     // Snapshot for undo before write operations
@@ -678,13 +681,22 @@ impl ConversationRuntime {
         }
 
         if name == "task_create" {
-            let desc = input_val.get("description").and_then(|v| v.as_str()).unwrap_or("");
-            let cmd = input_val.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            let desc = input_val
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let cmd = input_val
+                .get("command")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let id = self.task_manager.create(desc, cmd).await;
             return (format!("Task created: {id}"), false);
         }
         if name == "task_get" {
-            let id = input_val.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+            let id = input_val
+                .get("task_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             return match self.task_manager.get(id).await {
                 Some(t) => (serde_json::json!({"id": t.id, "status": format!("{:?}", t.status), "output": t.output, "exit_code": t.exit_code}).to_string(), false),
                 None => (format!("Task not found: {id}"), true),
@@ -693,10 +705,16 @@ impl ConversationRuntime {
         if name == "task_list" {
             let tasks = self.task_manager.list().await;
             let list: Vec<serde_json::Value> = tasks.iter().map(|t| serde_json::json!({"id": t.id, "description": t.description, "status": format!("{:?}", t.status)})).collect();
-            return (serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()), false);
+            return (
+                serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()),
+                false,
+            );
         }
         if name == "task_stop" {
-            let id = input_val.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+            let id = input_val
+                .get("task_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             return if self.task_manager.stop(id).await {
                 (format!("Task {id} stopped"), false)
             } else {
@@ -707,19 +725,39 @@ impl ConversationRuntime {
         if name == "todo_write" {
             let todos = input_val.get("todos").and_then(|v| v.as_array());
             if let Some(items) = todos {
-                let summary: Vec<String> = items.iter().filter_map(|t| {
-                    let status = t.get("status").and_then(|s| s.as_str()).unwrap_or("pending");
-                    let content = t.get("content").and_then(|s| s.as_str()).unwrap_or("");
-                    let icon = match status { "completed" => "✓", "in_progress" => "◐", _ => "○" };
-                    Some(format!("{icon} {content}"))
-                }).collect();
-                return (format!("TODO list updated ({} items):\n{}", items.len(), summary.join("\n")), false);
+                let summary: Vec<String> = items
+                    .iter()
+                    .filter_map(|t| {
+                        let status = t
+                            .get("status")
+                            .and_then(|s| s.as_str())
+                            .unwrap_or("pending");
+                        let content = t.get("content").and_then(|s| s.as_str()).unwrap_or("");
+                        let icon = match status {
+                            "completed" => "✓",
+                            "in_progress" => "◐",
+                            _ => "○",
+                        };
+                        Some(format!("{icon} {content}"))
+                    })
+                    .collect();
+                return (
+                    format!(
+                        "TODO list updated ({} items):\n{}",
+                        items.len(),
+                        summary.join("\n")
+                    ),
+                    false,
+                );
             }
             return ("Invalid todos format".into(), true);
         }
 
         if name == "worktree_enter" {
-            let branch = input_val.get("branch").and_then(|v| v.as_str()).unwrap_or("temp");
+            let branch = input_val
+                .get("branch")
+                .and_then(|v| v.as_str())
+                .unwrap_or("temp");
             let wt_path = format!(".worktrees/{branch}");
             let output = tokio::process::Command::new("git")
                 .args(["worktree", "add", &wt_path, "-b", branch])
@@ -727,7 +765,8 @@ impl ConversationRuntime {
                 .await;
             return match output {
                 Ok(o) if o.status.success() => {
-                    let abs = std::fs::canonicalize(&wt_path).unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
+                    let abs = std::fs::canonicalize(&wt_path)
+                        .unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
                     (format!("Worktree created at {}", abs.display()), false)
                 }
                 Ok(o) => {
@@ -738,7 +777,8 @@ impl ConversationRuntime {
                         .await;
                     match output2 {
                         Ok(o2) if o2.status.success() => {
-                            let abs = std::fs::canonicalize(&wt_path).unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
+                            let abs = std::fs::canonicalize(&wt_path)
+                                .unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
                             (format!("Worktree created at {}", abs.display()), false)
                         }
                         _ => (String::from_utf8_lossy(&o.stderr).to_string(), true),
@@ -755,12 +795,16 @@ impl ConversationRuntime {
                 .await;
             if let Ok(o) = output {
                 let text = String::from_utf8_lossy(&o.stdout);
-                let worktrees: Vec<&str> = text.lines()
+                let worktrees: Vec<&str> = text
+                    .lines()
                     .filter(|l| l.starts_with("worktree ") && l.contains(".worktrees/"))
                     .filter_map(|l| l.strip_prefix("worktree "))
                     .collect();
                 for wt in &worktrees {
-                    let _ = tokio::process::Command::new("git").args(["worktree", "remove", "--force", wt]).output().await;
+                    let _ = tokio::process::Command::new("git")
+                        .args(["worktree", "remove", "--force", wt])
+                        .output()
+                        .await;
                 }
                 return (format!("Removed {} worktree(s)", worktrees.len()), false);
             }
@@ -772,7 +816,8 @@ impl ConversationRuntime {
             if let Some(edits) = input_val.get("edits").and_then(|v| v.as_array()) {
                 for edit in edits {
                     if let Some(p) = edit.get("path").and_then(|v| v.as_str()) {
-                        self.undo_manager.snapshot_before_write(std::path::Path::new(p));
+                        self.undo_manager
+                            .snapshot_before_write(std::path::Path::new(p));
                     }
                 }
             }

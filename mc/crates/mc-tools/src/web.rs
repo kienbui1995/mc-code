@@ -65,20 +65,36 @@ impl WebFetchTool {
         output_tx: &tokio::sync::mpsc::UnboundedSender<String>,
     ) -> Result<String, ToolError> {
         let client = shared_client();
-        let resp = client.get(url).send().await
+        let resp = client
+            .get(url)
+            .send()
+            .await
             .map_err(|e| ToolError::ExecutionFailed(format!("fetch failed: {e}")))?;
         let status = resp.status();
         if !status.is_success() {
-            return Err(ToolError::ExecutionFailed(format!("HTTP {status} for {url}")));
+            return Err(ToolError::ExecutionFailed(format!(
+                "HTTP {status} for {url}"
+            )));
         }
         let _ = output_tx.send(format!("Fetching {url}...\n"));
-        let body = resp.text().await
+        let body = resp
+            .text()
+            .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
         let text = strip_html(&body);
         let _ = output_tx.send(format!("Received {} bytes\n", text.len()));
         if text.len() > MAX_BODY_BYTES {
-            let end = text.char_indices().map(|(i, _)| i).take_while(|&i| i <= MAX_BODY_BYTES).last().unwrap_or(0);
-            Ok(format!("{}...\n[truncated, {} bytes total]", &text[..end], text.len()))
+            let end = text
+                .char_indices()
+                .map(|(i, _)| i)
+                .take_while(|&i| i <= MAX_BODY_BYTES)
+                .last()
+                .unwrap_or(0);
+            Ok(format!(
+                "{}...\n[truncated, {} bytes total]",
+                &text[..end],
+                text.len()
+            ))
         } else {
             Ok(text)
         }

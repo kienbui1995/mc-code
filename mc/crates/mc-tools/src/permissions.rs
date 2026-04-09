@@ -172,9 +172,11 @@ fn split_shell_commands(cmd: &str) -> Vec<&str> {
     let mut i = 0;
     while i < bytes.len() {
         let c = bytes[i];
-        if c == b'\'' && !in_double { in_single = !in_single; }
-        else if c == b'"' && !in_single { in_double = !in_double; }
-        else if !in_single && !in_double {
+        if c == b'\'' && !in_double {
+            in_single = !in_single;
+        } else if c == b'"' && !in_single {
+            in_double = !in_double;
+        } else if !in_single && !in_double {
             if c == b';' {
                 parts.push(&cmd[start..i]);
                 start = i + 1;

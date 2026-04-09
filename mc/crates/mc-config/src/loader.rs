@@ -54,7 +54,10 @@ pub fn load_layer(path: &Path) -> Result<ConfigLayer, ConfigError> {
 
 /// Check if config file has been modified since last load.
 /// Returns the new modification time if changed, None if unchanged.
-pub fn config_changed(path: &std::path::Path, last_mtime: &std::time::SystemTime) -> Option<std::time::SystemTime> {
+pub fn config_changed(
+    path: &std::path::Path,
+    last_mtime: &std::time::SystemTime,
+) -> Option<std::time::SystemTime> {
     std::fs::metadata(path)
         .ok()
         .and_then(|m| m.modified().ok())

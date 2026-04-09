@@ -107,7 +107,8 @@ impl BranchManager {
     }
 
     fn next_id(&self) -> usize {
-        self.next_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        self.next_counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
 }
 

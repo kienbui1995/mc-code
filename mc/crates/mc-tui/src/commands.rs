@@ -116,14 +116,24 @@ pub fn handle(app: &mut App, cmd: &str) {
 fn cmd_status(app: &mut App) {
     app.push(&format!(
         "Model: {} | Tokens: {}↓ {}↑ | Messages: {} | Plan mode: {}",
-        app.model, app.total_input_tokens, app.total_output_tokens,
-        app.output_lines.len(), app.plan_mode
+        app.model,
+        app.total_input_tokens,
+        app.total_output_tokens,
+        app.output_lines.len(),
+        app.plan_mode
     ));
 }
 
 fn cmd_plan(app: &mut App) {
     app.plan_mode = !app.plan_mode;
-    app.push(&format!("Plan mode: {}", if app.plan_mode { "ON (LLM will plan, not execute)" } else { "OFF" }));
+    app.push(&format!(
+        "Plan mode: {}",
+        if app.plan_mode {
+            "ON (LLM will plan, not execute)"
+        } else {
+            "OFF"
+        }
+    ));
 }
 
 fn cmd_clear(app: &mut App) {
@@ -136,7 +146,10 @@ fn cmd_cost(app: &mut App, arg: &str) {
     if arg == "--total" {
         app.pending_command = Some(PendingCommand::CostTotal);
     } else {
-        app.push(&format!("Session cost: ${:.4} ({} input + {} output tokens)", app.session_cost, app.total_input_tokens, app.total_output_tokens));
+        app.push(&format!(
+            "Session cost: ${:.4} ({} input + {} output tokens)",
+            app.session_cost, app.total_input_tokens, app.total_output_tokens
+        ));
     }
 }
 
@@ -152,7 +165,11 @@ fn cmd_image(app: &mut App, arg: &str) {
 fn cmd_model(app: &mut App, arg: &str) {
     const MODELS: &[(&str, &str, &str)] = &[
         ("claude-sonnet-4-20250514", "anthropic", "200K ctx, $3/$15"),
-        ("claude-haiku-3-5-20241022", "anthropic", "200K ctx, $0.8/$4"),
+        (
+            "claude-haiku-3-5-20241022",
+            "anthropic",
+            "200K ctx, $0.8/$4",
+        ),
         ("gpt-4o", "openai", "128K ctx, $2.5/$10"),
         ("gpt-4o-mini", "openai", "128K ctx, $0.15/$0.6"),
         ("gemini-2.5-flash", "gemini", "1M ctx, $0.15/$0.6"),
@@ -165,10 +182,20 @@ fn cmd_model(app: &mut App, arg: &str) {
         ("command-r-plus", "cohere", "128K ctx, $2.5/$10"),
     ];
     if arg.is_empty() {
-        app.push(&format!("Current: {} | Select by number or name:", app.model));
+        app.push(&format!(
+            "Current: {} | Select by number or name:",
+            app.model
+        ));
         for (i, (name, provider, info)) in MODELS.iter().enumerate() {
             let marker = if *name == app.model { " ←" } else { "" };
-            app.push(&format!("  {:>2}. {:<32} {:<12} {}{}", i + 1, name, provider, info, marker));
+            app.push(&format!(
+                "  {:>2}. {:<32} {:<12} {}{}",
+                i + 1,
+                name,
+                provider,
+                info,
+                marker
+            ));
         }
         app.push("  Usage: /model <number> or /model <name>");
     } else if let Ok(n) = arg.parse::<usize>() {
@@ -184,7 +211,14 @@ fn cmd_model(app: &mut App, arg: &str) {
 
 fn cmd_dryrun(app: &mut App) {
     app.dry_run = !app.dry_run;
-    app.push(&format!("Dry-run mode: {}", if app.dry_run { "ON (tools shown but not executed)" } else { "OFF" }));
+    app.push(&format!(
+        "Dry-run mode: {}",
+        if app.dry_run {
+            "ON (tools shown but not executed)"
+        } else {
+            "OFF"
+        }
+    ));
 }
 
 fn cmd_retry(app: &mut App) {
@@ -197,19 +231,35 @@ fn cmd_retry(app: &mut App) {
 }
 
 fn cmd_copy(app: &mut App) {
-    let last_response: String = app.output_lines.iter().rev()
+    let last_response: String = app
+        .output_lines
+        .iter()
+        .rev()
         .take_while(|l| !l.starts_with('›'))
-        .collect::<Vec<_>>().into_iter().rev().cloned()
-        .collect::<Vec<_>>().join("\n");
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
     app.pending_command = Some(PendingCommand::CopyToClipboard(last_response));
     app.push("📋 Copied to clipboard.");
 }
 
 fn cmd_history(app: &mut App) {
     app.push("Input history:");
-    let entries: Vec<String> = app.history.entries().iter().rev().take(20).enumerate()
-        .map(|(i, e)| format!("  {}: {e}", i + 1)).collect();
-    for line in entries { app.push(&line); }
+    let entries: Vec<String> = app
+        .history
+        .entries()
+        .iter()
+        .rev()
+        .take(20)
+        .enumerate()
+        .map(|(i, e)| format!("  {}: {e}", i + 1))
+        .collect();
+    for line in entries {
+        app.push(&line);
+    }
 }
 
 fn cmd_alias(app: &mut App, arg: &str) {
@@ -217,11 +267,18 @@ fn cmd_alias(app: &mut App, arg: &str) {
         if app.aliases.is_empty() {
             app.push("No aliases. Usage: /alias <name> <expansion>");
         } else {
-            let lines: Vec<String> = app.aliases.iter().map(|(k, v)| format!("  {k} → {v}")).collect();
-            for line in lines { app.push(&line); }
+            let lines: Vec<String> = app
+                .aliases
+                .iter()
+                .map(|(k, v)| format!("  {k} → {v}"))
+                .collect();
+            for line in lines {
+                app.push(&line);
+            }
         }
     } else if let Some((name, expansion)) = arg.split_once(' ') {
-        app.aliases.insert(format!("/{name}"), expansion.to_string());
+        app.aliases
+            .insert(format!("/{name}"), expansion.to_string());
         app.push(&format!("Alias: /{name} → {expansion}"));
     } else {
         app.push("Usage: /alias <name> <expansion>");
@@ -230,18 +287,29 @@ fn cmd_alias(app: &mut App, arg: &str) {
 
 fn cmd_last(app: &mut App) {
     if let Some(out) = app.last_tool_output.clone() {
-        for line in out.lines().take(50) { app.push(&format!("  {line}")); }
+        for line in out.lines().take(50) {
+            app.push(&format!("  {line}"));
+        }
     } else {
         app.push("No tool output yet.");
     }
 }
 
 fn cmd_env(app: &mut App) {
-    for var in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "EDITOR", "SHELL", "HOME"] {
+    for var in [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "EDITOR",
+        "SHELL",
+        "HOME",
+    ] {
         let val = std::env::var(var).unwrap_or_else(|_| "(not set)".into());
         let masked = if var.contains("KEY") && val.len() > 8 {
-            format!("...{}", &val[val.len()-4..])
-        } else { val };
+            format!("...{}", &val[val.len() - 4..])
+        } else {
+            val
+        };
         app.push(&format!("  {var}={masked}"));
     }
 }
@@ -255,7 +323,10 @@ fn cmd_effort(app: &mut App, arg: &str) {
             "low" | "l" => EffortLevel::Low,
             "medium" | "med" | "m" => EffortLevel::Medium,
             "high" | "h" => EffortLevel::High,
-            _ => { app.push("Usage: /effort low|medium|high"); return; }
+            _ => {
+                app.push("Usage: /effort low|medium|high");
+                return;
+            }
         };
         app.push(&format!("Effort: {} {:?}", app.effort.symbol(), app.effort));
     }
@@ -297,8 +368,14 @@ fn cmd_config(app: &mut App) {
     app.push(&format!("  plan_mode: {}", app.plan_mode));
     app.push(&format!("  dry_run: {}", app.dry_run));
     app.push(&format!("  theme: {}", app.theme));
-    app.push(&format!("  session_time: {}s", app.session_start.elapsed().as_secs()));
-    app.push(&format!("  tokens: {}↓ {}↑", app.total_input_tokens, app.total_output_tokens));
+    app.push(&format!(
+        "  session_time: {}s",
+        app.session_start.elapsed().as_secs()
+    ));
+    app.push(&format!(
+        "  tokens: {}↓ {}↑",
+        app.total_input_tokens, app.total_output_tokens
+    ));
     app.push(&format!("  cost: ${:.4}", app.session_cost));
     app.push(&format!("  context: {}%", app.context_usage_pct));
     app.push("  Edit: .magic-code/config.toml");
@@ -306,7 +383,11 @@ fn cmd_config(app: &mut App) {
 
 fn cmd_permissions(app: &mut App, arg: &str) {
     if arg.is_empty() {
-        app.push(&format!("Permission mode: {} | Dry-run: {}", if app.dry_run { "dry-run" } else { "active" }, if app.dry_run { "ON" } else { "OFF" }));
+        app.push(&format!(
+            "Permission mode: {} | Dry-run: {}",
+            if app.dry_run { "dry-run" } else { "active" },
+            if app.dry_run { "ON" } else { "OFF" }
+        ));
         app.push("  Modes: read-only, workspace-write, full-access");
         app.push("  Toggle dry-run: /dry-run");
     } else {
@@ -322,7 +403,10 @@ fn cmd_loop(app: &mut App, arg: &str) {
         if parts.len() == 2 {
             let secs = parse_interval(parts[0]);
             if secs > 0 {
-                app.pending_command = Some(PendingCommand::Loop { interval_secs: secs, prompt: parts[1].into() });
+                app.pending_command = Some(PendingCommand::Loop {
+                    interval_secs: secs,
+                    prompt: parts[1].into(),
+                });
                 app.push(&format!("🔄 Loop: every {secs}s"));
             } else {
                 app.push("Invalid interval. Use: /loop 5m <prompt>");
@@ -347,12 +431,19 @@ fn cmd_cron(app: &mut App, arg: &str) {
         app.push(&format!("Removing cron trigger: {name}"));
         app.pending_command = Some(PendingCommand::Btw(format!("__cron_remove__{name}")));
     } else if arg.starts_with("add ") {
-        let parts: Vec<&str> = arg.strip_prefix("add ").unwrap_or("").splitn(3, ' ').collect();
+        let parts: Vec<&str> = arg
+            .strip_prefix("add ")
+            .unwrap_or("")
+            .splitn(3, ' ')
+            .collect();
         if parts.len() >= 3 {
             let (name, interval, prompt) = (parts[0], parts[1], parts[2]);
             let secs = parse_interval(interval);
             if secs > 0 {
-                app.pending_command = Some(PendingCommand::Loop { interval_secs: secs, prompt: format!("__cron_add__{name}__{prompt}") });
+                app.pending_command = Some(PendingCommand::Loop {
+                    interval_secs: secs,
+                    prompt: format!("__cron_add__{name}__{prompt}"),
+                });
                 app.push(&format!("Cron trigger '{name}' added: every {secs}s"));
             } else {
                 app.push("Invalid interval. Use: 30s, 5m, 1h");
@@ -373,9 +464,9 @@ fn cmd_grep(app: &mut App, arg: &str) {
         let (pattern, path) = (parts[0], parts.get(1).unwrap_or(&"."));
         // Shell-escape pattern to prevent injection
         let escaped = pattern.replace('\'', "'\\''");
-        app.pending_command = Some(PendingCommand::RunShell(
-            format!("grep -rn --color=never '{escaped}' {path} | head -30")
-        ));
+        app.pending_command = Some(PendingCommand::RunShell(format!(
+            "grep -rn --color=never '{escaped}' {path} | head -30"
+        )));
     }
 }
 
@@ -384,8 +475,14 @@ fn cmd_head(app: &mut App, arg: &str) {
         app.push("Usage: /head <file> [lines]");
     } else {
         let parts: Vec<&str> = arg.splitn(2, ' ').collect();
-        let n = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
-        app.pending_command = Some(PendingCommand::RunShell(format!("head -n {n} {}", parts[0])));
+        let n = parts
+            .get(1)
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(20);
+        app.pending_command = Some(PendingCommand::RunShell(format!(
+            "head -n {n} {}",
+            parts[0]
+        )));
     }
 }
 
@@ -394,17 +491,27 @@ fn cmd_tail(app: &mut App, arg: &str) {
         app.push("Usage: /tail <file> [lines]");
     } else {
         let parts: Vec<&str> = arg.splitn(2, ' ').collect();
-        let n = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
-        app.pending_command = Some(PendingCommand::RunShell(format!("tail -n {n} {}", parts[0])));
+        let n = parts
+            .get(1)
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(20);
+        app.pending_command = Some(PendingCommand::RunShell(format!(
+            "tail -n {n} {}",
+            parts[0]
+        )));
     }
 }
 
 fn cmd_test(app: &mut App) {
-    let cmd = if std::path::Path::new("Cargo.toml").exists() || std::path::Path::new("mc/Cargo.toml").exists() {
+    let cmd = if std::path::Path::new("Cargo.toml").exists()
+        || std::path::Path::new("mc/Cargo.toml").exists()
+    {
         "cargo test --workspace 2>&1 | tail -20"
     } else if std::path::Path::new("package.json").exists() {
         "npm test 2>&1 | tail -20"
-    } else if std::path::Path::new("pytest.ini").exists() || std::path::Path::new("setup.py").exists() {
+    } else if std::path::Path::new("pytest.ini").exists()
+        || std::path::Path::new("setup.py").exists()
+    {
         "python -m pytest 2>&1 | tail -20"
     } else if std::path::Path::new("go.mod").exists() {
         "go test ./... 2>&1 | tail -20"
@@ -414,7 +521,10 @@ fn cmd_test(app: &mut App) {
         app.push("No test runner detected.");
         return;
     };
-    app.push(&format!("Running: {}", cmd.split(" 2>&1").next().unwrap_or(cmd)));
+    app.push(&format!(
+        "Running: {}",
+        cmd.split(" 2>&1").next().unwrap_or(cmd)
+    ));
     app.pending_command = Some(PendingCommand::RunShell(cmd.into()));
 }
 
@@ -429,8 +539,14 @@ fn cmd_add(app: &mut App, arg: &str) {
             Ok(content) => {
                 let lines = content.lines().count();
                 let current = app.input.as_str().to_string();
-                let prefix = if current.is_empty() { String::new() } else { format!("{current}\n\n") };
-                app.input.set(&format!("{prefix}[{arg} ({lines} lines)]:\n```\n{content}\n```"));
+                let prefix = if current.is_empty() {
+                    String::new()
+                } else {
+                    format!("{current}\n\n")
+                };
+                app.input.set(&format!(
+                    "{prefix}[{arg} ({lines} lines)]:\n```\n{content}\n```"
+                ));
                 app.push(&format!("📎 Added {arg} ({lines} lines) to input"));
             }
             Err(e) => app.push(&format!("  ✗ {e}")),
@@ -439,11 +555,15 @@ fn cmd_add(app: &mut App, arg: &str) {
         let mut files = Vec::new();
         if let Ok(entries) = std::fs::read_dir(p) {
             for e in entries.flatten().take(20) {
-                if e.path().is_file() { files.push(e.path().display().to_string()); }
+                if e.path().is_file() {
+                    files.push(e.path().display().to_string());
+                }
             }
         }
         app.push(&format!("📁 Dir {arg}: {} files", files.len()));
-        for f in &files { app.push(&format!("  {f}")); }
+        for f in &files {
+            app.push(&format!("  {f}"));
+        }
     } else {
         app.push(&format!("  ✗ not found: {arg}"));
     }
@@ -503,8 +623,16 @@ fn cmd_providers(app: &mut App) {
         ("deepseek", "DEEPSEEK_API_KEY", "deepseek-chat"),
         ("mistral", "MISTRAL_API_KEY", "mistral-large-latest"),
         ("xai", "XAI_API_KEY", "grok-2"),
-        ("openrouter", "OPENROUTER_API_KEY", "anthropic/claude-sonnet-4"),
-        ("together", "TOGETHER_API_KEY", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+        (
+            "openrouter",
+            "OPENROUTER_API_KEY",
+            "anthropic/claude-sonnet-4",
+        ),
+        (
+            "together",
+            "TOGETHER_API_KEY",
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        ),
         ("perplexity", "PERPLEXITY_API_KEY", "sonar-pro"),
         ("cohere", "COHERE_API_KEY", "command-r-plus"),
         ("cerebras", "CEREBRAS_API_KEY", "llama3.1-70b"),
@@ -515,12 +643,18 @@ fn cmd_providers(app: &mut App) {
     for (name, env_var, default_model) in providers {
         let status = if env_var.starts_with('(') {
             "local".to_string()
-        } else if std::env::var(env_var).ok().filter(|k| !k.is_empty()).is_some() {
+        } else if std::env::var(env_var)
+            .ok()
+            .filter(|k| !k.is_empty())
+            .is_some()
+        {
             "✓ configured".to_string()
         } else {
             "✗ no key".to_string()
         };
-        app.push(&format!("  {name:<12} {status:<14} default: {default_model}"));
+        app.push(&format!(
+            "  {name:<12} {status:<14} default: {default_model}"
+        ));
     }
 }
 
@@ -540,16 +674,42 @@ fn cmd_connect(app: &mut App, arg: &str) {
         "mistral" => ("MISTRAL_API_KEY", "https://console.mistral.ai/api-keys"),
         "xai" => ("XAI_API_KEY", "https://console.x.ai/"),
         "openrouter" => ("OPENROUTER_API_KEY", "https://openrouter.ai/keys"),
-        "together" => ("TOGETHER_API_KEY", "https://api.together.xyz/settings/api-keys"),
-        "perplexity" => ("PERPLEXITY_API_KEY", "https://www.perplexity.ai/settings/api"),
+        "together" => (
+            "TOGETHER_API_KEY",
+            "https://api.together.xyz/settings/api-keys",
+        ),
+        "perplexity" => (
+            "PERPLEXITY_API_KEY",
+            "https://www.perplexity.ai/settings/api",
+        ),
         "cohere" => ("COHERE_API_KEY", "https://dashboard.cohere.com/api-keys"),
         "cerebras" => ("CEREBRAS_API_KEY", "https://cloud.cerebras.ai/"),
-        "ollama" => { app.push("Ollama: no key needed. Install from https://ollama.ai and run `ollama pull llama3`"); app.push("Then: /model llama3"); return; }
-        "lmstudio" => { app.push("LM Studio: no key needed. Download from https://lmstudio.ai"); app.push("Start server, then: /model default --provider lmstudio"); return; }
-        "llamacpp" => { app.push("llama.cpp: no key needed. Run `llama-server -m model.gguf`"); app.push("Then: /model default --provider llamacpp"); return; }
-        other => { app.push(&format!("Unknown provider: {other}. Run /connect for list.")); return; }
+        "ollama" => {
+            app.push("Ollama: no key needed. Install from https://ollama.ai and run `ollama pull llama3`");
+            app.push("Then: /model llama3");
+            return;
+        }
+        "lmstudio" => {
+            app.push("LM Studio: no key needed. Download from https://lmstudio.ai");
+            app.push("Start server, then: /model default --provider lmstudio");
+            return;
+        }
+        "llamacpp" => {
+            app.push("llama.cpp: no key needed. Run `llama-server -m model.gguf`");
+            app.push("Then: /model default --provider llamacpp");
+            return;
+        }
+        other => {
+            app.push(&format!(
+                "Unknown provider: {other}. Run /connect for list."
+            ));
+            return;
+        }
     };
-    let has_key = std::env::var(env_var).ok().filter(|k| !k.is_empty()).is_some();
+    let has_key = std::env::var(env_var)
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some();
     if has_key {
         app.push(&format!("✓ {arg} already configured ({env_var} is set)"));
         app.push(&format!("  Switch with: /model <model-name>"));
