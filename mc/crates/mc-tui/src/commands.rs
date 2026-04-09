@@ -36,6 +36,11 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/search" => if arg.is_empty() { app.push("Usage: /search <keyword>"); } else { app.pending_command = Some(PendingCommand::Search(arg.into())); },
         "/doctor" => app.pending_command = Some(PendingCommand::Doctor),
         "/review" => app.pending_command = Some(PendingCommand::Review),
+        "/security-review" => {
+            let prompt = "Perform a security audit of the recent code changes. Check for:\n1. Injection vulnerabilities (SQL, command, path traversal)\n2. Authentication/authorization issues\n3. Credential exposure or hardcoded secrets\n4. Unsafe data handling (unsanitized input, buffer issues)\n5. Dependency vulnerabilities\n6. Race conditions and TOCTOU bugs\n\nBe specific about file paths and line numbers. Rate each finding by severity (Critical/High/Medium/Low).";
+            app.input.set(prompt);
+            app.push("🔒 Security review mode: AI will audit for vulnerabilities");
+        },
         "/tokens" => app.pending_command = Some(PendingCommand::Tokens),
         "/context" => app.pending_command = Some(PendingCommand::Context),
         "/debug" => app.pending_command = Some(PendingCommand::Debug),

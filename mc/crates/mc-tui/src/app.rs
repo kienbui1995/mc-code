@@ -347,6 +347,7 @@ impl App {
         "/doctor",
         "/template",
         "/review",
+        "/security-review",
         "/retry",
         "/pin",
         "/theme",
