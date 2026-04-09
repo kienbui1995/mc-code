@@ -82,6 +82,7 @@ pub struct ConversationRuntime {
     tool_cache: ToolCache,
     cost_tracker: Option<crate::cost::CostTracker>,
     task_manager: crate::tasks::TaskManager,
+    hierarchical_instructions: Option<String>,
 }
 
 impl ConversationRuntime {
@@ -116,6 +117,7 @@ impl ConversationRuntime {
             cost_tracker: crate::cost::CostTracker::default_path()
                 .map(crate::cost::CostTracker::new),
             task_manager: crate::tasks::TaskManager::new(),
+            hierarchical_instructions: None,
         }
     }
 
@@ -160,6 +162,11 @@ impl ConversationRuntime {
         if map.file_count() > 0 {
             self.repo_map = Some(map.to_prompt_section());
         }
+    }
+
+    /// Set hierarchical instructions.
+    pub fn set_hierarchical_instructions(&mut self, instructions: String) {
+        self.hierarchical_instructions = Some(instructions);
     }
 
     /// Undo the last turn's file changes.
@@ -714,9 +721,10 @@ impl ConversationRuntime {
         if name == "worktree_enter" {
             let branch = input_val.get("branch").and_then(|v| v.as_str()).unwrap_or("temp");
             let wt_path = format!(".worktrees/{branch}");
-            let output = std::process::Command::new("git")
+            let output = tokio::process::Command::new("git")
                 .args(["worktree", "add", &wt_path, "-b", branch])
-                .output();
+                .output()
+                .await;
             return match output {
                 Ok(o) if o.status.success() => {
                     let abs = std::fs::canonicalize(&wt_path).unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
@@ -724,9 +732,10 @@ impl ConversationRuntime {
                 }
                 Ok(o) => {
                     // Branch might already exist, try without -b
-                    let output2 = std::process::Command::new("git")
+                    let output2 = tokio::process::Command::new("git")
                         .args(["worktree", "add", &wt_path, branch])
-                        .output();
+                        .output()
+                        .await;
                     match output2 {
                         Ok(o2) if o2.status.success() => {
                             let abs = std::fs::canonicalize(&wt_path).unwrap_or_else(|_| std::path::PathBuf::from(&wt_path));
@@ -740,9 +749,10 @@ impl ConversationRuntime {
         }
         if name == "worktree_exit" {
             // Find and remove worktrees
-            let output = std::process::Command::new("git")
+            let output = tokio::process::Command::new("git")
                 .args(["worktree", "list", "--porcelain"])
-                .output();
+                .output()
+                .await;
             if let Ok(o) = output {
                 let text = String::from_utf8_lossy(&o.stdout);
                 let worktrees: Vec<&str> = text.lines()
@@ -750,11 +760,23 @@ impl ConversationRuntime {
                     .filter_map(|l| l.strip_prefix("worktree "))
                     .collect();
                 for wt in &worktrees {
-                    let _ = std::process::Command::new("git").args(["worktree", "remove", "--force", wt]).output();
+                    let _ = tokio::process::Command::new("git").args(["worktree", "remove", "--force", wt]).output().await;
                 }
                 return (format!("Removed {} worktree(s)", worktrees.len()), false);
             }
             return ("No worktrees found".into(), false);
+        }
+
+        if name == "batch_edit" {
+            // Enforce read-before-write for batch edits
+            if let Some(edits) = input_val.get("edits").and_then(|v| v.as_array()) {
+                for edit in edits {
+                    if let Some(p) = edit.get("path").and_then(|v| v.as_str()) {
+                        self.undo_manager.snapshot_before_write(std::path::Path::new(p));
+                    }
+                }
+            }
+            // Fall through to tool_registry for actual execution
         }
 
         // Snapshot for undo before write operations
@@ -987,8 +1009,9 @@ impl ConversationRuntime {
 
         let (tools, tool_choice, system) = if self.plan_mode {
             (Vec::new(), None, format!(
-                "{}{}\n\nYou are in PLAN MODE. Describe step-by-step what you would do. Do NOT use any tools.",
+                "{}{}{}\n\nYou are in PLAN MODE. Describe step-by-step what you would do. Do NOT use any tools.",
                 self.system_prompt,
+                self.hierarchical_instructions.as_deref().unwrap_or(""),
                 self.memory.as_ref().map_or(String::new(), MemoryStore::to_prompt_section),
             ))
         } else {
@@ -1010,8 +1033,9 @@ impl ConversationRuntime {
                 tools,
                 Some(ToolChoice::Auto),
                 format!(
-                    "{}{}{}",
+                    "{}{}{}{}",
                     self.system_prompt,
+                    self.hierarchical_instructions.as_deref().unwrap_or(""),
                     memory_section,
                     self.repo_map.as_deref().unwrap_or("")
                 ),
