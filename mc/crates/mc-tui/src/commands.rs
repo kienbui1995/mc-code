@@ -7,6 +7,15 @@ pub fn handle(app: &mut App, cmd: &str) {
     let arg = parts.get(1).copied().unwrap_or("");
 
     match parts[0] {
+        "/h" | "/?" => handle(app, "/help"),
+        "/q" | "/exit" => handle(app, "/quit"),
+        "/new" | "/reset" => handle(app, "/clear"),
+        "/continue" => handle(app, "/resume"),
+        "/v" => handle(app, "/version"),
+        "/settings" => handle(app, "/config"),
+        "/allowed-tools" => handle(app, "/permissions"),
+        "/upgrade" => handle(app, "/update"),
+        "/checkpoint" => handle(app, "/rewind"),
         "/help" => app.push("Commands: /help /quit /status /cost /plan /compact /undo /update /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init /summary /search /doctor /template /review /retry /pin /theme /copy /version /history /tokens /context /alias /run /grep /tree /head /tail /cat /files /wc /todo /recent /test /ship /open /pwd /env /size /models /time /whoami /tip /last /spec /vim /effort /rewind /debug /btw /loop /cron /config /add /sessions /permissions /dry-run"),
         "/quit" => app.should_quit = true,
         "/status" => cmd_status(app),
@@ -95,6 +104,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/sessions" => cmd_sessions(app, arg),
         "/connect" => cmd_connect(app, arg),
         "/tasks" => { app.push("Listing tasks..."); app.pending_command = Some(PendingCommand::Btw("__tasks_list__".into())); },
+        "/agents" => { app.push("Sub-agents: managed by runtime (use subagent tool to spawn)"); app.pending_command = Some(PendingCommand::Btw("__agents_list__".into())); },
         "/resume" => cmd_resume(app, arg),
 
         _ => cmd_unknown(app, cmd, parts[0]),

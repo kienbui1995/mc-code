@@ -394,6 +394,7 @@ impl App {
         "/connect",
         "/tasks",
         "/resume",
+        "/agents",
     ];
 
     /// Tab-complete slash commands. Returns true if completion was applied.

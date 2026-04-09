@@ -368,7 +368,7 @@ impl ConversationRuntime {
             let mut sequential = Vec::new();
             let mut parallel = Vec::new();
             for tool in pending_tools {
-                if matches!(tool.1.as_str(), "subagent" | "memory_read" | "memory_write") {
+                if matches!(tool.1.as_str(), "subagent" | "memory_read" | "memory_write" | "ask_user" | "sleep") {
                     sequential.push(tool);
                 } else {
                     // Snapshot for undo before write operations
