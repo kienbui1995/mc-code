@@ -1,52 +1,59 @@
 # What's New
 
-## Version 0.7.0
+## Version 1.1.0
 
 ### 🎉 Highlights
-- **44+ new features** since v0.2.0
-- **11 tools** (was 9): added `web_fetch`, `web_search`
-- **141 tests** (was 123)
-- **Pure Rust repo** — removed all legacy Python/Rust code (-14,858 lines)
-- **8.1MB binary**, 1ms startup
+- **26 tools** (was 12): ask_user, sleep, notebook_edit, task system, worktree, batch_edit, apply_patch, todo_write, MCP resources
+- **15 providers** (was 3): Groq, DeepSeek, Mistral, xAI, OpenRouter, Together, Perplexity, Cohere, Cerebras, LM Studio, llama.cpp
+- **152 tests**, all passing
+- **13.6K lines** of pure Rust
 
-### 🔧 v0.3.0 — Streaming & UX
-- Streaming bash output (real-time stdout/stderr)
-- Cost tracking persistence (`/cost --total`)
-- Mouse scroll support
-- Tab completion for slash commands
+### 🔐 Safety & Budget
+- `--max-budget-usd` — stop when cost exceeds limit
+- `--max-turns` — stop after N model turns
+- `--max-tokens-total` — stop after N total tokens
+- Read-before-write enforcement — blocks writes to unread files
+- Model whitelist/blacklist per provider
 
-### 🌐 v0.4.0 — Web & Git
-- `web_fetch` / `web_search` tools
-- Git integration: `/diff`, `/commit` (LLM-generated messages), `/log`, `/stash`
-- `/model` switch mid-session + model aliases
-- Context window usage bar in status
-- `/clear`, `/export`, `/summary`, `/search`
-- `/init` project wizard + custom instructions (`.magic-code/instructions.md`)
-- File protection (`.env`, `*.key`, `.git/*`)
-- Dry-run mode
+### 🛠️ New Tools
+| Tool | Description |
+|------|-------------|
+| `task_create` | Spawn background shell commands |
+| `task_get/list/stop` | Poll, list, terminate background tasks |
+| `batch_edit` | Multiple file edits in one call |
+| `apply_patch` | Apply unified diff patches |
+| `todo_write` | LLM-managed TODO list |
+| `ask_user` | Pause and ask user for clarification |
+| `sleep` | Pause execution (polling loops) |
+| `notebook_edit` | Edit Jupyter notebook cells |
+| `worktree_enter/exit` | Isolated git branch work |
+| `mcp_list_resources` | List MCP server resources |
+| `mcp_read_resource` | Read MCP server resources |
 
-### 🚀 v0.5.0 — Polish
-- LLM-generated commit messages
-- Provider fallback config
-- Session auto-save every 5 turns
-- Terminal bell on completion
-- `/doctor` health check
+### 🌐 Provider Expansion
+- `/connect` wizard — guided setup with API key URLs
+- `/providers` — list all providers with config status
+- Auto-detect provider from model name
+- Interactive `/model` picker with pricing info
 
-### 🧩 v0.6.0 — Productivity
-- `/template` (review, refactor, test, explain, document, optimize, security)
-- Plugin system (`.magic-code/tools/*.sh`)
-- `/review` file changes
-- Latency metrics (TTFT + total in status bar)
-- `/retry`, `/pin`, `/theme`
+### 📋 New Commands
+| Command | Description |
+|---------|-------------|
+| `/connect` | Provider setup wizard |
+| `/providers` | List configured providers |
+| `/security-review` | Security audit prompt |
+| `/resume` | Resume sessions with fuzzy search |
+| `/tasks` | Manage background tasks |
+| `/agents` | Manage sub-agents |
+| `/cron` | Scheduled triggers |
+| `/update` | Check for new version |
 
-### 🏗️ v0.7.0 — Architecture
-- `/copy`, `/version`, `/history`, `/tokens`, `/context`, `/alias`
-- Context window preflight (auto-compact before oversized requests)
-- `--json` output mode for automation
-- Error IDs (MC-E001 through MC-E006)
-- System prompt v2 (tool guidelines, error recovery)
-- `PendingCommand` enum (replaced 20 boolean flags)
-- `AgentState` enum (Idle/Streaming/ToolExecuting/WaitingPermission)
-- MCP timeout + health check
-- ADR-003 permission model documentation
-- 4 new integration tests
+### 🏗️ Architecture
+- Commands module extracted (app.rs -60%)
+- All slash commands non-blocking (async RunShell)
+- Hierarchical AGENTS.md/CLAUDE.md loading (root→cwd)
+- @include directive in instruction files
+- `--add-dir` for extra directory access
+- Config hot-reload via mtime polling
+- MCP auto-reconnect on server crash
+- 9 command aliases (/h, /?, /q, /exit, /new, /reset, /continue, /v, /settings)

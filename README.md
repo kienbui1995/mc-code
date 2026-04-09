@@ -41,22 +41,33 @@ cargo install --path crates/mc-cli
 ## Features
 
 ### Multi-Provider
-Works with **Anthropic**, **OpenAI**, **Gemini**, **Ollama**, **LiteLLM**, and any OpenAI-compatible endpoint. Switch mid-session with `/model`.
+Works with **15 providers**: Anthropic, OpenAI, Gemini, Groq, DeepSeek, Mistral, xAI, OpenRouter, Together, Perplexity, Cohere, Cerebras, Ollama, LM Studio, llama.cpp. Switch mid-session with `/model`.
 
-### 11 Built-in Tools
+### 26 Built-in Tools
 | Tool | Description |
 |------|-------------|
 | `bash` | Execute shell commands (streaming output) |
 | `read_file` | Read files with offset/limit |
 | `write_file` | Create or overwrite files |
 | `edit_file` | Surgical text replacement with diff preview |
+| `batch_edit` | Multiple file edits in one call |
+| `apply_patch` | Apply unified diff patches |
 | `glob_search` | Find files by pattern |
 | `grep_search` | Search file contents with regex |
 | `subagent` | Delegate tasks to isolated sub-conversations |
 | `memory_read` | Read persistent project facts |
 | `memory_write` | Save facts across sessions |
-| `web_fetch` | Fetch URL content |
+| `web_fetch` | Fetch URL content (streaming) |
 | `web_search` | Search DuckDuckGo |
+| `lsp_query` | Code intelligence (go-to-def, references) |
+| `task_create` | Spawn background shell commands |
+| `task_get/list/stop` | Manage background tasks |
+| `todo_write` | LLM-managed TODO list |
+| `ask_user` | Ask user for clarification |
+| `sleep` | Pause execution |
+| `notebook_edit` | Edit Jupyter notebook cells |
+| `worktree_enter/exit` | Isolated git branch work |
+| `mcp_list/read_resources` | MCP server resources |
 
 ### TUI
 - Syntax highlighting (syntect)
@@ -165,4 +176,4 @@ Global config: `~/.config/magic-code/config.toml`
 
 MIT
 
-<!-- v0.7.0 -->
+<!-- v1.1.0 -->
