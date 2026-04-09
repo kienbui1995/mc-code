@@ -1,3 +1,4 @@
+use base64::Engine;
 use futures_core::Stream;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -954,31 +955,15 @@ pub async fn next_event(
 }
 
 fn resolve_image_base64(path: &str) -> Option<String> {
-    let path = path.to_string();
-    let buf = std::fs::read(&path).ok()?;
+    const MAX_IMAGE_SIZE: u64 = 10 * 1024 * 1024; // 10MB
+    let metadata = std::fs::metadata(path).ok()?;
+    if metadata.len() > MAX_IMAGE_SIZE {
+        return None;
+    }
+    let buf = std::fs::read(path).ok()?;
     Some(base64_encode(&buf))
 }
 
 fn base64_encode(data: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let b0 = u32::from(chunk[0]);
-        let b1 = u32::from(chunk.get(1).copied().unwrap_or(0));
-        let b2 = u32::from(chunk.get(2).copied().unwrap_or(0));
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
-        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
-        if chunk.len() > 1 {
-            result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-        if chunk.len() > 2 {
-            result.push(CHARS[(triple & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-    }
-    result
+    base64::engine::general_purpose::STANDARD.encode(data)
 }

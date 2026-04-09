@@ -902,6 +902,7 @@ name = "mc-core"
 version = "0.8.3"
 dependencies = [
  "async-stream",
+ "base64",
  "futures-core",
  "mc-config",
  "mc-provider",

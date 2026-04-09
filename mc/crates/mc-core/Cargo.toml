@@ -9,6 +9,7 @@ publish.workspace = true
 mc-provider = { path = "../mc-provider" }
 mc-tools = { path = "../mc-tools" }
 mc-config = { path = "../mc-config" }
+base64 = "0.22"
 futures-core.workspace = true
 tokio-util.workspace = true
 serde.workspace = true

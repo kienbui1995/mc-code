@@ -109,17 +109,43 @@ impl WebSearchTool {
     }
 }
 
-/// Naive HTML tag stripper — removes tags, decodes common entities, collapses whitespace.
+/// HTML tag stripper — skips script/style content, removes tags, decodes common entities, collapses whitespace.
 fn strip_html(html: &str) -> String {
     let mut out = String::with_capacity(html.len() / 2);
-    let mut in_tag = false;
+    let mut rest = html;
 
-    for c in html.chars() {
-        match c {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            _ if in_tag => {}
-            _ => out.push(c),
+    while !rest.is_empty() {
+        if let Some(tag_start) = rest.find('<') {
+            out.push_str(&rest[..tag_start]);
+            rest = &rest[tag_start..];
+
+            if let Some(tag_end) = rest.find('>') {
+                let tag = &rest[..=tag_end];
+                let tag_lower = tag.to_ascii_lowercase();
+                rest = &rest[tag_end + 1..];
+
+                // Skip entire content of <script> and <style> blocks
+                let closing = if tag_lower.starts_with("<script") {
+                    Some("</script>")
+                } else if tag_lower.starts_with("<style") {
+                    Some("</style>")
+                } else {
+                    None
+                };
+
+                if let Some(end_tag) = closing {
+                    if let Some(pos) = rest.to_ascii_lowercase().find(end_tag) {
+                        rest = &rest[pos + end_tag.len()..];
+                    } else {
+                        break; // unclosed script/style — skip rest
+                    }
+                }
+            } else {
+                break; // unclosed '<' — discard rest
+            }
+        } else {
+            out.push_str(rest);
+            break;
         }
     }
 
