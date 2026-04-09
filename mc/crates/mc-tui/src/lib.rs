@@ -1,4 +1,5 @@
 mod app;
+pub mod commands;
 pub mod highlight;
 mod history;
 mod input;

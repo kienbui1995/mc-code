@@ -991,6 +991,34 @@ async fn run_tui(
                 PendingCommand::LoopStop => {
                     app.output_lines.push("🔄 Loop stopped".into());
                 }
+                PendingCommand::RunShell(cmd) => {
+                    let tx_clone = ui_tx.clone();
+                    tokio::spawn(async move {
+                        let output = tokio::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(&cmd)
+                            .output()
+                            .await;
+                        match output {
+                            Ok(o) => {
+                                let stdout = String::from_utf8_lossy(&o.stdout);
+                                let stderr = String::from_utf8_lossy(&o.stderr);
+                                let mut result = String::new();
+                                for line in stdout.lines() {
+                                    result.push_str(&format!("  {line}\n"));
+                                }
+                                if !stderr.is_empty() {
+                                    result.push_str(&format!("  STDERR: {}", stderr.trim()));
+                                }
+                                let _ = tx_clone.try_send(UiMessage::Delta(result));
+                                let _ = tx_clone.try_send(UiMessage::Done { ttft_ms: 0, total_ms: 0 });
+                            }
+                            Err(e) => {
+                                let _ = tx_clone.try_send(UiMessage::Error(e.to_string()));
+                            }
+                        }
+                    });
+                }
                 PendingCommand::AcceptEdit { path, diff } => {
                     app.output_lines.push(format!("📝 Edit preview: {path}"));
                     for line in diff.lines() {
