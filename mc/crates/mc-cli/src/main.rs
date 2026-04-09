@@ -285,6 +285,21 @@ async fn run_tui(
         if !hooks.is_empty() {
             rt.set_hooks(mc_tools::HookEngine::new(hooks));
         }
+        // Load hierarchical instructions (CLAUDE.md, AGENTS.md from root to cwd)
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let instructions = mc_config::load_hierarchical_instructions(&cwd);
+        if !instructions.is_empty() {
+            let combined: String = instructions.iter()
+                .map(|(path, content)| {
+                    let resolved = mc_config::resolve_includes(
+                        path.parent().unwrap_or(std::path::Path::new(".")),
+                        content,
+                    );
+                    format!("\n\n# Instructions from {}\n{}", path.display(), resolved)
+                })
+                .collect();
+            rt.set_hierarchical_instructions(combined);
+        }
         if let Some(ref name) = resume_session {
             if let Ok(session) = mc_core::Session::load(&session_path(name)) {
                 rt.session = session;
@@ -1169,6 +1184,21 @@ async fn run_single(
     runtime.set_tool_registry(tool_registry);
     if !hooks.is_empty() {
         runtime.set_hooks(mc_tools::HookEngine::new(hooks));
+    }
+    // Load hierarchical instructions (CLAUDE.md, AGENTS.md from root to cwd)
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let instructions = mc_config::load_hierarchical_instructions(&cwd);
+    if !instructions.is_empty() {
+        let combined: String = instructions.iter()
+            .map(|(path, content)| {
+                let resolved = mc_config::resolve_includes(
+                    path.parent().unwrap_or(std::path::Path::new(".")),
+                    content,
+                );
+                format!("\n\n# Instructions from {}\n{}", path.display(), resolved)
+            })
+            .collect();
+        runtime.set_hierarchical_instructions(combined);
     }
 
     let cancel_clone = cancel.clone();
