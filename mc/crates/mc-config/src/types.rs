@@ -29,6 +29,10 @@ pub struct ProviderConfig {
     pub base_url: Option<String>,
     pub host: Option<String>,
     pub format: Option<String>,
+    #[serde(default)]
+    pub models_whitelist: Vec<String>,
+    #[serde(default)]
+    pub models_blacklist: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

@@ -79,6 +79,9 @@ struct Cli {
     /// Stop after this many model turns.
     #[arg(long)]
     max_turns: Option<u32>,
+    /// Stop after generating this many output tokens total.
+    #[arg(long)]
+    max_tokens_total: Option<u64>,
     #[arg(long, hide = true)]
     completions: Option<String>,
     /// Grant access to additional directories outside workspace.
@@ -169,6 +172,7 @@ fn main() -> Result<()> {
             &config,
             cli.max_budget_usd,
             cli.max_turns,
+            cli.max_tokens_total,
             &cli.add_dir,
         ))
     } else {
@@ -232,6 +236,7 @@ async fn run_tui(
     config: &mc_config::RuntimeConfig,
     cli_max_budget: Option<f64>,
     cli_max_turns: Option<u32>,
+    cli_max_tokens_total: Option<u64>,
     extra_dirs: &[String],
 ) -> Result<()> {
     let original_hook = std::panic::take_hook();
@@ -366,6 +371,15 @@ async fn run_tui(
                             app.handle_event(AppEvent::Error(format!(
                                 "Turn limit reached: {}",
                                 max_t
+                            )));
+                            break;
+                        }
+                    }
+                    if let Some(max_tok) = cli_max_tokens_total {
+                        if (app.total_input_tokens as u64 + app.total_output_tokens as u64) >= max_tok {
+                            app.handle_event(AppEvent::Error(format!(
+                                "Token limit reached: {}",
+                                max_tok
                             )));
                             break;
                         }

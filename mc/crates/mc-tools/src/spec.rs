@@ -273,5 +273,65 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
             description: "Remove the current worktree and return to the main working directory.".into(),
             input_schema: serde_json::json!({"type": "object", "properties": {}}),
         },
+        ToolSpec {
+            name: "ask_user".into(),
+            description: "Pause and ask the user a question when you need clarification. Use sparingly — prefer acting with best judgment.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "Question to ask the user"}
+                },
+                "required": ["question"]
+            }),
+        },
+        ToolSpec {
+            name: "sleep".into(),
+            description: "Pause execution for a duration. Useful in polling loops or waiting for processes. Max 60 seconds.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "duration_ms": {"type": "integer", "description": "Milliseconds to sleep (max 60000)"}
+                },
+                "required": ["duration_ms"]
+            }),
+        },
+        ToolSpec {
+            name: "notebook_edit".into(),
+            description: "Edit a Jupyter notebook cell. Operations: edit (replace cell source), insert (add new cell), delete (remove cell).".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "notebook_path": {"type": "string", "description": "Path to .ipynb file"},
+                    "cell_index": {"type": "integer", "description": "0-indexed cell number"},
+                    "operation": {"type": "string", "enum": ["edit", "insert", "delete"]},
+                    "new_source": {"type": "string", "description": "New cell content (for edit/insert)"},
+                    "cell_type": {"type": "string", "enum": ["code", "markdown", "raw"]}
+                },
+                "required": ["notebook_path", "operation"]
+            }),
+        },
+        ToolSpec {
+            name: "mcp_list_resources".into(),
+            description: "List resources exposed by a connected MCP server.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "server_name": {"type": "string", "description": "MCP server name"}
+                },
+                "required": ["server_name"]
+            }),
+        },
+        ToolSpec {
+            name: "mcp_read_resource".into(),
+            description: "Read a specific resource from an MCP server by URI.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "server_name": {"type": "string", "description": "MCP server name"},
+                    "uri": {"type": "string", "description": "Resource URI"}
+                },
+                "required": ["server_name", "uri"]
+            }),
+        },
     ]
 }
