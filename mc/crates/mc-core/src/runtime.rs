@@ -697,6 +697,20 @@ impl ConversationRuntime {
             };
         }
 
+        if name == "todo_write" {
+            let todos = input_val.get("todos").and_then(|v| v.as_array());
+            if let Some(items) = todos {
+                let summary: Vec<String> = items.iter().filter_map(|t| {
+                    let status = t.get("status").and_then(|s| s.as_str()).unwrap_or("pending");
+                    let content = t.get("content").and_then(|s| s.as_str()).unwrap_or("");
+                    let icon = match status { "completed" => "✓", "in_progress" => "◐", _ => "○" };
+                    Some(format!("{icon} {content}"))
+                }).collect();
+                return (format!("TODO list updated ({} items):\n{}", items.len(), summary.join("\n")), false);
+            }
+            return ("Invalid todos format".into(), true);
+        }
+
         // Snapshot for undo before write operations
         if matches!(name, "write_file" | "edit_file") {
             if let Some(p) = input_val.get("path").and_then(|v| v.as_str()) {

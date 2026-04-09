@@ -94,6 +94,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/sessions" => cmd_sessions(app, arg),
         "/connect" => cmd_connect(app, arg),
         "/tasks" => { app.push("Listing tasks..."); app.pending_command = Some(PendingCommand::Btw("__tasks_list__".into())); },
+        "/resume" => cmd_resume(app, arg),
 
         _ => cmd_unknown(app, cmd, parts[0]),
     }
@@ -387,6 +388,15 @@ fn cmd_sessions(app: &mut App, arg: &str) {
         app.push(&format!("Deleting session: {name}"));
     } else {
         app.pending_command = Some(PendingCommand::Search("__list__".into()));
+    }
+}
+
+fn cmd_resume(app: &mut App, arg: &str) {
+    if arg.is_empty() {
+        app.pending_command = Some(PendingCommand::Search("__list__".into()));
+    } else {
+        app.push(&format!("Searching sessions for: {arg}"));
+        app.pending_command = Some(PendingCommand::Load(arg.into()));
     }
 }
 
