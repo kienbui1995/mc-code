@@ -88,6 +88,43 @@ impl EditFileTool {
     }
 }
 
+/// Batch edit: apply multiple edits in one call.
+pub struct BatchEditTool;
+
+impl BatchEditTool {
+    /// Apply multiple edits. Each edit is {path, old_string, new_string, replace_all?}.
+    /// Edits are applied in order. If any fails, the batch is aborted (no partial writes).
+    pub fn execute(edits: &[serde_json::Value]) -> Result<String, ToolError> {
+        let mut planned: Vec<(String, String, String)> = Vec::new();
+        for edit in edits {
+            let path = edit.get("path").and_then(|v| v.as_str())
+                .ok_or_else(|| ToolError::InvalidInput("edit missing 'path'".into()))?;
+            let old_str = edit.get("old_string").and_then(|v| v.as_str())
+                .ok_or_else(|| ToolError::InvalidInput("edit missing 'old_string'".into()))?;
+            let new_str = edit.get("new_string").and_then(|v| v.as_str())
+                .ok_or_else(|| ToolError::InvalidInput("edit missing 'new_string'".into()))?;
+            let content = std::fs::read_to_string(path)
+                .map_err(|e| ToolError::ExecutionFailed(format!("read {path}: {e}")))?;
+            if !content.contains(old_str) {
+                return Err(ToolError::ExecutionFailed(
+                    format!("old_string not found in {path}")
+                ));
+            }
+            planned.push((path.to_string(), old_str.to_string(), new_str.to_string()));
+        }
+        let mut count = 0;
+        for (path, old_str, new_str) in &planned {
+            let replace_all = edits.get(count)
+                .and_then(|e| e.get("replace_all"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            EditFileTool::execute(path, old_str, new_str, replace_all)?;
+            count += 1;
+        }
+        Ok(format!("Applied {count} edits successfully"))
+    }
+}
+
 fn generate_diff(path: &str, old: &str, new: &str) -> String {
     use similar::{ChangeTag, TextDiff};
     let diff = TextDiff::from_lines(old, new);

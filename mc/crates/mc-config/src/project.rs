@@ -115,6 +115,58 @@ fn detect_stack(cwd: &Path) -> Vec<String> {
         .collect()
 }
 
+/// Load instruction files hierarchically from filesystem root to cwd.
+/// Checks each directory for CLAUDE.md, AGENTS.md, .claude/CLAUDE.md, .magic-code/instructions.md
+/// Files are loaded root-first so child directories can override parent.
+pub fn load_hierarchical_instructions(cwd: &Path) -> Vec<(PathBuf, String)> {
+    let mut results = Vec::new();
+    let names = [
+        "CLAUDE.md",
+        "AGENTS.md",
+        ".claude/CLAUDE.md",
+        ".magic-code/instructions.md",
+    ];
+
+    let mut ancestors: Vec<&Path> = cwd.ancestors().collect();
+    ancestors.reverse(); // root first
+
+    for dir in ancestors {
+        for name in &names {
+            let path = dir.join(name);
+            if path.is_file() {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    if !content.trim().is_empty() {
+                        results.push((path, content));
+                    }
+                }
+            }
+        }
+    }
+    results
+}
+
+/// Process @include directives in instruction content.
+/// Format: @include path/to/file.md (relative to the including file's directory)
+pub fn resolve_includes(base_dir: &Path, content: &str) -> String {
+    let mut result = String::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(path) = trimmed.strip_prefix("@include ") {
+            let include_path = base_dir.join(path.trim());
+            if let Ok(included) = std::fs::read_to_string(&include_path) {
+                result.push_str(&included);
+                result.push('\n');
+            } else {
+                result.push_str(&format!("[include not found: {}]\n", path.trim()));
+            }
+        } else {
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
