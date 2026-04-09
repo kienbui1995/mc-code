@@ -132,6 +132,41 @@ impl BatchEditTool {
     }
 }
 
+/// Apply a unified diff patch to files.
+pub struct ApplyPatchTool;
+
+impl ApplyPatchTool {
+    /// Apply a unified diff patch using `git apply`.
+    pub fn execute(patch: &str) -> Result<String, ToolError> {
+        let tmp = std::env::temp_dir().join(format!("mc-patch-{}.diff", std::process::id()));
+        std::fs::write(&tmp, patch)
+            .map_err(|e| ToolError::ExecutionFailed(format!("write temp: {e}")))?;
+
+        let stat = std::process::Command::new("git")
+            .args(["apply", "--stat", &tmp.to_string_lossy()])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+            .unwrap_or_default();
+
+        let result = std::process::Command::new("git")
+            .args(["apply", &tmp.to_string_lossy()])
+            .output();
+
+        let _ = std::fs::remove_file(&tmp);
+
+        match result {
+            Ok(o) if o.status.success() => Ok(format!("Patch applied successfully\n{stat}")),
+            Ok(o) => {
+                let err = String::from_utf8_lossy(&o.stderr);
+                Err(ToolError::ExecutionFailed(format!("git apply failed: {err}")))
+            }
+            Err(e) => Err(ToolError::ExecutionFailed(format!("git apply: {e}"))),
+        }
+    }
+}
+
 fn generate_diff(path: &str, old: &str, new: &str) -> String {
     use similar::{ChangeTag, TextDiff};
     let diff = TextDiff::from_lines(old, new);

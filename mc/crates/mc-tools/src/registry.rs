@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::bash::BashTool;
 use crate::error::ToolError;
-use crate::file_ops::{BatchEditTool, EditFileTool, ReadFileTool, WriteFileTool};
+use crate::file_ops::{ApplyPatchTool, BatchEditTool, EditFileTool, ReadFileTool, WriteFileTool};
 use crate::mcp::McpClient;
 use crate::sandbox::Sandbox;
 use crate::search::{GlobSearchTool, GrepSearchTool};
@@ -260,6 +260,12 @@ impl ToolRegistry {
                     .await
                     .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
             }
+            "apply_patch" => {
+                let patch = str_field(input, "patch")?;
+                tokio::task::spawn_blocking(move || ApplyPatchTool::execute(&patch))
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
+            }
             "glob_search" => {
                 let pattern = str_field(input, "pattern")?;
                 let path = input.get("path").and_then(Value::as_str).map(String::from);
@@ -455,7 +461,7 @@ mod tests {
     #[test]
     fn specs_has_all_tools() {
         let specs = ToolRegistry::specs();
-        assert_eq!(specs.len(), 17);
+        assert_eq!(specs.len(), 19);
         let names: Vec<_> = specs.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"bash"));
         assert!(names.contains(&"edit_file"));

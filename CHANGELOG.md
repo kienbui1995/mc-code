@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.0.0 (2026-04-09)
+
+### 🎉 v1.0 Release
+
+**magic-code is now production-ready.** This release brings feature parity with leading AI coding agents, comprehensive safety controls, and a polished developer experience.
+
+### Provider Expansion (3 → 15)
+- **11 new providers:** Groq, DeepSeek, Mistral, xAI, OpenRouter, Together, Perplexity, Cohere, Cerebras, LM Studio, llama.cpp
+- **`/connect` wizard** — guided setup with API key URLs for each provider
+- **`/providers`** — list all providers with configuration status
+- Auto-detect provider from model name prefix
+
+### Safety & Budget Control
+- **`--max-budget-usd`** — stop session when cost exceeds limit
+- **`--max-turns`** — stop after N model turns (prevents runaway sessions)
+- **Read-before-write enforcement** — blocks writes to files not read in session
+- **`/update`** — check GitHub releases for newer version
+
+### Background Task System
+- **`task_create`** — spawn async shell commands, returns task ID immediately
+- **`task_get`** / **`task_list`** / **`task_stop`** — poll status, list all, terminate
+- **`/tasks`** — TUI command for task management
+
+### Hierarchical Memory & Advanced Edits
+- **Hierarchical AGENTS.md** — loads CLAUDE.md/AGENTS.md from root → cwd (monorepo support)
+- **`@include` directive** — include other instruction files
+- **`batch_edit` tool** — multiple file edits in one call
+- **`apply_patch` tool** — apply unified diff patches (git diff format)
+- **`todo_write` tool** — LLM-managed TODO list tracking
+- **`--add-dir`** — grant sandbox access to extra directories
+
+### UX Polish
+- **`/security-review`** — dedicated security audit command
+- **`/resume`** — resume previous sessions with fuzzy search
+- **Jupyter notebook (.ipynb)** read support
+- **19 tools** (was 12), **15 providers** (was 3)
+
+### Infrastructure
+- 148 tests, all passing
+- ~13,000 lines of Rust
+- Commands module extracted (app.rs -60%)
+- All slash commands non-blocking (async via RunShell)
+
 ## v0.8.3 (2026-04-09)
 
 ### Bug Fixes
@@ -28,20 +71,15 @@
 - 146 tests (all pass)
 - 17 fixes across 12 files
 
-## v0.9.0 (Roadmap)
+## Future Roadmap
 
-### Planned — Stability & Architecture
-- **Async slash commands** — migrate remaining ~12 blocking commands (`/grep`, `/cat`, `/head`, `/tail`, `/files`, `/tree`, `/wc`, `/todo`, `/recent`, `/test`, `/ship`, `/open`) from `std::process::Command` to async `PendingCommand` pattern
-- **Split `handle_slash_command`** — extract 900-line, 40+ arm match into dedicated `commands` module with command registry pattern
-- **Replace hand-rolled `base64_encode`** — use `base64` crate instead of custom implementation
-- **Async image loading** — `resolve_image_base64` currently does blocking file I/O in `build_request`; move to `tokio::task::spawn_blocking`
-- **MCP reconnection** — auto-reconnect to MCP servers after disconnect/crash
-- **HTML parser upgrade** — `strip_html` breaks on `<script>`/`<style>` tags; use proper tag-aware stripping
-
-### Planned — Features
-- **Streaming tool output for all providers** — currently only bash streams; extend to web_fetch, plugins
-- **Session search improvements** — full-text search across session content, not just filenames
-- **Config hot-reload** — watch `.magic-code/config.toml` for changes without restart
+### Planned
+- **Interactive `/model` picker** — searchable TUI list instead of text input
+- **Worktree support** — subagents work on isolated git branches
+- **Cron/scheduled triggers** — run agents on schedule
+- **Config hot-reload** — watch config files for changes
+- **Streaming tool output for all providers** — extend beyond bash
+- **Voice mode** — speech-to-text input (experimental)
 
 ## v0.8.2 (2026-04-06)
 

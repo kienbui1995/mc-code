@@ -212,6 +212,17 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
             }),
         },
         ToolSpec {
+            name: "apply_patch".into(),
+            description: "Apply a unified diff patch (git diff format) to one or more files. Use when you want to express changes as a diff rather than string replacements.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "patch": {"type": "string", "description": "Unified diff patch text (git diff format)"}
+                },
+                "required": ["patch"]
+            }),
+        },
+        ToolSpec {
             name: "task_stop".into(),
             description: "Stop a running background task.".into(),
             input_schema: json!({
@@ -220,6 +231,30 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                     "task_id": {"type": "string", "description": "Task ID to stop"}
                 },
                 "required": ["task_id"]
+            }),
+        },
+        ToolSpec {
+            name: "todo_write".into(),
+            description: "Write or update the session TODO list. Use to track progress on multi-step tasks.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "todos": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "content": {"type": "string"},
+                                "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                                "priority": {"type": "string", "enum": ["low", "medium", "high"]}
+                            },
+                            "required": ["id", "content", "status"]
+                        },
+                        "description": "Array of TODO items"
+                    }
+                },
+                "required": ["todos"]
             }),
         },
     ]
