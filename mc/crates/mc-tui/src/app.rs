@@ -102,7 +102,7 @@ pub enum PendingCommand {
     Branch(String),
     Git(String),
     ModelSwitch(String),
-    Export,
+    Export(String),
     Init,
     Summary,
     Search(String),

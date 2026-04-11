@@ -38,7 +38,10 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/log" => app.pending_command = Some(PendingCommand::Git("log".into())),
         "/commit" => app.pending_command = Some(PendingCommand::Git("commit".into())),
         "/stash" => app.pending_command = Some(PendingCommand::Git(if arg == "pop" { "stash_pop" } else { "stash" }.into())),
-        "/export" => app.pending_command = Some(PendingCommand::Export),
+        "/export" => {
+            let fmt = if arg == "json" { "json" } else { "md" };
+            app.pending_command = Some(PendingCommand::Export(fmt.into()));
+        }
         "/model" => cmd_model(app, arg),
         "/init" => app.pending_command = Some(PendingCommand::Init),
         "/summary" => app.pending_command = Some(PendingCommand::Summary),
