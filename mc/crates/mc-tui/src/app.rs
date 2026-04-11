@@ -130,6 +130,8 @@ pub enum PendingCommand {
     RunShell(String),
     /// Toggle review_writes mode.
     ReviewToggle,
+    /// Toggle auto-test mode.
+    AutoTestToggle,
 }
 
 /// Agent processing state.

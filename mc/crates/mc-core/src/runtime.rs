@@ -83,6 +83,8 @@ pub struct ConversationRuntime {
     cost_tracker: Option<crate::cost::CostTracker>,
     task_manager: crate::tasks::TaskManager,
     hierarchical_instructions: Option<String>,
+    /// Auto-test: command to run after write tools. If set, test failures are fed back to LLM.
+    pub auto_test_cmd: Option<String>,
 }
 
 impl ConversationRuntime {
@@ -118,6 +120,7 @@ impl ConversationRuntime {
                 .map(crate::cost::CostTracker::new),
             task_manager: crate::tasks::TaskManager::new(),
             hierarchical_instructions: None,
+            auto_test_cmd: None,
         }
     }
 
@@ -455,6 +458,35 @@ impl ConversationRuntime {
                 self.session.messages.push(ConversationMessage::tool_result(
                     &id, &name, &output, is_error,
                 ));
+            }
+
+            // Auto-test: run tests after write tools, feed failures back to LLM
+            if let Some(ref test_cmd) = self.auto_test_cmd {
+                let had_writes = tool_calls.iter().any(|t| matches!(t.as_str(), "write_file" | "edit_file" | "batch_edit" | "apply_patch"));
+                if had_writes {
+                    on_event(&ProviderEvent::ToolOutputDelta("\n🧪 Running tests...\n".into()));
+                    if let Ok(output) = tokio::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(test_cmd)
+                        .output()
+                        .await
+                    {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        if !output.status.success() {
+                            let fail_msg = format!(
+                                "Tests failed after code changes. Fix the errors:\n```\n{}{}\n```",
+                                &stdout[..stdout.len().min(2000)],
+                                if !stderr.is_empty() { format!("\nSTDERR:\n{}", &stderr[..stderr.len().min(500)]) } else { String::new() }
+                            );
+                            on_event(&ProviderEvent::ToolOutputDelta("❌ Tests failed\n".into()));
+                            self.session.messages.push(ConversationMessage::user(&fail_msg));
+                            // Continue the loop — LLM will see the failure and try to fix
+                            continue;
+                        }
+                        on_event(&ProviderEvent::ToolOutputDelta("✅ Tests passed\n".into()));
+                    }
+                }
             }
         }
 
