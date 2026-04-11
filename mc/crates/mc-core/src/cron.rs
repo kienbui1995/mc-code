@@ -119,3 +119,12 @@ mod tests {
         assert!(due.is_empty());
     }
 }
+
+    #[test]
+    fn list_triggers() {
+        let mut mgr = CronManager::new();
+        mgr.add("every5", 300, "check status");
+        mgr.add("hourly", 3600, "report");
+        let list = mgr.list();
+        assert_eq!(list.len(), 2);
+    }

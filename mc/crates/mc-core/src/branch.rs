@@ -184,4 +184,17 @@ mod tests {
         assert_eq!(mgr.list_branches().len(), 1);
         fs::remove_dir_all(dir).ok();
     }
+
+    #[test]
+    fn fork_preserves_messages() {
+        let dir = tmp_dir();
+        let mgr = BranchManager::new(dir.clone(), 10);
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::user("hello"));
+        session.messages.push(ConversationMessage::assistant("hi"));
+        let forked = mgr.fork(&session, 2);
+        assert_eq!(forked.messages.len(), 2);
+        assert!(forked.branch_id.is_some());
+        fs::remove_dir_all(dir).ok();
+    }
 }

@@ -174,3 +174,16 @@ mod tests {
         assert!(contexts.is_empty());
     }
 }
+
+    #[test]
+    fn build_message_formats_correctly() {
+        let ctx = vec![ResolvedContext {
+            path: "test.rs".into(),
+            content: "fn main() {}".into(),
+            token_estimate: 5,
+        }];
+        let msg = ContextResolver::build_message("do something", &ctx);
+        assert!(msg.contains("do something"));
+        assert!(msg.contains("test.rs"));
+        assert!(msg.contains("fn main()"));
+    }

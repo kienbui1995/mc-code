@@ -52,6 +52,7 @@ impl TokenBudget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::{ConversationMessage, Session};
 
     #[test]
     fn available_for_messages_basic() {
@@ -85,5 +86,13 @@ mod tests {
         let b = TokenBudget::new(200_000, 8192);
         // used > context_window → remaining = 0, clamped to 1
         assert_eq!(b.effective_max_tokens(300_000), 1);
+    }
+
+    #[test]
+    fn session_tokens_counts_correctly() {
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::user("hello world"));
+        let tokens = TokenBudget::session_tokens(&session);
+        assert!(tokens > 0);
     }
 }

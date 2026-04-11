@@ -230,3 +230,50 @@ mod tests {
         assert!(t.ends_with("..."));
     }
 }
+
+    #[test]
+    fn estimate_tokens_empty() {
+        let session = Session::default();
+        assert_eq!(estimate_tokens(&session), 0);
+    }
+
+    #[test]
+    fn micro_compact_trims_long_output() {
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::tool_result(
+            "t1", "bash", &"x".repeat(3000), false,
+        ));
+        micro_compact(&mut session);
+        if let Block::ToolResult { output, .. } = &session.messages[0].blocks[0] {
+            assert!(output.len() < 3000);
+            assert!(output.contains("trimmed"));
+        }
+    }
+
+    #[test]
+    fn collapse_reads_shrinks_large_output() {
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::tool_result(
+            "t1", "read_file", &"line\n".repeat(500), false,
+        ));
+        collapse_reads(&mut session);
+        if let Block::ToolResult { output, .. } = &session.messages[0].blocks[0] {
+            assert!(output.contains("read_file output"));
+            assert!(output.len() < 200);
+        }
+    }
+
+    #[test]
+    fn snip_thinking_removes_old() {
+        let mut session = Session::default();
+        for _ in 0..5 {
+            let mut msg = ConversationMessage::assistant("text");
+            msg.push_block(Block::Thinking { text: "deep thought".into() });
+            session.messages.push(msg);
+        }
+        snip_thinking(&mut session, 2);
+        // First 3 messages should have thinking removed
+        assert!(!session.messages[0].blocks.iter().any(|b| matches!(b, Block::Thinking { .. })));
+        // Last 2 should keep thinking
+        assert!(session.messages[4].blocks.iter().any(|b| matches!(b, Block::Thinking { .. })));
+    }

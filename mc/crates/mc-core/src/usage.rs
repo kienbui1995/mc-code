@@ -66,3 +66,17 @@ mod tests {
         assert_eq!(tracker.total().output_tokens, 20);
     }
 }
+
+    #[test]
+    fn cache_stats_tracked() {
+        let mut tracker = UsageTracker::default();
+        tracker.record(&TokenUsage {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_creation_input_tokens: 10,
+            cache_read_input_tokens: 20,
+        });
+        let total = tracker.total();
+        assert_eq!(total.cache_creation_input_tokens, 10);
+        assert_eq!(total.cache_read_input_tokens, 20);
+    }

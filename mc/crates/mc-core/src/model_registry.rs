@@ -171,3 +171,17 @@ mod tests {
         assert!((cost - 4.5).abs() < 0.01);
     }
 }
+
+    #[test]
+    fn context_window_known_model() {
+        let r = ModelRegistry::default();
+        let cw = r.context_window("claude-sonnet-4-20250514");
+        assert!(cw > 100_000);
+    }
+
+    #[test]
+    fn context_window_unknown_defaults() {
+        let r = ModelRegistry::default();
+        let cw = r.context_window("totally-unknown-model");
+        assert!(cw > 0); // should have a default
+    }

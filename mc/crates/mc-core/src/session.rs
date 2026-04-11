@@ -329,3 +329,30 @@ mod tests {
         assert!(md.contains("✅ **bash**"));
         assert!(md.contains("file.txt"));
     }
+
+    #[test]
+    fn to_markdown_empty_session() {
+        let session = Session::default();
+        let md = session.to_markdown();
+        assert!(md.contains("# Conversation Export"));
+        assert!(md.contains("Tokens: 0 input, 0 output"));
+    }
+
+    #[test]
+    fn to_markdown_with_thinking() {
+        let mut session = Session::default();
+        let mut msg = ConversationMessage::assistant("answer");
+        msg.push_block(Block::Thinking { text: "reasoning here".into() });
+        session.messages.push(msg);
+        let md = session.to_markdown();
+        assert!(md.contains("💭 Thinking"));
+        assert!(md.contains("reasoning here"));
+    }
+
+    #[test]
+    fn to_markdown_with_error_result() {
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::tool_result("t1", "bash", "command failed", true));
+        let md = session.to_markdown();
+        assert!(md.contains("❌"));
+    }
