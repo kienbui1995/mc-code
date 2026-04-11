@@ -339,3 +339,47 @@ fn simple_diff(old: &str, new: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod diff_tests {
+    use super::*;
+
+    #[test]
+    fn simple_diff_no_changes() {
+        let d = simple_diff("hello\n", "hello\n");
+        assert!(d.contains("no changes"));
+    }
+
+    #[test]
+    fn simple_diff_detects_changes() {
+        let d = simple_diff("old line\n", "new line\n");
+        assert!(d.contains("- old line"));
+        assert!(d.contains("+ new line"));
+    }
+
+    #[test]
+    fn diff_preview_write_file() {
+        let input = r#"{"path":"/tmp/test.txt","content":"hello world"}"#;
+        let preview = diff_preview_summary("write_file", input);
+        assert!(preview.contains("/tmp/test.txt"));
+        assert!(preview.contains("CREATE") || preview.contains("MODIFY"));
+    }
+
+    #[test]
+    fn diff_preview_edit_file() {
+        let input = r#"{"path":"test.rs","old_string":"fn old()","new_string":"fn new()"}"#;
+        let preview = diff_preview_summary("edit_file", input);
+        assert!(preview.contains("EDIT"));
+        assert!(preview.contains("- fn old()"));
+        assert!(preview.contains("+ fn new()"));
+    }
+
+    #[test]
+    fn is_write_tool_check() {
+        assert!(is_write_tool("write_file"));
+        assert!(is_write_tool("edit_file"));
+        assert!(is_write_tool("batch_edit"));
+        assert!(!is_write_tool("read_file"));
+        assert!(!is_write_tool("bash"));
+    }
+}
