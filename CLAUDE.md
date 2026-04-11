@@ -4,7 +4,7 @@
 
 magic-code: open-source TUI agentic AI coding agent. Built in Rust.
 
-## Current Version: v0.7.0 (released)
+## Current Version: v1.2.0 (released)
 
 ### v0.3.0 Progress
 
@@ -43,7 +43,10 @@ BashTool::execute_streaming → mpsc::UnboundedSender
 ### Release History
 - v0.1.0: Initial release (multi-provider, streaming, 7 tools, TUI, MCP, permissions)
 - v0.2.0: Extended thinking, image support, long-term memory, @-mentions, undo/rollback, conversation branching, parallel tools, tool caching, prompt caching, dynamic token budget, mid-stream retry, context pressure warning. 11 tools, 141 tests.
-- v0.7.0 (released): Streaming bash output. 141 tests.
+- v0.7.0: Streaming bash output. 141 tests.
+- v1.0.0: Production-ready. 15 providers, safety controls, background tasks, hierarchical memory. 152 tests.
+- v1.1.0: 26 tools, interactive model picker, git worktree, cron triggers, config hot-reload. 152 tests.
+- v1.2.0: /cost breakdown, /export, /diff-preview, plugin system, streaming edit preview, /auto-test, MCP in single-shot mode. 162 tests.
 
 ## Repository Layout
 
@@ -97,7 +100,7 @@ mc-config → (standalone)
 
 ```bash
 cd mc
-cargo test --workspace          # 141 tests
+cargo test --workspace          # 162 tests
 cargo clippy --workspace --all-targets  # zero warnings required
 cargo fmt --all -- --check      # format check
 cargo build --release           # release build

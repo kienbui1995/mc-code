@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.0 (2026-04-11)
+
+### Release Highlights
+
+**28+ tools, 15 providers, 162 tests, 14K+ lines of Rust.**
+
+### New Features
+- **`/cost` per-turn breakdown** — shows input/output tokens, cost, and model for each turn
+- **`/export` markdown + JSON** — export real session data as readable markdown or raw JSON
+- **`/diff-preview` toggle** — approve/reject file changes with diff preview before writing
+- **Plugin system** — auto-discover custom tools from `.magic-code/tools/` (sh, py, js)
+- **Streaming edit preview** — see write_file/edit_file content in real-time as LLM generates
+- **`/auto-test`** — auto-run tests after code changes, feed failures back to LLM for retry
+- **MCP in single-shot mode** — MCP servers now load in `--json` and `--pipe` modes
+
+### Bug Fixes
+- Fixed MCP servers not loading in single-shot/pipe mode
+- Removed hardcoded internal IP from sandbox.sh
+
 ## v1.1.0 (2026-04-09)
 
 ### Release Highlights
