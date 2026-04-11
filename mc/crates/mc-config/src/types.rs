@@ -94,6 +94,8 @@ pub struct DefaultLayer {
     pub model: Option<String>,
     pub max_tokens: Option<u32>,
     pub permission_mode: Option<String>,
+    #[serde(default)]
+    pub tool_permissions: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -156,6 +158,7 @@ pub struct RuntimeConfig {
     pub hooks: Vec<HookConfig>,
     pub model_aliases: std::collections::HashMap<String, String>,
     pub protected_patterns: Vec<String>,
+    pub tool_permissions: std::collections::HashMap<String, String>,
 }
 
 impl RuntimeConfig {
@@ -235,6 +238,12 @@ impl RuntimeConfig {
             hooks.extend(layer.hooks.clone());
         }
 
+        // Merge tool_permissions from all layers
+        let mut tool_permissions = std::collections::HashMap::new();
+        for layer in layers {
+            tool_permissions.extend(layer.default.tool_permissions.clone());
+        }
+
         let resolved_provider = provider.unwrap_or_else(|| "anthropic".into());
         let provider_config = providers
             .get(&resolved_provider)
@@ -270,6 +279,7 @@ impl RuntimeConfig {
             hooks,
             model_aliases: std::collections::HashMap::new(),
             protected_patterns: Vec::new(),
+            tool_permissions,
         }
     }
 

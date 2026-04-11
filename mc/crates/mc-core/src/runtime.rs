@@ -924,6 +924,7 @@ impl ConversationRuntime {
                 .get("context")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
+            let model_override = input_val.get("model").and_then(|v| v.as_str());
             let sub_prompt = if context.is_empty() {
                 task.to_string()
             } else {
@@ -936,6 +937,7 @@ impl ConversationRuntime {
                     &sub_prompt,
                     &self.system_prompt,
                     &self.tool_registry,
+                    model_override,
                 )
                 .await
             {
