@@ -563,7 +563,8 @@ impl ConversationRuntime {
                         ProviderEvent::MessageStop
                         | ProviderEvent::RetryAttempt { .. }
                         | ProviderEvent::StreamReset
-                        | ProviderEvent::ToolOutputDelta(_) => {}
+                        | ProviderEvent::ToolOutputDelta(_)
+                        | ProviderEvent::ToolInputDelta { .. } => {}
                     }
                 }
                 Some(Err(e)) => return Err(e),
