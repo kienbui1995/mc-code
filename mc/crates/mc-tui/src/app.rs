@@ -132,6 +132,8 @@ pub enum PendingCommand {
     ReviewToggle,
     /// Toggle auto-test mode.
     AutoTestToggle,
+    /// Toggle auto-commit mode.
+    AutoCommitToggle,
 }
 
 /// Agent processing state.

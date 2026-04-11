@@ -85,6 +85,8 @@ pub struct ConversationRuntime {
     hierarchical_instructions: Option<String>,
     /// Auto-test: command to run after write tools. If set, test failures are fed back to LLM.
     pub auto_test_cmd: Option<String>,
+    /// Auto-commit: if true, auto git add+commit after write tools with LLM-generated message.
+    pub auto_commit: bool,
 }
 
 impl ConversationRuntime {
@@ -121,6 +123,7 @@ impl ConversationRuntime {
             task_manager: crate::tasks::TaskManager::new(),
             hierarchical_instructions: None,
             auto_test_cmd: None,
+            auto_commit: false,
         }
     }
 
@@ -485,6 +488,28 @@ impl ConversationRuntime {
                             continue;
                         }
                         on_event(&ProviderEvent::ToolOutputDelta("✅ Tests passed\n".into()));
+                    }
+                }
+            }
+
+            // Auto-commit: stage and commit with LLM-generated message
+            if self.auto_commit {
+                let had_writes = tool_calls.iter().any(|t| matches!(t.as_str(), "write_file" | "edit_file" | "batch_edit" | "apply_patch"));
+                if had_writes {
+                    let _ = std::process::Command::new("git").args(["add", "-A"]).output();
+                    if let Ok(diff) = std::process::Command::new("git").args(["diff", "--cached", "--stat"]).output() {
+                        let stat = String::from_utf8_lossy(&diff.stdout);
+                        if !stat.trim().is_empty() {
+                            on_event(&ProviderEvent::ToolOutputDelta("📦 Auto-committing...\n".into()));
+                            let msg = self.generate_commit_message(provider, &stat).await;
+                            match std::process::Command::new("git").args(["commit", "-m", &msg]).output() {
+                                Ok(o) => {
+                                    let out = String::from_utf8_lossy(&o.stdout);
+                                    on_event(&ProviderEvent::ToolOutputDelta(format!("✓ {}\n", out.trim())));
+                                }
+                                Err(e) => on_event(&ProviderEvent::ToolOutputDelta(format!("commit error: {e}\n"))),
+                            }
+                        }
                     }
                 }
             }
