@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.0 (2026-04-11)
+
+### Release Highlights
+
+**30+ tools, 15 providers, 180 tests, 15K+ lines of Rust.**
+
+### Plugin Marketplace
+- **`/plugin install obra/superpowers`** — install skills from GitHub repos
+- **`/plugin list/update/remove`** — manage installed plugins
+- Skills from plugins auto-discovered and injected into system prompt
+- Compatible with obra/superpowers (14 skills, 147k ⭐)
+
+### Critical Gap Fixes
+- **Subagent model routing** — `model` field in subagent tool for cost optimization
+- **Subagent shared context** — agents see each other's results via SharedContext board
+- **`--yes`/`-y` flag** — bypass permissions for CI/CD automation
+- **Per-tool permissions** — `tool_permissions = { bash = "deny" }` in config
+- **Cost per tool** — `/cost` shows tool call counts breakdown
+- **`--validate-config`** — validate config and exit with summary
+
 ## v1.3.0 (2026-04-11)
 
 ### Release Highlights
