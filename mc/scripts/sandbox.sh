@@ -16,7 +16,7 @@ MC="${MC_BIN:-$HOME/magic-code/magic-code/mc/target/release/magic-code}"
 
 "$MC" \
   --provider "${MC_PROVIDER:-litellm}" \
-  --base-url "${MC_BASE_URL:-http://192.168.3.60:4000}" \
+  --base-url "${MC_BASE_URL}" \
   --api-key "${MC_API_KEY}" \
   --model "${MC_MODEL:-gemini/gemini-2.5-flash}" \
   "$@"
