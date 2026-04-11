@@ -150,6 +150,8 @@ pub struct App {
     pub total_input_tokens: u32,
     pub total_output_tokens: u32,
     pub session_cost: f64,
+    /// Per-turn cost breakdown: (turn_number, input_tokens, output_tokens, cost, model).
+    pub turn_costs: Vec<(u32, u32, u32, f64, String)>,
     pub context_usage_pct: u8,
     pub should_quit: bool,
     pub plan_mode: bool,
@@ -201,6 +203,7 @@ impl App {
             total_input_tokens: 0,
             total_output_tokens: 0,
             session_cost: 0.0,
+            turn_costs: Vec::new(),
             context_usage_pct: 0,
             should_quit: false,
             plan_mode: false,
