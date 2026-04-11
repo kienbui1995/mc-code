@@ -25,6 +25,7 @@ pub struct ToolRegistry {
     tool_timeout: Duration,
     mcp_clients: HashMap<String, Mutex<McpClient>>,
     mcp_tool_specs: Vec<ToolSpec>,
+    plugin_specs: Vec<ToolSpec>,
     cached_specs: std::sync::OnceLock<Vec<ToolSpec>>,
     read_files: std::sync::Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
     /// When true, write_file/edit_file require interactive approval with diff preview.
@@ -41,6 +42,7 @@ impl ToolRegistry {
             tool_timeout: DEFAULT_TOOL_TIMEOUT,
             mcp_clients: HashMap::new(),
             mcp_tool_specs: Vec::new(),
+            plugin_specs: Vec::new(),
             cached_specs: std::sync::OnceLock::new(),
             read_files: std::sync::Arc::new(
                 std::sync::Mutex::new(std::collections::HashSet::new()),
@@ -52,6 +54,10 @@ impl ToolRegistry {
     #[must_use]
     /// With workspace root.
     pub fn with_workspace_root(mut self, root: PathBuf) -> Self {
+        self.plugin_specs = crate::plugin::discover_plugins(&root);
+        if !self.plugin_specs.is_empty() {
+            tracing::info!(count = self.plugin_specs.len(), "plugins discovered");
+        }
         self.sandbox = Some(Sandbox::new(root));
         self
     }
@@ -107,6 +113,7 @@ impl ToolRegistry {
         self.cached_specs.get_or_init(|| {
             let mut specs = all_tool_specs();
             specs.extend(self.mcp_tool_specs.clone());
+            specs.extend(self.plugin_specs.clone());
             specs
         })
     }
