@@ -41,6 +41,10 @@ pub struct ProviderConfig {
 pub struct CompactionConfig {
     pub auto_compact_threshold: Option<f64>,
     pub preserve_recent_messages: Option<usize>,
+    /// Override context window size (default: auto-detected from model).
+    pub max_context_window: Option<usize>,
+    /// Strategy: "smart" (LLM-based) or "naive" (truncate). Default: smart.
+    pub strategy: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -145,6 +149,8 @@ pub struct RuntimeConfig {
     pub provider_config: ProviderConfig,
     pub compaction_threshold: f64,
     pub compaction_preserve_recent: usize,
+    pub compaction_max_context: Option<usize>,
+    pub compaction_strategy: String,
     pub retry_max_attempts: u32,
     pub retry_initial_backoff_ms: u64,
     pub retry_max_backoff_ms: u64,
@@ -173,6 +179,8 @@ impl RuntimeConfig {
         let mut providers: BTreeMap<String, ProviderConfig> = BTreeMap::new();
         let mut compact_threshold: Option<f64> = None;
         let mut compact_preserve: Option<usize> = None;
+        let mut compact_max_ctx: Option<usize> = None;
+        let mut compact_strategy: Option<String> = None;
         let mut retry_max: Option<u32> = None;
         let mut retry_initial: Option<u64> = None;
         let mut retry_max_backoff: Option<u64> = None;
@@ -206,6 +214,12 @@ impl RuntimeConfig {
             }
             if let Some(v) = layer.compaction.preserve_recent_messages {
                 compact_preserve = Some(v);
+            }
+            if let Some(v) = layer.compaction.max_context_window {
+                compact_max_ctx = Some(v);
+            }
+            if let Some(ref v) = layer.compaction.strategy {
+                compact_strategy = Some(v.clone());
             }
             if let Some(v) = layer.retry.max_attempts {
                 retry_max = Some(v);
@@ -266,6 +280,8 @@ impl RuntimeConfig {
             provider_config,
             compaction_threshold: compact_threshold.unwrap_or(0.8),
             compaction_preserve_recent: compact_preserve.unwrap_or(4),
+            compaction_max_context: compact_max_ctx,
+            compaction_strategy: compact_strategy.unwrap_or_else(|| "smart".into()),
             retry_max_attempts: retry_max.unwrap_or(2),
             retry_initial_backoff_ms: retry_initial.unwrap_or(500),
             retry_max_backoff_ms: retry_max_backoff.unwrap_or(5000),
