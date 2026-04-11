@@ -165,7 +165,10 @@ fn main() -> Result<()> {
     } else {
         cli.provider.clone()
     };
-    let system = build_system_prompt(&project);
+    let mut system = build_system_prompt(&project);
+    if config.managed_agents.enabled {
+        system.push_str(&build_managed_agent_prompt(&config.managed_agents));
+    }
     let mut prompt = cli.prompt.join(" ");
 
     if cli.pipe || (!atty_stdin() && prompt.is_empty()) {
@@ -1664,6 +1667,49 @@ fn count_plugin_skills(plugin_dir: &std::path::Path) -> usize {
         .flatten()
         .filter(|e| e.path().is_dir() && e.path().join("SKILL.md").exists())
         .count()
+}
+
+fn build_managed_agent_prompt(config: &mc_config::ManagedAgentConfig) -> String {
+    let executor_model = config
+        .executor_model
+        .as_deref()
+        .unwrap_or("claude-haiku-4-5");
+    let max_turns = config.executor_max_turns.unwrap_or(8);
+    let max_concurrent = config.max_concurrent.unwrap_or(3);
+    let budget_note = config
+        .budget_usd
+        .map_or("No hard budget cap. Be cost-conscious.".to_string(), |b| {
+            format!("Total budget: ${b:.2}. Monitor spend carefully.")
+        });
+    format!(
+        r#"
+
+## Managed Agent Mode
+
+You are the MANAGER in a manager-executor architecture.
+
+### Your Role
+- You are the **planning and reasoning layer**. Coordinate work but do NOT execute tasks directly.
+- Delegate all implementation to executor agents using the **subagent** tool.
+- Each executor uses model `{executor_model}` and has up to {max_turns} turns.
+- You may run up to {max_concurrent} executors by making multiple subagent calls.
+
+### Workflow
+1. Analyze the user's request and break it into well-scoped sub-tasks.
+2. Spawn an executor for each sub-task using the subagent tool with `model: "{executor_model}"`.
+3. Review executor results. If insufficient, spawn a follow-up with clarified instructions.
+4. Synthesize all results into a coherent response.
+
+### Writing Good Executor Prompts
+- Prompts must be **fully self-contained** — executors cannot see your conversation.
+- Include all relevant context: file paths, constraints, what has been done.
+- Be specific about expected output format.
+- Prefer fewer, larger tasks over many tiny ones to save cost.
+
+### Budget
+- {budget_note}
+"#
+    )
 }
 
 fn detect_test_command() -> Option<String> {

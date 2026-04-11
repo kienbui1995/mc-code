@@ -973,11 +973,34 @@ impl ConversationRuntime {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let model_override = input_val.get("model").and_then(|v| v.as_str());
+            let allowed_tools: Option<Vec<String>> = input_val
+                .get("tools")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                });
+            let max_turns = input_val
+                .get("max_turns")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize);
             let sub_prompt = if context.is_empty() {
                 task.to_string()
             } else {
                 format!("{task}\n\nContext:\n{context}")
             };
+            // Poll background agent
+            if let Some(agent_id) = input_val.get("poll_agent_id").and_then(|v| v.as_str()) {
+                return match self.subagent.poll_background(agent_id) {
+                    Some(Some(result)) => (result, false),
+                    Some(None) => ("Agent completed with no output".into(), false),
+                    None => (
+                        format!("{{\"agent_id\":\"{agent_id}\",\"status\":\"running\"}}"),
+                        false,
+                    ),
+                };
+            }
             match self
                 .subagent
                 .run_task(
@@ -986,6 +1009,8 @@ impl ConversationRuntime {
                     &self.system_prompt,
                     &self.tool_registry,
                     model_override,
+                    allowed_tools.as_deref(),
+                    max_turns,
                 )
                 .await
             {

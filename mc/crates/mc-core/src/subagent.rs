@@ -57,6 +57,7 @@ pub struct SubagentSpawner {
     max_tokens: u32,
     active_count: usize,
     pub shared_context: SharedContext,
+    background_results: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
 
 impl SubagentSpawner {
@@ -68,7 +69,18 @@ impl SubagentSpawner {
             max_tokens,
             active_count: 0,
             shared_context: SharedContext::default(),
+            background_results: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Poll a background agent's result. Returns None if still running.
+    #[must_use]
+    pub fn poll_background(&self, agent_id: &str) -> Option<Option<String>> {
+        let results = self
+            .background_results
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        results.get(agent_id).cloned()
     }
 
     /// Run a subagent with its own isolated context (no recursive subagent).
@@ -79,6 +91,8 @@ impl SubagentSpawner {
         system_prompt: &str,
         tool_registry: &ToolRegistry,
         model_override: Option<&str>,
+        allowed_tools: Option<&[String]>,
+        max_turns: Option<usize>,
     ) -> Result<String, ProviderError> {
         if self.active_count >= MAX_CONCURRENT_SUBAGENTS {
             return Ok("[subagent limit reached, task queued]".to_string());
@@ -109,6 +123,8 @@ impl SubagentSpawner {
             &enriched_prompt,
             task_prompt,
             tool_registry,
+            allowed_tools,
+            max_turns,
         )
         .await;
 
@@ -144,6 +160,19 @@ impl SubagentSpawner {
     pub fn active_count(&self) -> usize {
         self.active_count
     }
+
+    /// List background agent IDs and their status.
+    #[must_use]
+    pub fn list_background(&self) -> Vec<(String, bool)> {
+        let results = self
+            .background_results
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        results
+            .iter()
+            .map(|(id, r)| (id.clone(), r.is_some()))
+            .collect()
+    }
 }
 
 /// A simple agent loop without subagent capability (breaks recursion).
@@ -154,16 +183,21 @@ async fn run_simple_agent(
     system_prompt: &str,
     user_input: &str,
     tool_registry: &ToolRegistry,
+    allowed_tools: Option<&[String]>,
+    max_turns: Option<usize>,
 ) -> Result<String, ProviderError> {
     let policy = PermissionPolicy::new(mc_tools::PermissionMode::Allow);
     let mut messages: Vec<ConversationMessage> = vec![ConversationMessage::user(user_input)];
     let mut output = String::new();
 
-    // Tool specs without subagent (no recursion), including MCP tools from parent
+    let max_iters = max_turns.unwrap_or(MAX_SUBAGENT_ITERATIONS);
+
+    // Tool specs without subagent (no recursion), optionally filtered
     let tools: Vec<ToolDefinition> = tool_registry
         .all_specs()
         .iter()
         .filter(|s| s.name != "subagent")
+        .filter(|s| allowed_tools.map_or(true, |at| at.iter().any(|a| a == &s.name)))
         .map(|s| ToolDefinition {
             name: s.name.clone(),
             description: s.description.clone(),
@@ -171,7 +205,7 @@ async fn run_simple_agent(
         })
         .collect();
 
-    for _ in 0..MAX_SUBAGENT_ITERATIONS {
+    for _ in 0..max_iters {
         let request = CompletionRequest {
             model: model.to_string(),
             max_tokens,
