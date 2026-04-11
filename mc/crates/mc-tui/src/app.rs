@@ -126,6 +126,8 @@ pub enum PendingCommand {
     },
     /// Run a shell command asynchronously (main.rs handles via tokio).
     RunShell(String),
+    /// Toggle review_writes mode.
+    ReviewToggle,
 }
 
 /// Agent processing state.
@@ -156,6 +158,7 @@ pub struct App {
     pub should_quit: bool,
     pub plan_mode: bool,
     pub dry_run: bool,
+    pub review_writes: bool,
     /// Command queue — consumed by main.rs each frame.
     pub pending_command: Option<PendingCommand>,
     /// Whether user has manually scrolled up (disables auto-scroll).
@@ -208,6 +211,7 @@ impl App {
             should_quit: false,
             plan_mode: false,
             dry_run: false,
+            review_writes: false,
             pending_command: None,
             auto_scroll: true,
             viewport_height: 20,

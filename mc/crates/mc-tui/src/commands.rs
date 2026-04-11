@@ -57,6 +57,11 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/context" => app.pending_command = Some(PendingCommand::Context),
         "/debug" => app.pending_command = Some(PendingCommand::Debug),
         "/dry-run" => cmd_dryrun(app),
+        "/diff-preview" => {
+            app.review_writes = !app.review_writes;
+            app.push(&format!("Diff preview: {}", if app.review_writes { "ON — write tools will prompt with diff" } else { "OFF" }));
+            app.pending_command = Some(PendingCommand::ReviewToggle);
+        }
         "/retry" => cmd_retry(app),
         "/pin" => { let idx = app.output_lines.len().saturating_sub(1); app.pinned_messages.push(idx); app.push(&format!("📌 Pinned message at line {idx}")); }
         "/theme" => { app.theme = if app.theme == "dark" { "light".into() } else { "dark".into() }; app.push(&format!("Theme: {}", app.theme)); }

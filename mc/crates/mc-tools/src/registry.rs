@@ -27,6 +27,8 @@ pub struct ToolRegistry {
     mcp_tool_specs: Vec<ToolSpec>,
     cached_specs: std::sync::OnceLock<Vec<ToolSpec>>,
     read_files: std::sync::Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
+    /// When true, write_file/edit_file require interactive approval with diff preview.
+    pub review_writes: std::sync::atomic::AtomicBool,
 }
 
 impl ToolRegistry {
@@ -43,6 +45,7 @@ impl ToolRegistry {
             read_files: std::sync::Arc::new(
                 std::sync::Mutex::new(std::collections::HashSet::new()),
             ),
+            review_writes: std::sync::atomic::AtomicBool::new(false),
         }
     }
 

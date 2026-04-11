@@ -273,3 +273,69 @@ mod tests {
         assert!(results[0].is_error);
     }
 }
+
+fn is_write_tool(name: &str) -> bool {
+    matches!(name, "write_file" | "edit_file" | "batch_edit" | "apply_patch")
+}
+
+/// Compute a diff preview summary for write tools (used by runtime for review_writes).
+#[must_use]
+pub fn diff_preview_summary(tool_name: &str, input_json: &str) -> String {
+    compute_diff_preview(tool_name, input_json)
+}
+
+fn compute_diff_preview(tool_name: &str, input_json: &str) -> String {
+    let v: serde_json::Value = serde_json::from_str(input_json).unwrap_or_default();
+    let path = v["path"].as_str().unwrap_or("?");
+    match tool_name {
+        "write_file" => {
+            let old = std::fs::read_to_string(path).unwrap_or_default();
+            let new = v["content"].as_str().unwrap_or("");
+            let action = if old.is_empty() { "CREATE" } else { "MODIFY" };
+            let diff = simple_diff(&old, new);
+            format!("📝 [{action}] {path}\n{diff}")
+        }
+        "edit_file" => {
+            let old_str = v["old_string"].as_str().unwrap_or("");
+            let new_str = v["new_string"].as_str().unwrap_or("");
+            let mut diff = format!("📝 [EDIT] {path}\n");
+            for line in old_str.lines() {
+                diff.push_str(&format!("- {line}\n"));
+            }
+            for line in new_str.lines() {
+                diff.push_str(&format!("+ {line}\n"));
+            }
+            diff
+        }
+        _ => format!("📝 {tool_name}: {path}"),
+    }
+}
+
+fn simple_diff(old: &str, new: &str) -> String {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+    let mut out = String::new();
+    let max = old_lines.len().max(new_lines.len());
+    let mut changes = 0;
+    for i in 0..max {
+        let ol = old_lines.get(i).copied();
+        let nl = new_lines.get(i).copied();
+        if ol != nl {
+            if let Some(o) = ol {
+                out.push_str(&format!("- {o}\n"));
+            }
+            if let Some(n) = nl {
+                out.push_str(&format!("+ {n}\n"));
+            }
+            changes += 1;
+            if changes > 30 {
+                out.push_str(&format!("... ({} more lines)\n", max - i));
+                break;
+            }
+        }
+    }
+    if changes == 0 {
+        out.push_str("(no changes)\n");
+    }
+    out
+}
