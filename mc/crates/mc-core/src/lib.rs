@@ -1,3 +1,4 @@
+mod agents;
 mod branch;
 mod compact;
 mod context_resolver;
@@ -18,6 +19,7 @@ mod tool_cache;
 mod undo;
 mod usage;
 
+pub use agents::{agents_prompt_section, discover_agents, AgentDef};
 pub use branch::{BranchInfo, BranchManager};
 pub use compact::{
     collapse_reads, compact_session, estimate_tokens, micro_compact, should_compact, smart_compact,

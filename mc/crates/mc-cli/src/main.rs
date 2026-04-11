@@ -95,6 +95,9 @@ struct Cli {
     /// WARNING: LLM can run arbitrary commands.
     #[arg(long)]
     dangerously_allow_bash: bool,
+    /// Trace all tool calls with inputs/outputs (structured debug logging).
+    #[arg(long)]
+    trace: bool,
     /// Validate config and exit.
     #[arg(long)]
     validate_config: bool,
@@ -115,7 +118,13 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let filter = if cli.verbose { "debug" } else { "warn" };
+    let filter = if cli.trace {
+        "mc_tools::registry=trace,mc_core=debug,debug"
+    } else if cli.verbose {
+        "debug"
+    } else {
+        "warn"
+    };
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -1667,6 +1676,11 @@ fn build_system_prompt(project: &mc_config::ProjectContext) -> String {
             skill_section.push_str(&format!("\n### Skill: {}\n{}\n", skill.name, skill.content));
         }
         parts.push(skill_section);
+    }
+    // Load named agents from .magic-code/agents/ and agents/
+    let agents = mc_core::discover_agents(&project.cwd);
+    if !agents.is_empty() {
+        parts.push(mc_core::agents_prompt_section(&agents));
     }
     parts.join("\n\n")
 }
