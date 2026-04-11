@@ -134,8 +134,10 @@ impl ToolRegistry {
     /// Execute.
     pub async fn execute(&self, name: &str, input: &Value) -> Result<String, ToolError> {
         tracing::debug!(tool = name, "executing tool");
+        tracing::trace!(tool = name, input = %input, "tool input");
         Self::validate_input(name, input)?;
 
+        let start = std::time::Instant::now();
         let result = tokio::time::timeout(self.tool_timeout, self.execute_inner(name, input))
             .await
             .map_err(|_| {
@@ -145,6 +147,12 @@ impl ToolRegistry {
                 ))
             })??;
 
+        tracing::trace!(
+            tool = name,
+            ms = start.elapsed().as_millis() as u64,
+            output_len = result.len(),
+            "tool output"
+        );
         // Truncate large outputs
         Ok(self.truncate_output(result))
     }
