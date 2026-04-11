@@ -1028,6 +1028,11 @@ async fn run_tui(
                         ));
                     }
                 }
+                PendingCommand::ReviewToggle => {
+                    if let Ok(rt) = runtime.try_lock() {
+                        rt.set_review_writes(app.review_writes);
+                    }
+                }
                 PendingCommand::Btw(question) => {
                     let rt_clone = Arc::clone(&runtime);
                     let prov_clone = Arc::clone(&provider);

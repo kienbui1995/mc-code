@@ -129,6 +129,10 @@ impl ConversationRuntime {
     pub fn set_tool_registry(&mut self, registry: ToolRegistry) {
         self.tool_registry = Arc::new(registry);
     }
+    /// Set review_writes flag on the tool registry.
+    pub fn set_review_writes(&self, enabled: bool) {
+        self.tool_registry.review_writes.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
     /// Set retry policy.
     pub fn set_retry_policy(&mut self, policy: RetryPolicy) {
         self.retry_policy = policy;
@@ -367,11 +371,13 @@ impl ConversationRuntime {
             // Split: subagent/memory tools run sequentially, rest run in parallel
             let mut sequential = Vec::new();
             let mut parallel = Vec::new();
+            let review_writes = self.tool_registry.review_writes.load(std::sync::atomic::Ordering::Relaxed);
             for tool in pending_tools {
                 if matches!(
                     tool.1.as_str(),
                     "subagent" | "memory_read" | "memory_write" | "ask_user" | "sleep"
-                ) {
+                ) || (review_writes && matches!(tool.1.as_str(), "write_file" | "edit_file" | "batch_edit" | "apply_patch"))
+                {
                     sequential.push(tool);
                 } else {
                     // Snapshot for undo before write operations
@@ -627,9 +633,26 @@ impl ConversationRuntime {
             }
         }
 
-        let outcome = match prompter {
-            Some(ref mut p) => policy.authorize(name, input, Some(&mut **p)),
-            None => policy.authorize(name, input, None),
+        let outcome = {
+            let is_reviewed = self.tool_registry.review_writes.load(std::sync::atomic::Ordering::Relaxed)
+                && matches!(name, "write_file" | "edit_file" | "batch_edit" | "apply_patch");
+            if is_reviewed {
+                let diff_summary = crate::parallel_tools::diff_preview_summary(name, input);
+                match prompter {
+                    Some(ref mut p) => p.decide(&mc_tools::PermissionRequest {
+                        tool_name: name.to_string(),
+                        input_summary: diff_summary,
+                    }),
+                    None => PermissionOutcome::Deny {
+                        reason: "diff preview requires interactive mode".into(),
+                    },
+                }
+            } else {
+                match prompter {
+                    Some(ref mut p) => policy.authorize(name, input, Some(&mut **p)),
+                    None => policy.authorize(name, input, None),
+                }
+            }
         };
         let timer = AuditLog::start_timer();
 
