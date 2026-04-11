@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.3.0 (2026-04-11)
+
+### Release Highlights
+
+**28+ tools, 15 providers, 180 tests, 14K+ lines of Rust.**
+
+### New Features
+- **`/auto-commit`** — auto git add+commit with LLM-generated message after code changes
+- **README** — plugin system documentation with examples
+
+### Quality
+- **180 tests** (+18) — new tests across compact, session, context_resolver, model_registry, memory, cost, usage, branch, cron, skills, token_budget
+
 ## v1.2.0 (2026-04-11)
 
 ### Release Highlights
