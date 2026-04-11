@@ -441,7 +441,7 @@ async fn run_tui(
                 UiMessage::ToolOutputDelta(t) => {
                     app.handle_event(AppEvent::StreamDelta(t));
                 }
-                UiMessage::ToolInputDelta { name, partial } => {
+                UiMessage::ToolInputDelta { name: _, partial } => {
                     // Show streaming write preview — emit partial content as it arrives
                     if !partial.is_empty() {
                         app.handle_event(AppEvent::StreamDelta(partial));

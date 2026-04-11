@@ -274,6 +274,7 @@ mod tests {
     }
 }
 
+#[cfg(test)]
 fn is_write_tool(name: &str) -> bool {
     matches!(name, "write_file" | "edit_file" | "batch_edit" | "apply_patch")
 }
