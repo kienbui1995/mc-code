@@ -35,17 +35,19 @@ impl SubagentSpawner {
         task_prompt: &str,
         system_prompt: &str,
         tool_registry: &ToolRegistry,
+        model_override: Option<&str>,
     ) -> Result<String, ProviderError> {
         if self.active_count >= MAX_CONCURRENT_SUBAGENTS {
             return Ok("[subagent limit reached, task queued]".to_string());
         }
 
         self.active_count += 1;
-        tracing::debug!(task = task_prompt, "spawning subagent");
+        let effective_model = model_override.unwrap_or(&self.model);
+        tracing::debug!(task = task_prompt, model = effective_model, "spawning subagent");
 
         let result = run_simple_agent(
             provider,
-            &self.model,
+            effective_model,
             self.max_tokens,
             system_prompt,
             task_prompt,

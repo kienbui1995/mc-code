@@ -87,6 +87,9 @@ struct Cli {
     /// Grant access to additional directories outside workspace.
     #[arg(long, value_name = "DIR")]
     add_dir: Vec<String>,
+    /// Auto-approve all tool executions (for CI/CD, no interactive prompts).
+    #[arg(long, short = 'y')]
+    yes: bool,
     prompt: Vec<String>,
 }
 
@@ -157,7 +160,20 @@ fn main() -> Result<()> {
     )?;
 
     let rt = tokio::runtime::Runtime::new()?;
-    let policy = build_permission_policy(&config);
+    let mut policy = build_permission_policy(&config);
+    if cli.yes {
+        policy = mc_tools::PermissionPolicy::new(mc_tools::PermissionMode::Allow);
+    }
+    // Per-tool permission overrides from config
+    for (tool, mode) in &config.tool_permissions {
+        let m = match mode.as_str() {
+            "allow" => mc_tools::PermissionMode::Allow,
+            "deny" => mc_tools::PermissionMode::Deny,
+            "prompt" => mc_tools::PermissionMode::Prompt,
+            _ => continue,
+        };
+        policy = policy.with_tool_mode(tool, m);
+    }
     let hooks = build_hooks(&config);
 
     if prompt.trim().is_empty() {
