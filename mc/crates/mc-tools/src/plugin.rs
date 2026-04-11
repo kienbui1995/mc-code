@@ -115,6 +115,47 @@ mod tests {
         assert!(plugins.is_empty());
     }
 
+    #[test]
+    fn discover_all_script_types() {
+        let dir = std::env::temp_dir().join(format!("mc-plugin-test-{}", std::process::id()));
+        let tools = dir.join(".magic-code/tools");
+        std::fs::create_dir_all(&tools).unwrap();
+        std::fs::write(tools.join("a.sh"), "# Shell tool\necho hi").unwrap();
+        std::fs::write(tools.join("b.py"), "# Python tool\nprint('hi')").unwrap();
+        std::fs::write(tools.join("c.js"), "// JS tool\nconsole.log('hi')").unwrap();
+        std::fs::write(tools.join("d.txt"), "not a plugin").unwrap();
+        let plugins = discover_plugins(&dir);
+        assert_eq!(plugins.len(), 3);
+        let names: Vec<&str> = plugins.iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"plugin_a"));
+        assert!(names.contains(&"plugin_b"));
+        assert!(names.contains(&"plugin_c"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn reads_description_from_comment() {
+        let dir = std::env::temp_dir().join(format!("mc-plugin-desc-{}", std::process::id()));
+        let tools = dir.join(".magic-code/tools");
+        std::fs::create_dir_all(&tools).unwrap();
+        std::fs::write(tools.join("greet.sh"), "# Say hello to someone\necho hi").unwrap();
+        let plugins = discover_plugins(&dir);
+        assert_eq!(plugins.len(), 1);
+        assert!(plugins[0].description.contains("Say hello"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[tokio::test]
+    async fn execute_sh_plugin() {
+        let dir = std::env::temp_dir().join(format!("mc-plugin-exec-{}", std::process::id()));
+        let tools = dir.join(".magic-code/tools");
+        std::fs::create_dir_all(&tools).unwrap();
+        std::fs::write(tools.join("echo.sh"), "#!/bin/sh\necho \"got: $PLUGIN_INPUT\"").unwrap();
+        let result = execute_plugin(&dir, "plugin_echo", "test123").await.unwrap();
+        assert!(result.contains("got: test123"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
     #[tokio::test]
     async fn execute_missing_plugin() {
         let err = execute_plugin(Path::new("/tmp"), "plugin_nope", "hi")

@@ -305,3 +305,27 @@ mod tests {
         assert!(!msg.contains_text("allowed"));
     }
 }
+
+    #[test]
+    fn to_markdown_basic() {
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::user("hello"));
+        session.messages.push(ConversationMessage::assistant("hi there"));
+        let md = session.to_markdown();
+        assert!(md.contains("# Conversation Export"));
+        assert!(md.contains("🧑 User"));
+        assert!(md.contains("hello"));
+        assert!(md.contains("🤖 Assistant"));
+        assert!(md.contains("hi there"));
+    }
+
+    #[test]
+    fn to_markdown_with_tool_calls() {
+        let mut session = Session::default();
+        session.messages.push(ConversationMessage::tool_use("t1", "bash", r#"{"command":"ls"}"#));
+        session.messages.push(ConversationMessage::tool_result("t1", "bash", "file.txt", false));
+        let md = session.to_markdown();
+        assert!(md.contains("`bash`"));
+        assert!(md.contains("✅ **bash**"));
+        assert!(md.contains("file.txt"));
+    }
