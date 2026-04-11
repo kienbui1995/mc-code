@@ -162,6 +162,8 @@ pub struct App {
     pub session_cost: f64,
     /// Per-turn cost breakdown: (turn_number, input_tokens, output_tokens, cost, model).
     pub turn_costs: Vec<(u32, u32, u32, f64, String)>,
+    /// Per-tool call count for cost analysis.
+    pub tool_call_counts: std::collections::HashMap<String, u32>,
     pub context_usage_pct: u8,
     pub should_quit: bool,
     pub plan_mode: bool,
@@ -215,6 +217,7 @@ impl App {
             total_output_tokens: 0,
             session_cost: 0.0,
             turn_costs: Vec::new(),
+            tool_call_counts: std::collections::HashMap::new(),
             context_usage_pct: 0,
             should_quit: false,
             plan_mode: false,

@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use mc_provider::types::{ContentBlock, MessageRole};
 use mc_provider::{
     CompletionRequest, InputMessage, ProviderError, ProviderEvent, ToolChoice, ToolDefinition,
@@ -10,11 +13,47 @@ use crate::session::{Block, ConversationMessage, Role};
 const MAX_CONCURRENT_SUBAGENTS: usize = 4;
 const MAX_SUBAGENT_ITERATIONS: usize = 8;
 
+/// Shared context board for inter-subagent communication.
+#[derive(Debug, Clone, Default)]
+pub struct SharedContext {
+    entries: Arc<Mutex<HashMap<String, String>>>,
+}
+
+impl SharedContext {
+    /// Write a key-value pair visible to all subagents.
+    pub fn set(&self, key: &str, value: &str) {
+        if let Ok(mut map) = self.entries.lock() {
+            map.insert(key.to_string(), value.to_string());
+        }
+    }
+
+    /// Read a value by key.
+    #[must_use]
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.entries.lock().ok()?.get(key).cloned()
+    }
+
+    /// Get all entries as a formatted string for injection into subagent context.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        let map = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        if map.is_empty() {
+            return String::new();
+        }
+        let mut out = String::from("\n## Shared Context (from other agents)\n");
+        for (k, v) in map.iter() {
+            out.push_str(&format!("- **{k}**: {}\n", crate::session::truncate(v, 200)));
+        }
+        out
+    }
+}
+
 /// Spawns isolated subagent conversations for delegated tasks.
 pub struct SubagentSpawner {
     model: String,
     max_tokens: u32,
     active_count: usize,
+    pub shared_context: SharedContext,
 }
 
 impl SubagentSpawner {
@@ -25,6 +64,7 @@ impl SubagentSpawner {
             model,
             max_tokens,
             active_count: 0,
+            shared_context: SharedContext::default(),
         }
     }
 
@@ -45,17 +85,32 @@ impl SubagentSpawner {
         let effective_model = model_override.unwrap_or(&self.model);
         tracing::debug!(task = task_prompt, model = effective_model, "spawning subagent");
 
+        // Inject shared context from other agents
+        let shared = self.shared_context.summary();
+        let enriched_prompt = if shared.is_empty() {
+            format!("{system_prompt}")
+        } else {
+            format!("{system_prompt}{shared}")
+        };
+
         let result = run_simple_agent(
             provider,
             effective_model,
             self.max_tokens,
-            system_prompt,
+            &enriched_prompt,
             task_prompt,
             tool_registry,
         )
         .await;
 
         self.active_count -= 1;
+
+        // Store result in shared context for other agents
+        let task_key = task_prompt.chars().take(50).collect::<String>();
+        match &result {
+            Ok(output) => self.shared_context.set(&task_key, output),
+            Err(e) => self.shared_context.set(&task_key, &format!("error: {e}")),
+        }
 
         match result {
             Ok(output) => {

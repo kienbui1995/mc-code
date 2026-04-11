@@ -182,6 +182,19 @@ fn cmd_cost(app: &mut App, arg: &str) {
                 app.push(&line);
             }
         }
+        if !app.tool_call_counts.is_empty() {
+            let mut sorted: Vec<_> = app.tool_call_counts.iter().collect();
+            sorted.sort_by(|a, b| b.1.cmp(a.1));
+            let lines: Vec<String> = std::iter::once("─── Tool call counts ─────".into())
+                .chain(sorted.iter().map(|(tool, count)| {
+                    format!("  {tool}: {count}x")
+                }))
+                .chain(std::iter::once("──────────────────────────".into()))
+                .collect();
+            for line in lines {
+                app.push(&line);
+            }
+        }
     }
 }
 
