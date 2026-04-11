@@ -1079,6 +1079,9 @@ async fn run_tui(
                         ));
                     }
                 }
+                PendingCommand::Plugin(cmd) => {
+                    handle_plugin_command(&cmd, &mut app.output_lines);
+                }
                 PendingCommand::Btw(question) => {
                     let rt_clone = Arc::clone(&runtime);
                     let prov_clone = Arc::clone(&provider);
@@ -1359,6 +1362,133 @@ async fn run_single(
     Ok(())
 }
 
+fn plugins_dir() -> std::path::PathBuf {
+    std::env::current_dir()
+        .unwrap_or_default()
+        .join(".magic-code/plugins")
+}
+
+fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
+    let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+    let action = parts[0];
+    let arg = parts.get(1).copied().unwrap_or("");
+
+    match action {
+        "install" => {
+            if arg.is_empty() {
+                output.push("Usage: /plugin install <github-url-or-owner/repo>".into());
+                output.push("Example: /plugin install obra/superpowers".into());
+                return;
+            }
+            let url = if arg.contains("://") {
+                arg.to_string()
+            } else {
+                format!("https://github.com/{arg}.git")
+            };
+            let name = arg.rsplit('/').next().unwrap_or(arg).trim_end_matches(".git");
+            let dest = plugins_dir().join(name);
+            if dest.exists() {
+                output.push(format!("Plugin '{name}' already installed. Use /plugin update {name}"));
+                return;
+            }
+            output.push(format!("📦 Installing {name}..."));
+            match std::process::Command::new("git")
+                .args(["clone", "--depth", "1", &url, &dest.to_string_lossy()])
+                .output()
+            {
+                Ok(o) if o.status.success() => {
+                    let skills = count_plugin_skills(&dest);
+                    output.push(format!("✅ Installed '{name}' ({skills} skills)"));
+                    output.push("Restart session to activate.".into());
+                }
+                Ok(o) => {
+                    let err = String::from_utf8_lossy(&o.stderr);
+                    output.push(format!("❌ Install failed: {}", err.trim()));
+                }
+                Err(e) => output.push(format!("❌ git clone failed: {e}")),
+            }
+        }
+        "list" => {
+            let dir = plugins_dir();
+            if !dir.exists() {
+                output.push("No plugins installed.".into());
+                return;
+            }
+            let entries: Vec<_> = std::fs::read_dir(&dir)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter(|e| e.path().is_dir())
+                .collect();
+            if entries.is_empty() {
+                output.push("No plugins installed.".into());
+            } else {
+                output.push(format!("Installed plugins ({}):", entries.len()));
+                for e in entries {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    let skills = count_plugin_skills(&e.path());
+                    output.push(format!("  📦 {name} ({skills} skills)"));
+                }
+            }
+        }
+        "remove" => {
+            if arg.is_empty() {
+                output.push("Usage: /plugin remove <name>".into());
+                return;
+            }
+            let dest = plugins_dir().join(arg);
+            if !dest.exists() {
+                output.push(format!("Plugin '{arg}' not found."));
+                return;
+            }
+            match std::fs::remove_dir_all(&dest) {
+                Ok(()) => output.push(format!("✅ Removed '{arg}'")),
+                Err(e) => output.push(format!("❌ Remove failed: {e}")),
+            }
+        }
+        "update" => {
+            if arg.is_empty() {
+                output.push("Usage: /plugin update <name>".into());
+                return;
+            }
+            let dest = plugins_dir().join(arg);
+            if !dest.exists() {
+                output.push(format!("Plugin '{arg}' not found."));
+                return;
+            }
+            match std::process::Command::new("git")
+                .args(["pull", "--ff-only"])
+                .current_dir(&dest)
+                .output()
+            {
+                Ok(o) if o.status.success() => {
+                    let out = String::from_utf8_lossy(&o.stdout);
+                    output.push(format!("✅ Updated '{arg}': {}", out.trim()));
+                }
+                Ok(o) => {
+                    let err = String::from_utf8_lossy(&o.stderr);
+                    output.push(format!("❌ Update failed: {}", err.trim()));
+                }
+                Err(e) => output.push(format!("❌ git pull failed: {e}")),
+            }
+        }
+        _ => output.push(format!("Unknown plugin action: {action}. Use install/list/remove/update.")),
+    }
+}
+
+fn count_plugin_skills(plugin_dir: &std::path::Path) -> usize {
+    let skills_dir = plugin_dir.join("skills");
+    if !skills_dir.exists() {
+        return 0;
+    }
+    std::fs::read_dir(&skills_dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().is_dir() && e.path().join("SKILL.md").exists())
+        .count()
+}
+
 fn detect_test_command() -> Option<String> {
     if std::path::Path::new("Cargo.toml").exists() || std::path::Path::new("mc/Cargo.toml").exists() {
         Some("cargo test --workspace 2>&1 | tail -30".into())
@@ -1438,6 +1568,18 @@ fn build_system_prompt(project: &mc_config::ProjectContext) -> String {
             f.path.display(),
             f.content
         ));
+    }
+    // Load skills from .magic-code/skills/ and .magic-code/plugins/*/skills/
+    let skills = mc_core::discover_skills(&project.cwd);
+    if !skills.is_empty() {
+        let mut skill_section = format!("\n## Available Skills ({})\n", skills.len());
+        for skill in &skills {
+            skill_section.push_str(&format!(
+                "\n### Skill: {}\n{}\n",
+                skill.name, skill.content
+            ));
+        }
+        parts.push(skill_section);
     }
     parts.join("\n\n")
 }

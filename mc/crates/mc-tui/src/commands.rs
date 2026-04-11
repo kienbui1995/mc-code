@@ -108,6 +108,13 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/auto-test" => {
             app.pending_command = Some(PendingCommand::AutoTestToggle);
         }
+        "/plugin" => {
+            if arg.is_empty() {
+                app.push("Usage: /plugin install <github-url-or-name> | /plugin list | /plugin remove <name> | /plugin update <name>");
+            } else {
+                app.pending_command = Some(PendingCommand::Plugin(arg.into()));
+            }
+        }
         "/auto-commit" => {
             app.pending_command = Some(PendingCommand::AutoCommitToggle);
         }

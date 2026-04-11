@@ -11,12 +11,25 @@ pub struct Skill {
     pub content: String,
 }
 
-/// Discover skills from `.magic-code/skills/` directory.
+/// Discover skills from `.magic-code/skills/` and `.magic-code/plugins/*/skills/`.
 #[must_use]
 /// Discover skills.
 pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
-    let dir = workspace.join(".magic-code/skills");
-    let Ok(entries) = std::fs::read_dir(&dir) else {
+    let mut skills = discover_from_dir(&workspace.join(".magic-code/skills"));
+    // Also scan plugins
+    let plugins_dir = workspace.join(".magic-code/plugins");
+    if let Ok(entries) = std::fs::read_dir(&plugins_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                skills.extend(discover_from_dir(&entry.path().join("skills")));
+            }
+        }
+    }
+    skills
+}
+
+fn discover_from_dir(dir: &Path) -> Vec<Skill> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
     entries
