@@ -1070,6 +1070,15 @@ async fn run_tui(
                         }
                     }
                 }
+                PendingCommand::AutoCommitToggle => {
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        rt.auto_commit = !rt.auto_commit;
+                        app.output_lines.push(format!(
+                            "📦 Auto-commit: {}",
+                            if rt.auto_commit { "ON — will commit after writes" } else { "OFF" }
+                        ));
+                    }
+                }
                 PendingCommand::Btw(question) => {
                     let rt_clone = Arc::clone(&runtime);
                     let prov_clone = Arc::clone(&provider);
