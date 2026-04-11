@@ -150,8 +150,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("mc-plugin-exec-{}", std::process::id()));
         let tools = dir.join(".magic-code/tools");
         std::fs::create_dir_all(&tools).unwrap();
-        std::fs::write(tools.join("echo.sh"), "#!/bin/sh\necho \"got: $PLUGIN_INPUT\"").unwrap();
-        let result = execute_plugin(&dir, "plugin_echo", "test123").await.unwrap();
+        std::fs::write(
+            tools.join("echo.sh"),
+            "#!/bin/sh\necho \"got: $PLUGIN_INPUT\"",
+        )
+        .unwrap();
+        let result = execute_plugin(&dir, "plugin_echo", "test123")
+            .await
+            .unwrap();
         assert!(result.contains("got: test123"));
         std::fs::remove_dir_all(dir).ok();
     }

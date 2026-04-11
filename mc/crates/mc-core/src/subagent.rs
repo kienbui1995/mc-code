@@ -42,7 +42,10 @@ impl SharedContext {
         }
         let mut out = String::from("\n## Shared Context (from other agents)\n");
         for (k, v) in map.iter() {
-            out.push_str(&format!("- **{k}**: {}\n", crate::session::truncate(v, 200)));
+            out.push_str(&format!(
+                "- **{k}**: {}\n",
+                crate::session::truncate(v, 200)
+            ));
         }
         out
     }
@@ -83,7 +86,11 @@ impl SubagentSpawner {
 
         self.active_count += 1;
         let effective_model = model_override.unwrap_or(&self.model);
-        tracing::debug!(task = task_prompt, model = effective_model, "spawning subagent");
+        tracing::debug!(
+            task = task_prompt,
+            model = effective_model,
+            "spawning subagent"
+        );
 
         // Inject shared context from other agents
         let shared = self.shared_context.summary();

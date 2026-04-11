@@ -276,7 +276,10 @@ mod tests {
 
 #[cfg(test)]
 fn is_write_tool(name: &str) -> bool {
-    matches!(name, "write_file" | "edit_file" | "batch_edit" | "apply_patch")
+    matches!(
+        name,
+        "write_file" | "edit_file" | "batch_edit" | "apply_patch"
+    )
 }
 
 /// Compute a diff preview summary for write tools (used by runtime for review_writes).

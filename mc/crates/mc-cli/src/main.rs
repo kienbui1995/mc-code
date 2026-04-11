@@ -88,8 +88,13 @@ struct Cli {
     #[arg(long, value_name = "DIR")]
     add_dir: Vec<String>,
     /// Auto-approve all tool executions (for CI/CD, no interactive prompts).
+    /// Note: bash still requires --dangerously-allow-bash for safety.
     #[arg(long, short = 'y')]
     yes: bool,
+    /// Allow bash execution without prompts (use with --yes in CI/CD).
+    /// WARNING: LLM can run arbitrary commands.
+    #[arg(long)]
+    dangerously_allow_bash: bool,
     /// Validate config and exit.
     #[arg(long)]
     validate_config: bool,
@@ -126,7 +131,10 @@ fn main() -> Result<()> {
     }
     if cli.validate_config {
         if warnings.is_empty() {
-            println!("✅ Config valid: {} provider, model {}", config.provider, config.model);
+            println!(
+                "✅ Config valid: {} provider, model {}",
+                config.provider, config.model
+            );
             println!("  MCP servers: {}", config.mcp_servers.len());
             println!("  Hooks: {}", config.hooks.len());
             println!("  Tool permissions: {:?}", config.tool_permissions);
@@ -177,7 +185,11 @@ fn main() -> Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
     let mut policy = build_permission_policy(&config);
     if cli.yes {
+        // --yes allows file tools but keeps bash gated unless --dangerously-allow-bash
         policy = mc_tools::PermissionPolicy::new(mc_tools::PermissionMode::Allow);
+        if !cli.dangerously_allow_bash {
+            policy = policy.with_tool_mode("bash", mc_tools::PermissionMode::Prompt);
+        }
     }
     // Per-tool permission overrides from config
     for (tool, mode) in &config.tool_permissions {
@@ -382,7 +394,8 @@ async fn run_tui(
                     );
                     let turn_cost = registry.estimate_cost(&app.model, input, output);
                     let turn_num = app.turn_costs.len() as u32 + 1;
-                    app.turn_costs.push((turn_num, input, output, turn_cost, app.model.clone()));
+                    app.turn_costs
+                        .push((turn_num, input, output, turn_cost, app.model.clone()));
                     let ctx_window = registry.context_window(&app.model);
                     let used = app.total_input_tokens + app.total_output_tokens;
                     app.context_usage_pct =
@@ -790,8 +803,7 @@ async fn run_tui(
                     if let Ok(rt) = runtime.try_lock() {
                         let (path, content) = if fmt == "json" {
                             let p = session_path("export.json");
-                            let c = serde_json::to_string_pretty(&rt.session)
-                                .unwrap_or_default();
+                            let c = serde_json::to_string_pretty(&rt.session).unwrap_or_default();
                             (p, c)
                         } else {
                             let p = session_path("export.md");
@@ -1109,7 +1121,11 @@ async fn run_tui(
                         rt.auto_commit = !rt.auto_commit;
                         app.output_lines.push(format!(
                             "📦 Auto-commit: {}",
-                            if rt.auto_commit { "ON — will commit after writes" } else { "OFF" }
+                            if rt.auto_commit {
+                                "ON — will commit after writes"
+                            } else {
+                                "OFF"
+                            }
                         ));
                     }
                 }
@@ -1419,10 +1435,16 @@ fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
             } else {
                 format!("https://github.com/{arg}.git")
             };
-            let name = arg.rsplit('/').next().unwrap_or(arg).trim_end_matches(".git");
+            let name = arg
+                .rsplit('/')
+                .next()
+                .unwrap_or(arg)
+                .trim_end_matches(".git");
             let dest = plugins_dir().join(name);
             if dest.exists() {
-                output.push(format!("Plugin '{name}' already installed. Use /plugin update {name}"));
+                output.push(format!(
+                    "Plugin '{name}' already installed. Use /plugin update {name}"
+                ));
                 return;
             }
             output.push(format!("📦 Installing {name}..."));
@@ -1506,7 +1528,9 @@ fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
                 Err(e) => output.push(format!("❌ git pull failed: {e}")),
             }
         }
-        _ => output.push(format!("Unknown plugin action: {action}. Use install/list/remove/update.")),
+        _ => output.push(format!(
+            "Unknown plugin action: {action}. Use install/list/remove/update."
+        )),
     }
 }
 
@@ -1524,11 +1548,15 @@ fn count_plugin_skills(plugin_dir: &std::path::Path) -> usize {
 }
 
 fn detect_test_command() -> Option<String> {
-    if std::path::Path::new("Cargo.toml").exists() || std::path::Path::new("mc/Cargo.toml").exists() {
+    if std::path::Path::new("Cargo.toml").exists() || std::path::Path::new("mc/Cargo.toml").exists()
+    {
         Some("cargo test --workspace 2>&1 | tail -30".into())
     } else if std::path::Path::new("package.json").exists() {
         Some("npm test 2>&1 | tail -30".into())
-    } else if std::path::Path::new("pytest.ini").exists() || std::path::Path::new("setup.py").exists() || std::path::Path::new("pyproject.toml").exists() {
+    } else if std::path::Path::new("pytest.ini").exists()
+        || std::path::Path::new("setup.py").exists()
+        || std::path::Path::new("pyproject.toml").exists()
+    {
         Some("python -m pytest 2>&1 | tail -30".into())
     } else if std::path::Path::new("go.mod").exists() {
         Some("go test ./... 2>&1 | tail -30".into())
@@ -1608,10 +1636,7 @@ fn build_system_prompt(project: &mc_config::ProjectContext) -> String {
     if !skills.is_empty() {
         let mut skill_section = format!("\n## Available Skills ({})\n", skills.len());
         for skill in &skills {
-            skill_section.push_str(&format!(
-                "\n### Skill: {}\n{}\n",
-                skill.name, skill.content
-            ));
+            skill_section.push_str(&format!("\n### Skill: {}\n{}\n", skill.name, skill.content));
         }
         parts.push(skill_section);
     }

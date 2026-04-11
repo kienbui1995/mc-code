@@ -137,7 +137,9 @@ impl ConversationRuntime {
     }
     /// Set review_writes flag on the tool registry.
     pub fn set_review_writes(&self, enabled: bool) {
-        self.tool_registry.review_writes.store(enabled, std::sync::atomic::Ordering::Relaxed);
+        self.tool_registry
+            .review_writes
+            .store(enabled, std::sync::atomic::Ordering::Relaxed);
     }
     /// Set retry policy.
     pub fn set_retry_policy(&mut self, policy: RetryPolicy) {
@@ -377,12 +379,19 @@ impl ConversationRuntime {
             // Split: subagent/memory tools run sequentially, rest run in parallel
             let mut sequential = Vec::new();
             let mut parallel = Vec::new();
-            let review_writes = self.tool_registry.review_writes.load(std::sync::atomic::Ordering::Relaxed);
+            let review_writes = self
+                .tool_registry
+                .review_writes
+                .load(std::sync::atomic::Ordering::Relaxed);
             for tool in pending_tools {
                 if matches!(
                     tool.1.as_str(),
                     "subagent" | "memory_read" | "memory_write" | "ask_user" | "sleep"
-                ) || (review_writes && matches!(tool.1.as_str(), "write_file" | "edit_file" | "batch_edit" | "apply_patch"))
+                ) || (review_writes
+                    && matches!(
+                        tool.1.as_str(),
+                        "write_file" | "edit_file" | "batch_edit" | "apply_patch"
+                    ))
                 {
                     sequential.push(tool);
                 } else {
@@ -465,9 +474,16 @@ impl ConversationRuntime {
 
             // Auto-test: run tests after write tools, feed failures back to LLM
             if let Some(ref test_cmd) = self.auto_test_cmd {
-                let had_writes = tool_calls.iter().any(|t| matches!(t.as_str(), "write_file" | "edit_file" | "batch_edit" | "apply_patch"));
+                let had_writes = tool_calls.iter().any(|t| {
+                    matches!(
+                        t.as_str(),
+                        "write_file" | "edit_file" | "batch_edit" | "apply_patch"
+                    )
+                });
                 if had_writes {
-                    on_event(&ProviderEvent::ToolOutputDelta("\n🧪 Running tests...\n".into()));
+                    on_event(&ProviderEvent::ToolOutputDelta(
+                        "\n🧪 Running tests...\n".into(),
+                    ));
                     if let Ok(output) = tokio::process::Command::new("sh")
                         .arg("-c")
                         .arg(test_cmd)
@@ -480,10 +496,16 @@ impl ConversationRuntime {
                             let fail_msg = format!(
                                 "Tests failed after code changes. Fix the errors:\n```\n{}{}\n```",
                                 &stdout[..stdout.len().min(2000)],
-                                if !stderr.is_empty() { format!("\nSTDERR:\n{}", &stderr[..stderr.len().min(500)]) } else { String::new() }
+                                if !stderr.is_empty() {
+                                    format!("\nSTDERR:\n{}", &stderr[..stderr.len().min(500)])
+                                } else {
+                                    String::new()
+                                }
                             );
                             on_event(&ProviderEvent::ToolOutputDelta("❌ Tests failed\n".into()));
-                            self.session.messages.push(ConversationMessage::user(&fail_msg));
+                            self.session
+                                .messages
+                                .push(ConversationMessage::user(&fail_msg));
                             // Continue the loop — LLM will see the failure and try to fix
                             continue;
                         }
@@ -494,20 +516,40 @@ impl ConversationRuntime {
 
             // Auto-commit: stage and commit with LLM-generated message
             if self.auto_commit {
-                let had_writes = tool_calls.iter().any(|t| matches!(t.as_str(), "write_file" | "edit_file" | "batch_edit" | "apply_patch"));
+                let had_writes = tool_calls.iter().any(|t| {
+                    matches!(
+                        t.as_str(),
+                        "write_file" | "edit_file" | "batch_edit" | "apply_patch"
+                    )
+                });
                 if had_writes {
-                    let _ = std::process::Command::new("git").args(["add", "-A"]).output();
-                    if let Ok(diff) = std::process::Command::new("git").args(["diff", "--cached", "--stat"]).output() {
+                    let _ = std::process::Command::new("git")
+                        .args(["add", "-A"])
+                        .output();
+                    if let Ok(diff) = std::process::Command::new("git")
+                        .args(["diff", "--cached", "--stat"])
+                        .output()
+                    {
                         let stat = String::from_utf8_lossy(&diff.stdout);
                         if !stat.trim().is_empty() {
-                            on_event(&ProviderEvent::ToolOutputDelta("📦 Auto-committing...\n".into()));
+                            on_event(&ProviderEvent::ToolOutputDelta(
+                                "📦 Auto-committing...\n".into(),
+                            ));
                             let msg = self.generate_commit_message(provider, &stat).await;
-                            match std::process::Command::new("git").args(["commit", "-m", &msg]).output() {
+                            match std::process::Command::new("git")
+                                .args(["commit", "-m", &msg])
+                                .output()
+                            {
                                 Ok(o) => {
                                     let out = String::from_utf8_lossy(&o.stdout);
-                                    on_event(&ProviderEvent::ToolOutputDelta(format!("✓ {}\n", out.trim())));
+                                    on_event(&ProviderEvent::ToolOutputDelta(format!(
+                                        "✓ {}\n",
+                                        out.trim()
+                                    )));
                                 }
-                                Err(e) => on_event(&ProviderEvent::ToolOutputDelta(format!("commit error: {e}\n"))),
+                                Err(e) => on_event(&ProviderEvent::ToolOutputDelta(format!(
+                                    "commit error: {e}\n"
+                                ))),
                             }
                         }
                     }
@@ -692,8 +734,14 @@ impl ConversationRuntime {
         }
 
         let outcome = {
-            let is_reviewed = self.tool_registry.review_writes.load(std::sync::atomic::Ordering::Relaxed)
-                && matches!(name, "write_file" | "edit_file" | "batch_edit" | "apply_patch");
+            let is_reviewed = self
+                .tool_registry
+                .review_writes
+                .load(std::sync::atomic::Ordering::Relaxed)
+                && matches!(
+                    name,
+                    "write_file" | "edit_file" | "batch_edit" | "apply_patch"
+                );
             if is_reviewed {
                 let diff_summary = crate::parallel_tools::diff_preview_summary(name, input);
                 match prompter {
