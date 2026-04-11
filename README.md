@@ -108,10 +108,12 @@ Works with **15 providers**: Anthropic, OpenAI, Gemini, Groq, DeepSeek, Mistral,
 
 ### Developer Experience
 - `/model` — switch provider/model mid-session
-- `/cost` / `/cost --total` — session and all-time cost tracking
+- `/cost` / `/cost --total` — per-turn breakdown and all-time cost tracking
 - `/doctor` — check connectivity, config, API keys
 - `/init` — project setup wizard
-- `/export` — export conversation to markdown
+- `/export` — export conversation to markdown or JSON
+- `/diff-preview` — approve/reject file changes with diff before writing
+- `/auto-test` — auto-run tests after code changes, retry on failure
 - `/search` — search across saved sessions
 - `/summary` — session statistics
 - Session save/load/resume
@@ -120,6 +122,29 @@ Works with **15 providers**: Anthropic, OpenAI, Gemini, Groq, DeepSeek, Mistral,
 - Custom instructions (`.magic-code/instructions.md`)
 - Pre/post tool call hooks
 - MCP server support
+- Plugin system (custom tools from scripts)
+
+### Plugins
+
+Create custom tools by adding scripts to `.magic-code/tools/`:
+
+```bash
+# .magic-code/tools/deploy.sh
+# Deploy to staging environment
+#!/bin/sh
+echo "Deploying: $PLUGIN_INPUT"
+./scripts/deploy.sh staging
+```
+
+```python
+# .magic-code/tools/lint.py
+# Run linter on a file
+import os, subprocess
+result = subprocess.run(["ruff", "check", os.environ["PLUGIN_INPUT"]], capture_output=True, text=True)
+print(result.stdout or "No issues found")
+```
+
+Supports `.sh`, `.py`, `.js`. Auto-discovered on startup as `plugin_<name>` tools.
 
 ## Configuration
 
@@ -157,11 +182,13 @@ Global config: `~/.config/magic-code/config.toml`
 | `/undo` | Revert last turn's file changes |
 | `/save <name>` | Save session |
 | `/load <name>` | Load session |
-| `/export` | Export to markdown |
+| `/export` | Export to markdown (`json` for JSON) |
 | `/search <q>` | Search sessions |
 | `/summary` | Session stats |
 | `/plan` | Toggle plan mode |
 | `/image` | Attach image |
+| `/diff-preview` | Toggle diff approval for writes |
+| `/auto-test` | Toggle auto-test after code changes |
 | `/clear` | Clear output |
 | `/init` | Project setup |
 | `/doctor` | Health check |
@@ -176,4 +203,4 @@ Global config: `~/.config/magic-code/config.toml`
 
 MIT
 
-<!-- v1.1.0 -->
+<!-- v1.2.0 -->
