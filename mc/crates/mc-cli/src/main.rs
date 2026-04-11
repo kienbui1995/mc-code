@@ -741,13 +741,23 @@ async fn run_tui(
                             .push(format!("Switched to model: {resolved}"));
                     }
                 }
-                PendingCommand::Export => {
-                    let path = session_path("export.md");
-                    match std::fs::write(&path, app.output_lines.join("\n")) {
-                        Ok(()) => app
-                            .output_lines
-                            .push(format!("Exported to {}", path.display())),
-                        Err(e) => app.output_lines.push(format!("Export failed: {e}")),
+                PendingCommand::Export(fmt) => {
+                    if let Ok(rt) = runtime.try_lock() {
+                        let (path, content) = if fmt == "json" {
+                            let p = session_path("export.json");
+                            let c = serde_json::to_string_pretty(&rt.session)
+                                .unwrap_or_default();
+                            (p, c)
+                        } else {
+                            let p = session_path("export.md");
+                            (p, rt.session.to_markdown())
+                        };
+                        match std::fs::write(&path, &content) {
+                            Ok(()) => app
+                                .output_lines
+                                .push(format!("Exported to {}", path.display())),
+                            Err(e) => app.output_lines.push(format!("Export failed: {e}")),
+                        }
                     }
                 }
                 PendingCommand::Init => {

@@ -212,6 +212,52 @@ impl Session {
         let json = fs::read_to_string(path)?;
         serde_json::from_str(&json).map_err(|e| std::io::Error::other(e.to_string()))
     }
+
+    /// Export session as readable markdown.
+    #[must_use]
+    pub fn to_markdown(&self) -> String {
+        let mut out = String::from("# Conversation Export\n\n");
+        for msg in &self.messages {
+            match msg.role {
+                Role::User => out.push_str("## 🧑 User\n\n"),
+                Role::Assistant => out.push_str("## 🤖 Assistant\n\n"),
+                Role::Tool => out.push_str("## 🔧 Tool\n\n"),
+            }
+            for block in &msg.blocks {
+                match block {
+                    Block::Text { text } => {
+                        out.push_str(text);
+                        out.push_str("\n\n");
+                    }
+                    Block::ToolUse { name, input, .. } => {
+                        out.push_str(&format!("**Tool call:** `{name}`\n"));
+                        if !input.is_empty() {
+                            out.push_str(&format!("```json\n{}\n```\n\n", truncate(input, 500)));
+                        }
+                    }
+                    Block::ToolResult { name, output, is_error, .. } => {
+                        let icon = if *is_error { "❌" } else { "✅" };
+                        out.push_str(&format!("{icon} **{name}**\n"));
+                        if !output.is_empty() {
+                            out.push_str(&format!("```\n{}\n```\n\n", truncate(output, 1000)));
+                        }
+                    }
+                    Block::Thinking { text } => {
+                        out.push_str(&format!("<details>\n<summary>💭 Thinking</summary>\n\n{}\n\n</details>\n\n", truncate(text, 500)));
+                    }
+                    Block::Image { .. } => {
+                        out.push_str("*[image]*\n\n");
+                    }
+                }
+            }
+            out.push_str("---\n\n");
+        }
+        out.push_str(&format!(
+            "*Tokens: {} input, {} output*\n",
+            self.input_tokens, self.output_tokens
+        ));
+        out
+    }
 }
 
 #[cfg(test)]
