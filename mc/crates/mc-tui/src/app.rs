@@ -128,6 +128,8 @@ pub enum PendingCommand {
     },
     /// Run a shell command asynchronously (main.rs handles via tokio).
     RunShell(String),
+    /// Plugin management: install, list, remove, update.
+    Plugin(String),
     /// Toggle review_writes mode.
     ReviewToggle,
     /// Toggle auto-test mode.
