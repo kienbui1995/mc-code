@@ -21,7 +21,7 @@ pub fn discover_plugins(workspace: &Path) -> Vec<ToolSpec> {
         .filter(|e| {
             e.path()
                 .extension()
-                .is_some_and(|ext| ext == "sh" || ext == "py")
+                .is_some_and(|ext| ext == "sh" || ext == "py" || ext == "js")
         })
         .filter_map(|e| {
             let name = e.path().file_stem()?.to_string_lossy().to_string();
@@ -54,6 +54,8 @@ pub async fn execute_plugin(
 
     let interpreter = if script.extension().is_some_and(|e| e == "py") {
         "python3"
+    } else if script.extension().is_some_and(|e| e == "js") {
+        "node"
     } else {
         "sh"
     };
@@ -80,7 +82,7 @@ pub async fn execute_plugin(
 
 fn find_plugin_script(workspace: &Path, name: &str) -> Option<PathBuf> {
     let dir = workspace.join(".magic-code/tools");
-    for ext in ["sh", "py"] {
+    for ext in ["sh", "py", "js"] {
         let path = dir.join(format!("{name}.{ext}"));
         if path.exists() {
             return Some(path);
