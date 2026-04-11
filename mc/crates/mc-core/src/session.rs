@@ -235,7 +235,12 @@ impl Session {
                             out.push_str(&format!("```json\n{}\n```\n\n", truncate(input, 500)));
                         }
                     }
-                    Block::ToolResult { name, output, is_error, .. } => {
+                    Block::ToolResult {
+                        name,
+                        output,
+                        is_error,
+                        ..
+                    } => {
                         let icon = if *is_error { "❌" } else { "✅" };
                         out.push_str(&format!("{icon} **{name}**\n"));
                         if !output.is_empty() {
@@ -243,7 +248,10 @@ impl Session {
                         }
                     }
                     Block::Thinking { text } => {
-                        out.push_str(&format!("<details>\n<summary>💭 Thinking</summary>\n\n{}\n\n</details>\n\n", truncate(text, 500)));
+                        out.push_str(&format!(
+                            "<details>\n<summary>💭 Thinking</summary>\n\n{}\n\n</details>\n\n",
+                            truncate(text, 500)
+                        ));
                     }
                     Block::Image { .. } => {
                         out.push_str("*[image]*\n\n");
@@ -306,53 +314,68 @@ mod tests {
     }
 }
 
-    #[test]
-    fn to_markdown_basic() {
-        let mut session = Session::default();
-        session.messages.push(ConversationMessage::user("hello"));
-        session.messages.push(ConversationMessage::assistant("hi there"));
-        let md = session.to_markdown();
-        assert!(md.contains("# Conversation Export"));
-        assert!(md.contains("🧑 User"));
-        assert!(md.contains("hello"));
-        assert!(md.contains("🤖 Assistant"));
-        assert!(md.contains("hi there"));
-    }
+#[test]
+fn to_markdown_basic() {
+    let mut session = Session::default();
+    session.messages.push(ConversationMessage::user("hello"));
+    session
+        .messages
+        .push(ConversationMessage::assistant("hi there"));
+    let md = session.to_markdown();
+    assert!(md.contains("# Conversation Export"));
+    assert!(md.contains("🧑 User"));
+    assert!(md.contains("hello"));
+    assert!(md.contains("🤖 Assistant"));
+    assert!(md.contains("hi there"));
+}
 
-    #[test]
-    fn to_markdown_with_tool_calls() {
-        let mut session = Session::default();
-        session.messages.push(ConversationMessage::tool_use("t1", "bash", r#"{"command":"ls"}"#));
-        session.messages.push(ConversationMessage::tool_result("t1", "bash", "file.txt", false));
-        let md = session.to_markdown();
-        assert!(md.contains("`bash`"));
-        assert!(md.contains("✅ **bash**"));
-        assert!(md.contains("file.txt"));
-    }
+#[test]
+fn to_markdown_with_tool_calls() {
+    let mut session = Session::default();
+    session.messages.push(ConversationMessage::tool_use(
+        "t1",
+        "bash",
+        r#"{"command":"ls"}"#,
+    ));
+    session.messages.push(ConversationMessage::tool_result(
+        "t1", "bash", "file.txt", false,
+    ));
+    let md = session.to_markdown();
+    assert!(md.contains("`bash`"));
+    assert!(md.contains("✅ **bash**"));
+    assert!(md.contains("file.txt"));
+}
 
-    #[test]
-    fn to_markdown_empty_session() {
-        let session = Session::default();
-        let md = session.to_markdown();
-        assert!(md.contains("# Conversation Export"));
-        assert!(md.contains("Tokens: 0 input, 0 output"));
-    }
+#[test]
+fn to_markdown_empty_session() {
+    let session = Session::default();
+    let md = session.to_markdown();
+    assert!(md.contains("# Conversation Export"));
+    assert!(md.contains("Tokens: 0 input, 0 output"));
+}
 
-    #[test]
-    fn to_markdown_with_thinking() {
-        let mut session = Session::default();
-        let mut msg = ConversationMessage::assistant("answer");
-        msg.push_block(Block::Thinking { text: "reasoning here".into() });
-        session.messages.push(msg);
-        let md = session.to_markdown();
-        assert!(md.contains("💭 Thinking"));
-        assert!(md.contains("reasoning here"));
-    }
+#[test]
+fn to_markdown_with_thinking() {
+    let mut session = Session::default();
+    let mut msg = ConversationMessage::assistant("answer");
+    msg.push_block(Block::Thinking {
+        text: "reasoning here".into(),
+    });
+    session.messages.push(msg);
+    let md = session.to_markdown();
+    assert!(md.contains("💭 Thinking"));
+    assert!(md.contains("reasoning here"));
+}
 
-    #[test]
-    fn to_markdown_with_error_result() {
-        let mut session = Session::default();
-        session.messages.push(ConversationMessage::tool_result("t1", "bash", "command failed", true));
-        let md = session.to_markdown();
-        assert!(md.contains("❌"));
-    }
+#[test]
+fn to_markdown_with_error_result() {
+    let mut session = Session::default();
+    session.messages.push(ConversationMessage::tool_result(
+        "t1",
+        "bash",
+        "command failed",
+        true,
+    ));
+    let md = session.to_markdown();
+    assert!(md.contains("❌"));
+}

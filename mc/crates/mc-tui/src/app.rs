@@ -43,7 +43,10 @@ pub enum UiMessage {
     /// Streaming tool output (e.g. bash stdout/stderr lines arriving in real-time).
     ToolOutputDelta(String),
     /// Streaming tool input preview for write tools (partial JSON as it arrives).
-    ToolInputDelta { name: String, partial: String },
+    ToolInputDelta {
+        name: String,
+        partial: String,
+    },
 }
 
 /// Commands that need processing by main.rs (require runtime/provider access).

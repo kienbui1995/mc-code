@@ -91,7 +91,9 @@ mod tests {
     #[test]
     fn session_tokens_counts_correctly() {
         let mut session = Session::default();
-        session.messages.push(ConversationMessage::user("hello world"));
+        session
+            .messages
+            .push(ConversationMessage::user("hello world"));
         let tokens = TokenBudget::session_tokens(&session);
         assert!(tokens > 0);
     }

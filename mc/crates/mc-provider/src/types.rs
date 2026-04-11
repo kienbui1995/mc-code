@@ -93,7 +93,10 @@ pub enum ProviderEvent {
     /// Streaming tool output (e.g. bash stdout/stderr lines arriving in real-time).
     ToolOutputDelta(String),
     /// Streaming tool input preview (tool name + partial JSON as it arrives).
-    ToolInputDelta { name: String, partial: String },
+    ToolInputDelta {
+        name: String,
+        partial: String,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

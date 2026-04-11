@@ -138,14 +138,18 @@ mod tests {
     }
 }
 
-    #[test]
-    fn discover_with_valid_skill() {
-        let dir = std::env::temp_dir().join(format!("mc-skill-{}", std::process::id()));
-        let skill_dir = dir.join(".magic-code/skills/greet");
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: greet\n---\nSay hello").unwrap();
-        let skills = discover_skills(&dir);
-        assert_eq!(skills.len(), 1);
-        assert_eq!(skills[0].name, "greet");
-        std::fs::remove_dir_all(dir).ok();
-    }
+#[test]
+fn discover_with_valid_skill() {
+    let dir = std::env::temp_dir().join(format!("mc-skill-{}", std::process::id()));
+    let skill_dir = dir.join(".magic-code/skills/greet");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: greet\n---\nSay hello",
+    )
+    .unwrap();
+    let skills = discover_skills(&dir);
+    assert_eq!(skills.len(), 1);
+    assert_eq!(skills[0].name, "greet");
+    std::fs::remove_dir_all(dir).ok();
+}
