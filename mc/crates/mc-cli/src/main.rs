@@ -187,6 +187,7 @@ fn main() -> Result<()> {
             cli.output,
             cli.json,
             &cli.add_dir,
+            &config.mcp_servers,
         ))
     }
 }
@@ -1195,6 +1196,7 @@ async fn run_single(
     output_path: Option<String>,
     json_output: bool,
     extra_dirs: &[String],
+    mcp_servers: &[mc_config::McpServerConfig],
 ) -> Result<()> {
     let cancel = CancellationToken::new();
     let mut runtime =
@@ -1205,6 +1207,20 @@ async fn run_single(
         let path = std::path::PathBuf::from(dir);
         if path.is_dir() {
             tool_registry = tool_registry.with_extra_root(path);
+        }
+    }
+    for mcp in mcp_servers {
+        let env: Vec<(String, String)> = mcp
+            .env
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        match tool_registry
+            .add_mcp_server(&mcp.name, &mcp.command, &mcp.args, &env)
+            .await
+        {
+            Ok(n) => tracing::info!(server = %mcp.name, tools = n, "MCP connected"),
+            Err(e) => tracing::warn!(server = %mcp.name, "MCP connect failed: {e}"),
         }
     }
     runtime.set_tool_registry(tool_registry);

@@ -194,6 +194,7 @@ CI enforces: `RUSTFLAGS=-Dwarnings` — all warnings are errors.
 - Handle cancellation via `CancellationToken` in async loops
 - Serialize new Session fields with `#[serde(default)]` for backward compat
 - Use `Arc<T>` for shared state that needs concurrent access
+- **Create a feature branch + PR for every change** (never push directly to main)
 
 ### Don't
 - Don't add `unsafe` code
@@ -202,3 +203,30 @@ CI enforces: `RUSTFLAGS=-Dwarnings` — all warnings are errors.
 - Don't make mc-provider depend on mc-tools or vice versa
 - Don't use `println!` — use `tracing` macros
 - Don't dispatch memory/subagent tools through mc-tools (circular dep risk)
+- Don't push directly to `main` — always go through PR
+
+## Development Workflow (Vibe Coding)
+
+Every change — feature, fix, refactor — goes through this flow:
+
+1. **Branch**: `git checkout -b feat/short-description` (or `fix/`, `refactor/`)
+2. **Code**: implement, run `cargo test --workspace && cargo clippy --workspace --all-targets`
+3. **Commit**: `git add -A && git commit -m "feat: short description"`
+4. **Push**: `git push -u origin feat/short-description`
+5. **PR**: create PR on GitHub → Qodo Merge auto-reviews
+6. **Fix**: address Qodo feedback if needed, push again
+7. **Merge**: squash merge into main
+
+### Branch Naming
+- `feat/` — new feature
+- `fix/` — bug fix
+- `refactor/` — code cleanup
+- `docs/` — documentation only
+- `test/` — test additions
+
+### PR Title Format
+```
+feat: add MCP support to single-shot mode
+fix: handle empty response from provider
+refactor: extract tool registry setup into helper
+```
