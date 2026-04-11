@@ -99,3 +99,26 @@ mod tests {
         fs::remove_file(path).ok();
     }
 }
+
+    #[test]
+    fn record_updates_cache() {
+        let path = std::env::temp_dir().join(format!("mc-cost-cache-{}", std::process::id()));
+        let mut tracker = CostTracker::new(path.clone());
+        tracker.record("model", 100, 50, 0.01);
+        tracker.record("model", 200, 100, 0.02);
+        let (i, o, c) = tracker.cumulative();
+        assert_eq!(i, 300);
+        assert_eq!(o, 150);
+        assert!((c - 0.03).abs() < 1e-9);
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn empty_tracker() {
+        let path = std::env::temp_dir().join(format!("mc-cost-empty-{}", std::process::id()));
+        let tracker = CostTracker::new(path.clone());
+        let (i, o, c) = tracker.cumulative();
+        assert_eq!(i, 0);
+        assert_eq!(o, 0);
+        assert!((c - 0.0).abs() < 1e-9);
+    }

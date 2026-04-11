@@ -242,3 +242,14 @@ mod tests {
         assert!(out.contains("db"));
     }
 }
+
+    #[test]
+    fn handle_write_delete() {
+        let path = std::env::temp_dir().join(format!("mc-mem-del-{}", std::process::id()));
+        let mut store = MemoryStore::load(&path, 100);
+        store.handle_write(&serde_json::json!({"key": "temp", "value": "data"}));
+        assert!(store.handle_read(&serde_json::json!({"key": "temp"})).contains("data"));
+        store.handle_write(&serde_json::json!({"key": "temp", "delete": true}));
+        assert!(!store.handle_read(&serde_json::json!({"key": "temp"})).contains("data"));
+        std::fs::remove_file(path).ok();
+    }
