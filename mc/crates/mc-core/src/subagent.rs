@@ -85,7 +85,9 @@ impl SubagentSpawner {
         }
 
         self.active_count += 1;
-        let effective_model = model_override.unwrap_or(&self.model);
+        let effective_model = model_override
+            .filter(|m| !m.trim().is_empty())
+            .unwrap_or(&self.model);
         tracing::debug!(
             task = task_prompt,
             model = effective_model,
@@ -95,7 +97,7 @@ impl SubagentSpawner {
         // Inject shared context from other agents
         let shared = self.shared_context.summary();
         let enriched_prompt = if shared.is_empty() {
-            format!("{system_prompt}")
+            system_prompt.to_string()
         } else {
             format!("{system_prompt}{shared}")
         };

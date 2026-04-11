@@ -184,14 +184,7 @@ fn main() -> Result<()> {
 
     let rt = tokio::runtime::Runtime::new()?;
     let mut policy = build_permission_policy(&config);
-    if cli.yes {
-        // --yes allows file tools but keeps bash gated unless --dangerously-allow-bash
-        policy = mc_tools::PermissionPolicy::new(mc_tools::PermissionMode::Allow);
-        if !cli.dangerously_allow_bash {
-            policy = policy.with_tool_mode("bash", mc_tools::PermissionMode::Prompt);
-        }
-    }
-    // Per-tool permission overrides from config
+    // Per-tool permission overrides from config (applied first)
     for (tool, mode) in &config.tool_permissions {
         let m = match mode.as_str() {
             "allow" => mc_tools::PermissionMode::Allow,
@@ -200,6 +193,13 @@ fn main() -> Result<()> {
             _ => continue,
         };
         policy = policy.with_tool_mode(tool, m);
+    }
+    // --yes overrides everything (applied last, takes precedence)
+    if cli.yes {
+        policy = mc_tools::PermissionPolicy::new(mc_tools::PermissionMode::Allow);
+        if !cli.dangerously_allow_bash {
+            policy = policy.with_tool_mode("bash", mc_tools::PermissionMode::Prompt);
+        }
     }
     let hooks = build_hooks(&config);
 
@@ -1418,6 +1418,22 @@ fn plugins_dir() -> std::path::PathBuf {
         .join(".magic-code/plugins")
 }
 
+/// Sanitize plugin name to prevent path traversal.
+fn sanitize_plugin_name(name: &str) -> Option<&str> {
+    let name = name.trim();
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+    {
+        None
+    } else {
+        Some(name)
+    }
+}
+
 fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
     let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
     let action = parts[0];
@@ -1440,6 +1456,10 @@ fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
                 .next()
                 .unwrap_or(arg)
                 .trim_end_matches(".git");
+            let Some(name) = sanitize_plugin_name(name) else {
+                output.push(format!("❌ Invalid plugin name: {name}"));
+                return;
+            };
             let dest = plugins_dir().join(name);
             if dest.exists() {
                 output.push(format!(
@@ -1492,7 +1512,11 @@ fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
                 output.push("Usage: /plugin remove <name>".into());
                 return;
             }
-            let dest = plugins_dir().join(arg);
+            let Some(name) = sanitize_plugin_name(arg) else {
+                output.push(format!("❌ Invalid plugin name: {arg}"));
+                return;
+            };
+            let dest = plugins_dir().join(name);
             if !dest.exists() {
                 output.push(format!("Plugin '{arg}' not found."));
                 return;
@@ -1507,7 +1531,11 @@ fn handle_plugin_command(cmd: &str, output: &mut Vec<String>) {
                 output.push("Usage: /plugin update <name>".into());
                 return;
             }
-            let dest = plugins_dir().join(arg);
+            let Some(name) = sanitize_plugin_name(arg) else {
+                output.push(format!("❌ Invalid plugin name: {arg}"));
+                return;
+            };
+            let dest = plugins_dir().join(name);
             if !dest.exists() {
                 output.push(format!("Plugin '{arg}' not found."));
                 return;
