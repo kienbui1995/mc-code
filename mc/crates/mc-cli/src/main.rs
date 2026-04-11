@@ -1054,6 +1054,22 @@ async fn run_tui(
                         rt.set_review_writes(app.review_writes);
                     }
                 }
+                PendingCommand::AutoTestToggle => {
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        if rt.auto_test_cmd.is_some() {
+                            rt.auto_test_cmd = None;
+                            app.output_lines.push("🧪 Auto-test: OFF".into());
+                        } else {
+                            let cmd = detect_test_command();
+                            if let Some(c) = cmd {
+                                app.output_lines.push(format!("🧪 Auto-test: ON — {c}"));
+                                rt.auto_test_cmd = Some(c);
+                            } else {
+                                app.output_lines.push("🧪 No test runner detected.".into());
+                            }
+                        }
+                    }
+                }
                 PendingCommand::Btw(question) => {
                     let rt_clone = Arc::clone(&runtime);
                     let prov_clone = Arc::clone(&provider);
@@ -1332,6 +1348,22 @@ async fn run_single(
         result.usage.input_tokens, result.usage.output_tokens, result.iterations
     );
     Ok(())
+}
+
+fn detect_test_command() -> Option<String> {
+    if std::path::Path::new("Cargo.toml").exists() || std::path::Path::new("mc/Cargo.toml").exists() {
+        Some("cargo test --workspace 2>&1 | tail -30".into())
+    } else if std::path::Path::new("package.json").exists() {
+        Some("npm test 2>&1 | tail -30".into())
+    } else if std::path::Path::new("pytest.ini").exists() || std::path::Path::new("setup.py").exists() || std::path::Path::new("pyproject.toml").exists() {
+        Some("python -m pytest 2>&1 | tail -30".into())
+    } else if std::path::Path::new("go.mod").exists() {
+        Some("go test ./... 2>&1 | tail -30".into())
+    } else if std::path::Path::new("Makefile").exists() {
+        Some("make test 2>&1 | tail -30".into())
+    } else {
+        None
+    }
 }
 
 fn session_path(name: &str) -> std::path::PathBuf {

@@ -105,6 +105,9 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/todo" => app.pending_command = Some(PendingCommand::RunShell("grep -rn --color=never 'TODO\\|FIXME\\|HACK\\|XXX' . --include='*.rs' --include='*.py' --include='*.ts' --include='*.js' --include='*.go' 2>/dev/null | grep -v target/ | head -30".into())),
         "/recent" => app.pending_command = Some(PendingCommand::RunShell("find . -name '*.rs' -o -name '*.py' -o -name '*.ts' -o -name '*.js' -o -name '*.go' -o -name '*.toml' -o -name '*.md' | xargs ls -lt 2>/dev/null | head -15".into())),
         "/test" => cmd_test(app),
+        "/auto-test" => {
+            app.pending_command = Some(PendingCommand::AutoTestToggle);
+        }
         "/ship" => { app.push("Staging all changes..."); app.pending_command = Some(PendingCommand::Git("ship".into())); },
         "/open" => if arg.is_empty() { app.push("Usage: /open <file>"); } else { let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".into()); app.push(&format!("Opening {arg} in {editor}...")); let _ = std::process::Command::new(&editor).arg(arg).status(); },
         "/size" => if arg.is_empty() { app.push("Usage: /size <file>"); } else { app.pending_command = Some(PendingCommand::RunShell(format!("stat --printf='%s bytes' {arg} 2>/dev/null || stat -f '%z bytes' {arg}"))); },
