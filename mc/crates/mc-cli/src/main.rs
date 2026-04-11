@@ -90,6 +90,9 @@ struct Cli {
     /// Auto-approve all tool executions (for CI/CD, no interactive prompts).
     #[arg(long, short = 'y')]
     yes: bool,
+    /// Validate config and exit.
+    #[arg(long)]
+    validate_config: bool,
     prompt: Vec<String>,
 }
 
@@ -117,8 +120,20 @@ fn main() -> Result<()> {
 
     let cwd = std::env::current_dir()?;
     let config = mc_config::ConfigLoader::new(&cwd).load()?;
-    for warn in config.validate() {
+    let warnings = config.validate();
+    for warn in &warnings {
         eprintln!("⚠ config: {warn}");
+    }
+    if cli.validate_config {
+        if warnings.is_empty() {
+            println!("✅ Config valid: {} provider, model {}", config.provider, config.model);
+            println!("  MCP servers: {}", config.mcp_servers.len());
+            println!("  Hooks: {}", config.hooks.len());
+            println!("  Tool permissions: {:?}", config.tool_permissions);
+        } else {
+            println!("⚠ Config has {} warning(s)", warnings.len());
+        }
+        return Ok(());
     }
     let project = mc_config::ProjectContext::discover(&cwd);
     let model = if cli.model == "claude-sonnet-4-20250514" {
@@ -352,7 +367,10 @@ async fn run_tui(
         while let Ok(msg) = ui_rx.try_recv() {
             match msg {
                 UiMessage::Delta(t) => app.handle_event(AppEvent::StreamDelta(t)),
-                UiMessage::ToolCall(n) => app.handle_event(AppEvent::ToolCall(n)),
+                UiMessage::ToolCall(n) => {
+                    *app.tool_call_counts.entry(n.clone()).or_insert(0) += 1;
+                    app.handle_event(AppEvent::ToolCall(n));
+                }
                 UiMessage::Usage { input, output } => {
                     app.total_input_tokens += input;
                     app.total_output_tokens += output;

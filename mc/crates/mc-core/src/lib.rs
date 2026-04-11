@@ -33,7 +33,7 @@ pub use retry::RetryPolicy;
 pub use runtime::{next_event, ConversationRuntime, LlmProvider, TurnResult};
 pub use session::{Block, ConversationMessage, ImageSource, Role, Session};
 pub use skills::{discover_skills, skills_prompt_section, Skill};
-pub use subagent::SubagentSpawner;
+pub use subagent::{SharedContext, SubagentSpawner};
 pub use tasks::{TaskInfo, TaskManager, TaskStatus};
 pub use token_budget::TokenBudget;
 pub use tool_cache::ToolCache;
