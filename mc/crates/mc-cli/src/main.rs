@@ -346,6 +346,9 @@ async fn run_tui(
                         app.total_input_tokens,
                         app.total_output_tokens,
                     );
+                    let turn_cost = registry.estimate_cost(&app.model, input, output);
+                    let turn_num = app.turn_costs.len() as u32 + 1;
+                    app.turn_costs.push((turn_num, input, output, turn_cost, app.model.clone()));
                     let ctx_window = registry.context_window(&app.model);
                     let used = app.total_input_tokens + app.total_output_tokens;
                     app.context_usage_pct =

@@ -147,9 +147,20 @@ fn cmd_cost(app: &mut App, arg: &str) {
         app.pending_command = Some(PendingCommand::CostTotal);
     } else {
         app.push(&format!(
-            "Session cost: ${:.4} ({} input + {} output tokens)",
+            "💰 Session cost: ${:.4} ({} input + {} output tokens)",
             app.session_cost, app.total_input_tokens, app.total_output_tokens
         ));
+        if !app.turn_costs.is_empty() {
+            let lines: Vec<String> = std::iter::once("─── Per-turn breakdown ───".into())
+                .chain(app.turn_costs.iter().map(|(turn, inp, out, cost, model)| {
+                    format!("  Turn {turn}: ${cost:.4}  ({inp}↓ {out}↑)  {model}")
+                }))
+                .chain(std::iter::once("──────────────────────────".into()))
+                .collect();
+            for line in lines {
+                app.push(&line);
+            }
+        }
     }
 }
 
