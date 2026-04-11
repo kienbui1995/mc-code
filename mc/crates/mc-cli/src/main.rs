@@ -1000,7 +1000,86 @@ async fn run_tui(
                     app.output_lines.push("💭 Thinking toggled".into());
                 }
                 PendingCommand::Branch(cmd) => {
-                    app.output_lines.push(format!("🌿 branch: {cmd}"));
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+                        match parts[0] {
+                            "fork" => {
+                                let branch_mgr = mc_core::BranchManager::new(
+                                    session_path("branches")
+                                        .parent()
+                                        .unwrap_or(std::path::Path::new("."))
+                                        .join("branches"),
+                                    10,
+                                );
+                                let forked =
+                                    branch_mgr.fork(&rt.session, rt.session.messages.len());
+                                rt.session = forked;
+                                app.output_lines
+                                    .push("🌿 Forked session at current point".into());
+                            }
+                            "list" => {
+                                let branch_dir = session_path("branches")
+                                    .parent()
+                                    .unwrap_or(std::path::Path::new("."))
+                                    .join("branches");
+                                let branch_mgr = mc_core::BranchManager::new(branch_dir, 10);
+                                let branches = branch_mgr.list_branches();
+                                if branches.is_empty() {
+                                    app.output_lines.push("No branches.".into());
+                                } else {
+                                    for b in branches {
+                                        let current =
+                                            if rt.session.branch_id.as_deref() == Some(&b.id) {
+                                                " ← current"
+                                            } else {
+                                                ""
+                                            };
+                                        app.output_lines.push(format!(
+                                            "  🌿 {} ({} msgs){current}",
+                                            b.id, b.message_count
+                                        ));
+                                    }
+                                }
+                            }
+                            "switch" => {
+                                let name = parts.get(1).unwrap_or(&"");
+                                let branch_dir = session_path("branches")
+                                    .parent()
+                                    .unwrap_or(std::path::Path::new("."))
+                                    .join("branches");
+                                let branch_mgr = mc_core::BranchManager::new(branch_dir, 10);
+                                match branch_mgr.load_branch(name) {
+                                    Ok(session) => {
+                                        rt.session = session;
+                                        app.output_lines
+                                            .push(format!("🌿 Switched to branch '{name}'"));
+                                    }
+                                    Err(e) => {
+                                        app.output_lines.push(format!("❌ Switch failed: {e}"))
+                                    }
+                                }
+                            }
+                            "delete" => {
+                                let name = parts.get(1).unwrap_or(&"");
+                                let branch_dir = session_path("branches")
+                                    .parent()
+                                    .unwrap_or(std::path::Path::new("."))
+                                    .join("branches");
+                                let mut branch_mgr = mc_core::BranchManager::new(branch_dir, 10);
+                                match branch_mgr.delete_branch(name) {
+                                    Ok(()) => {
+                                        app.output_lines.push(format!("🗑 Deleted branch '{name}'"))
+                                    }
+                                    Err(e) => {
+                                        app.output_lines.push(format!("❌ Delete failed: {e}"))
+                                    }
+                                }
+                            }
+                            _ => app
+                                .output_lines
+                                .push(format!("Unknown branch command: {cmd}")),
+                        }
+                    }
                 }
                 PendingCommand::ImageAttach(path) => {
                     if let Ok(mut rt) = runtime.try_lock() {
@@ -1394,9 +1473,12 @@ async fn run_single(
             "tool_calls": result.tool_calls,
             "input_tokens": result.usage.input_tokens,
             "output_tokens": result.usage.output_tokens,
+            "cache_creation_tokens": result.usage.cache_creation_input_tokens,
+            "cache_read_tokens": result.usage.cache_read_input_tokens,
             "iterations": result.iterations,
             "cancelled": result.cancelled,
             "model": model,
+            "cost": mc_core::ModelRegistry::default().estimate_cost(model, result.usage.input_tokens, result.usage.output_tokens),
         });
         println!(
             "{}",
