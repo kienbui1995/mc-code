@@ -186,8 +186,14 @@ fn process_sse_event_vec(
                 }
             }
             AnthropicDelta::InputJsonDelta { partial_json } => {
-                if let Some((_, _, input)) = pending_tool.as_mut() {
+                if let Some((_, ref name, input)) = pending_tool.as_mut() {
                     input.push_str(&partial_json);
+                    if matches!(name.as_str(), "write_file" | "edit_file") {
+                        out.push(ProviderEvent::ToolInputDelta {
+                            name: name.clone(),
+                            partial: partial_json,
+                        });
+                    }
                 }
             }
             AnthropicDelta::ThinkingDelta { thinking } => {

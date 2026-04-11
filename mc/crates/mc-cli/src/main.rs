@@ -438,6 +438,12 @@ async fn run_tui(
                 UiMessage::ToolOutputDelta(t) => {
                     app.handle_event(AppEvent::StreamDelta(t));
                 }
+                UiMessage::ToolInputDelta { name, partial } => {
+                    // Show streaming write preview — emit partial content as it arrives
+                    if !partial.is_empty() {
+                        app.handle_event(AppEvent::StreamDelta(partial));
+                    }
+                }
             }
         }
 
@@ -583,6 +589,8 @@ async fn run_tui(
                                                         { let _ = tx.try_send(UiMessage::RetryAttempt { attempt: *attempt, max: *max, reason: reason.clone() }); }
                                                     mc_provider::ProviderEvent::ToolOutputDelta(ref t) =>
                                                         { let _ = tx.try_send(UiMessage::ToolOutputDelta(t.clone())); }
+                                                    mc_provider::ProviderEvent::ToolInputDelta { ref name, ref partial } =>
+                                                        { let _ = tx.try_send(UiMessage::ToolInputDelta { name: name.clone(), partial: partial.clone() }); }
                                                     mc_provider::ProviderEvent::MessageStop
                                                     | mc_provider::ProviderEvent::ThinkingDelta(_) => {}
                                                 }
@@ -1261,6 +1269,10 @@ async fn run_single(
                 mc_provider::ProviderEvent::TextDelta(text)
                 | mc_provider::ProviderEvent::ToolOutputDelta(text) => {
                     let _ = write!(stdout, "{text}");
+                    let _ = stdout.flush();
+                }
+                mc_provider::ProviderEvent::ToolInputDelta { partial, .. } => {
+                    let _ = write!(stdout, "{partial}");
                     let _ = stdout.flush();
                 }
                 _ => {}
