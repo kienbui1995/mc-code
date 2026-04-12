@@ -450,4 +450,48 @@ match_tools = ["bash"]
         assert_eq!(layer.hooks[0].event, "pre_tool_call");
         assert_eq!(layer.hooks[0].match_tools, vec!["bash"]);
     }
+
+    #[test]
+    fn parses_managed_agents_config() {
+        let layer: ConfigLayer = toml::from_str(
+            r#"
+[managed_agents]
+enabled = true
+manager_model = "claude-opus-4-6"
+executor_model = "claude-haiku-4-5"
+executor_max_turns = 12
+max_concurrent = 5
+budget_usd = 10.0
+"#,
+        )
+        .unwrap();
+        assert!(layer.managed_agents.enabled);
+        assert_eq!(layer.managed_agents.executor_max_turns, Some(12));
+        assert_eq!(layer.managed_agents.max_concurrent, Some(5));
+    }
+
+    #[test]
+    fn validates_managed_agents_bad_budget() {
+        let layer: ConfigLayer = toml::from_str(
+            r#"
+[managed_agents]
+enabled = true
+budget_usd = -1.0
+executor_max_turns = 0
+"#,
+        )
+        .unwrap();
+        let config = RuntimeConfig::from_layers(&[layer]);
+        let warnings = config.validate();
+        assert!(warnings.iter().any(|w| w.contains("budget_usd")));
+        assert!(warnings.iter().any(|w| w.contains("executor_max_turns")));
+    }
+
+    #[test]
+    fn managed_agents_defaults_when_absent() {
+        let layer: ConfigLayer = toml::from_str("[default]\nprovider = \"anthropic\"\n").unwrap();
+        let config = RuntimeConfig::from_layers(&[layer]);
+        assert!(!config.managed_agents.enabled);
+        assert!(config.managed_agents.executor_model.is_none());
+    }
 }
