@@ -4,6 +4,7 @@ mod compact;
 mod context_resolver;
 mod cost;
 pub mod cron;
+pub mod debug;
 mod memory;
 mod model_registry;
 mod parallel_tools;
