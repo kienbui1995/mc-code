@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Permissionmode.
@@ -34,6 +35,7 @@ pub trait PermissionPrompter: Send {
 pub struct PermissionPolicy {
     default_mode: PermissionMode,
     tool_modes: BTreeMap<String, PermissionMode>,
+    learned_allows: Arc<std::sync::Mutex<BTreeSet<String>>>,
 }
 
 impl PermissionPolicy {
@@ -43,6 +45,7 @@ impl PermissionPolicy {
         Self {
             default_mode,
             tool_modes: BTreeMap::new(),
+            learned_allows: Arc::new(std::sync::Mutex::new(BTreeSet::new())),
         }
     }
 
@@ -50,6 +53,22 @@ impl PermissionPolicy {
     /// Get default permission mode.
     pub fn mode(&self) -> PermissionMode {
         self.default_mode
+    }
+
+    /// Remember that a tool+pattern was approved (persists in session).
+    pub fn learn_allow(&self, key: &str) {
+        if let Ok(mut set) = self.learned_allows.lock() {
+            set.insert(key.to_string());
+        }
+    }
+
+    /// Check if a tool+pattern was previously approved.
+    #[must_use]
+    pub fn is_learned(&self, key: &str) -> bool {
+        self.learned_allows
+            .lock()
+            .map(|s| s.contains(key))
+            .unwrap_or(false)
     }
 
     #[must_use]
@@ -77,17 +96,49 @@ impl PermissionPolicy {
             PermissionMode::Deny => PermissionOutcome::Deny {
                 reason: format!("tool '{tool_name}' denied by policy"),
             },
-            PermissionMode::Auto => auto_classify(tool_name, input_summary, prompter),
-            PermissionMode::Prompt => match prompter {
-                Some(p) => p.decide(&PermissionRequest {
-                    tool_name: tool_name.to_string(),
-                    input_summary: input_summary.to_string(),
-                }),
-                None => PermissionOutcome::Deny {
-                    reason: format!("tool '{tool_name}' requires interactive approval"),
-                },
-            },
+            PermissionMode::Auto => {
+                // Check learned permissions first
+                let learn_key = format!("{tool_name}:{}", tool_learn_key(tool_name, input_summary));
+                if self.is_learned(&learn_key) {
+                    return PermissionOutcome::Allow;
+                }
+                let result = auto_classify(tool_name, input_summary, prompter);
+                if result == PermissionOutcome::Allow {
+                    self.learn_allow(&learn_key);
+                }
+                result
+            }
+            PermissionMode::Prompt => {
+                let learn_key = format!("{tool_name}:{}", tool_learn_key(tool_name, input_summary));
+                if self.is_learned(&learn_key) {
+                    return PermissionOutcome::Allow;
+                }
+                match prompter {
+                    Some(p) => {
+                        let result = p.decide(&PermissionRequest {
+                            tool_name: tool_name.to_string(),
+                            input_summary: input_summary.to_string(),
+                        });
+                        if result == PermissionOutcome::Allow {
+                            self.learn_allow(&learn_key);
+                        }
+                        result
+                    }
+                    None => PermissionOutcome::Deny {
+                        reason: format!("tool '{tool_name}' requires interactive approval"),
+                    },
+                }
+            }
         }
+    }
+}
+
+/// Extract a stable key for learning (first word of command for bash, tool name otherwise).
+fn tool_learn_key(tool_name: &str, input: &str) -> String {
+    if tool_name == "bash" {
+        input.split_whitespace().next().unwrap_or("").to_string()
+    } else {
+        tool_name.to_string()
     }
 }
 

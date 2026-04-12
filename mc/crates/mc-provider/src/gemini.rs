@@ -263,6 +263,7 @@ mod tests {
             }],
             tool_choice: Some(ToolChoice::Auto),
             thinking_budget: None,
+            response_format: None,
         };
         let body = build_body(&req);
         assert!(body.get("systemInstruction").is_some());

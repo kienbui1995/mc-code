@@ -237,6 +237,7 @@ impl ConversationRuntime {
             tools: Vec::new(),
             tool_choice: None,
             thinking_budget: None,
+            response_format: None,
         };
         let mut stream = provider.stream(&request);
         let mut msg = String::new();
@@ -1438,6 +1439,7 @@ Fix this before continuing."
             tools,
             tool_choice,
             thinking_budget: self.thinking_budget,
+            response_format: None,
         }
     }
 }

@@ -213,6 +213,28 @@ impl Session {
         serde_json::from_str(&json).map_err(|e| std::io::Error::other(e.to_string()))
     }
 
+    /// Search messages for a query string. Returns matching (index, role, snippet).
+    #[must_use]
+    pub fn search(&self, query: &str) -> Vec<(usize, String, String)> {
+        let q = query.to_lowercase();
+        let mut results = Vec::new();
+        for (i, msg) in self.messages.iter().enumerate() {
+            for block in &msg.blocks {
+                if let Block::Text { text } = block {
+                    if let Some(pos) = text.to_lowercase().find(&q) {
+                        let start = pos.saturating_sub(50);
+                        let end = (pos + q.len() + 50).min(text.len());
+                        let snippet = format!("...{}...", &text[start..end]);
+                        let role = format!("{:?}", msg.role);
+                        results.push((i, role, snippet));
+                        break;
+                    }
+                }
+            }
+        }
+        results
+    }
+
     /// Export session as readable markdown.
     #[must_use]
     pub fn to_markdown(&self) -> String {

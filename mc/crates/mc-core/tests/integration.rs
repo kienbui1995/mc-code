@@ -239,7 +239,9 @@ fn compaction_works_end_to_end() {
     assert!(should_compact(&session, 1000, 0.1));
 
     compact_session(&mut session, 4);
-    assert_eq!(session.messages.len(), 5); // 1 summary + 4 preserved
+    // 1 summary + 4 preserved + up to 5 high-importance kept
+    assert!(session.messages.len() >= 5);
+    assert!(session.messages.len() <= 10);
     assert!(session.messages[0].contains_text("compacted"));
 }
 

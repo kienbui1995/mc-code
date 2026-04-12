@@ -13,6 +13,20 @@ pub struct CompletionRequest {
     pub tools: Vec<ToolDefinition>,
     pub tool_choice: Option<ToolChoice>,
     pub thinking_budget: Option<u32>,
+    /// Force JSON output (supported by OpenAI, Gemini).
+    pub response_format: Option<ResponseFormat>,
+}
+
+/// Response format constraint.
+#[derive(Debug, Clone)]
+pub enum ResponseFormat {
+    /// Force valid JSON output.
+    Json,
+    /// Force JSON matching a schema.
+    JsonSchema {
+        name: String,
+        schema: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone)]

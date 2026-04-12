@@ -1270,6 +1270,7 @@ async fn run_tui(
                             tools: Vec::new(),
                             tool_choice: None,
                             thinking_budget: None,
+                            response_format: None,
                         };
                         let mut stream = prov_clone.stream(&request);
                         let mut answer = String::new();

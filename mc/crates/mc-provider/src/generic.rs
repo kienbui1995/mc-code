@@ -265,6 +265,20 @@ fn build_request_body(req: &CompletionRequest) -> serde_json::Value {
             };
         }
     }
+    // Structured output / JSON mode
+    if let Some(ref fmt) = req.response_format {
+        match fmt {
+            crate::types::ResponseFormat::Json => {
+                body["response_format"] = serde_json::json!({"type": "json_object"});
+            }
+            crate::types::ResponseFormat::JsonSchema { name, schema } => {
+                body["response_format"] = serde_json::json!({
+                    "type": "json_schema",
+                    "json_schema": {"name": name, "schema": schema}
+                });
+            }
+        }
+    }
     body
 }
 
@@ -372,6 +386,7 @@ mod tests {
             }],
             tool_choice: Some(ToolChoice::Auto),
             thinking_budget: None,
+            response_format: None,
         };
         let body = build_request_body(&req);
         assert_eq!(body["messages"][0]["role"], "system");

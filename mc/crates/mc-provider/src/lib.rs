@@ -11,7 +11,7 @@ pub use gemini::GeminiProvider;
 pub use generic::GenericProvider;
 pub use types::{
     CompletionRequest, ContentBlock, InputMessage, MessageRole, ModelInfo, ProviderEvent,
-    TokenUsage, ToolChoice, ToolDefinition,
+    ResponseFormat, TokenUsage, ToolChoice, ToolDefinition,
 };
 
 use std::pin::Pin;
