@@ -1203,6 +1203,8 @@ Fix this before continuing."
                 Ok(out) => (out, false),
                 Err(e) => (e.to_string(), true),
             }
+        } else if name == "browser" {
+            return execute_browser(&input_val).await;
         } else {
             let result = match self.tool_registry.execute(name, &input_val).await {
                 Ok(out) => (out, false),
@@ -1469,4 +1471,164 @@ fn resolve_image_base64(path: &str) -> Option<String> {
 
 fn base64_encode(data: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(data)
+}
+
+/// Execute browser automation via playwright CLI.
+async fn execute_browser(input: &serde_json::Value) -> (String, bool) {
+    let action = input.get("action").and_then(|v| v.as_str()).unwrap_or("");
+
+    // Build a playwright script based on action
+    let script = match action {
+        "navigate" => {
+            let url = input.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            if url.is_empty() {
+                return ("url is required for navigate".into(), true);
+            }
+            format!(
+                r#"
+const {{ chromium }} = require('playwright');
+(async () => {{
+    const b = await chromium.launch({{ headless: true }});
+    const p = await b.newPage();
+    await p.goto('{url}', {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
+    const title = await p.title();
+    const text = await p.innerText('body').catch(() => '');
+    const truncated = text.substring(0, 5000);
+    await p.screenshot({{ path: '/tmp/mc_browser.png', fullPage: false }});
+    console.log(JSON.stringify({{ title, text: truncated, screenshot: '/tmp/mc_browser.png' }}));
+    await b.close();
+}})();
+"#,
+                url = url.replace('\'', "\\'")
+            )
+        }
+        "screenshot" => {
+            let url = input.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            if url.is_empty() {
+                return ("url is required for screenshot".into(), true);
+            }
+            format!(
+                r#"
+const {{ chromium }} = require('playwright');
+(async () => {{
+    const b = await chromium.launch({{ headless: true }});
+    const p = await b.newPage();
+    await p.goto('{url}', {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
+    await p.screenshot({{ path: '/tmp/mc_browser.png', fullPage: true }});
+    console.log(JSON.stringify({{ screenshot: '/tmp/mc_browser.png' }}));
+    await b.close();
+}})();
+"#,
+                url = url.replace('\'', "\\'")
+            )
+        }
+        "click" => {
+            let url = input.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            let sel = input.get("selector").and_then(|v| v.as_str()).unwrap_or("");
+            if sel.is_empty() {
+                return ("selector is required for click".into(), true);
+            }
+            format!(
+                r#"
+const {{ chromium }} = require('playwright');
+(async () => {{
+    const b = await chromium.launch({{ headless: true }});
+    const p = await b.newPage();
+    if ('{url}') await p.goto('{url}', {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
+    await p.click('{sel}', {{ timeout: 5000 }});
+    await p.waitForTimeout(1000);
+    const text = await p.innerText('body').catch(() => '');
+    await p.screenshot({{ path: '/tmp/mc_browser.png' }});
+    console.log(JSON.stringify({{ clicked: '{sel}', text: text.substring(0, 3000), screenshot: '/tmp/mc_browser.png' }}));
+    await b.close();
+}})();
+"#,
+                url = url.replace('\'', "\\'"),
+                sel = sel.replace('\'', "\\'")
+            )
+        }
+        "type" => {
+            let url = input.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            let sel = input.get("selector").and_then(|v| v.as_str()).unwrap_or("");
+            let text = input.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            if sel.is_empty() {
+                return ("selector is required for type".into(), true);
+            }
+            format!(
+                r#"
+const {{ chromium }} = require('playwright');
+(async () => {{
+    const b = await chromium.launch({{ headless: true }});
+    const p = await b.newPage();
+    if ('{url}') await p.goto('{url}', {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
+    await p.fill('{sel}', '{text}');
+    await p.screenshot({{ path: '/tmp/mc_browser.png' }});
+    console.log(JSON.stringify({{ filled: '{sel}', screenshot: '/tmp/mc_browser.png' }}));
+    await b.close();
+}})();
+"#,
+                url = url.replace('\'', "\\'"),
+                sel = sel.replace('\'', "\\'"),
+                text = text.replace('\'', "\\'")
+            )
+        }
+        "evaluate" => {
+            let url = input.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            let js = input.get("script").and_then(|v| v.as_str()).unwrap_or("");
+            if js.is_empty() {
+                return ("script is required for evaluate".into(), true);
+            }
+            format!(
+                r#"
+const {{ chromium }} = require('playwright');
+(async () => {{
+    const b = await chromium.launch({{ headless: true }});
+    const p = await b.newPage();
+    if ('{url}') await p.goto('{url}', {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
+    const result = await p.evaluate(() => {{ {js} }});
+    console.log(JSON.stringify({{ result }}));
+    await b.close();
+}})();
+"#,
+                url = url.replace('\'', "\\'"),
+                js = js
+            )
+        }
+        _ => return (format!("Unknown browser action: {action}"), true),
+    };
+
+    // Write script to temp file and execute
+    let script_path = "/tmp/mc_browser_script.js";
+    if let Err(e) = tokio::fs::write(script_path, &script).await {
+        return (format!("Failed to write script: {e}"), true);
+    }
+
+    let output = tokio::process::Command::new("node")
+        .arg(script_path)
+        .output()
+        .await;
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+            if out.status.success() {
+                (stdout, false)
+            } else if stderr.contains("Cannot find module 'playwright'") {
+                ("Playwright not installed. Run: npm i -g playwright && npx playwright install chromium".into(), true)
+            } else {
+                (format!("Browser error: {stderr}"), true)
+            }
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                (
+                    "Node.js not found. Install Node.js to use browser tool.".into(),
+                    true,
+                )
+            } else {
+                (format!("Failed to run browser: {e}"), true)
+            }
+        }
+    }
 }

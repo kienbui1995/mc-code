@@ -373,5 +373,20 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["server_name", "uri"]
             }),
         },
+        ToolSpec {
+            name: "browser".into(),
+            description: "Control a headless browser for web testing and UI verification. Actions: navigate (open URL, get text), screenshot (capture page), click (click element), type (fill input), evaluate (run JS). Requires playwright: `npm i -g playwright`.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["navigate", "screenshot", "click", "type", "evaluate"], "description": "Browser action to perform"},
+                    "url": {"type": "string", "description": "URL to navigate to (for 'navigate')"},
+                    "selector": {"type": "string", "description": "CSS selector (for 'click', 'type')"},
+                    "text": {"type": "string", "description": "Text to type (for 'type')"},
+                    "script": {"type": "string", "description": "JavaScript to evaluate (for 'evaluate')"}
+                },
+                "required": ["action"]
+            }),
+        },
     ]
 }
