@@ -1,4 +1,4 @@
-use crate::app::{App, EffortLevel, PendingCommand};
+use crate::app::{AgentState, App, EffortLevel, PendingCommand};
 
 /// Dispatch a slash command. All I/O-heavy commands route through
 /// `PendingCommand::RunShell` so main.rs can execute them async.
@@ -16,8 +16,33 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/allowed-tools" => handle(app, "/permissions"),
         "/upgrade" => handle(app, "/update"),
         "/checkpoint" => handle(app, "/rewind"),
-        "/help" => app.push("Commands: /help /quit /status /cost /plan /compact /undo /update /save /load /image /memory /thinking /fork /branches /switch /diff /log /commit /stash /clear /export /model /init /summary /search /doctor /template /review /retry /pin /theme /copy /version /history /tokens /context /alias /run /grep /tree /head /tail /cat /files /wc /todo /recent /test /ship /open /pwd /env /size /models /time /whoami /tip /last /spec /vim /effort /rewind /debug /btw /loop /cron /config /add /sessions /permissions /dry-run"),
-        "/quit" => app.should_quit = true,
+        "/help" => {
+            app.push("━━━ Navigation ━━━");
+            app.push("  /help /quit /clear /status /version /whoami /theme /vim");
+            app.push("━━━ Session ━━━");
+            app.push("  /save /load /sessions /fork /branches /switch /history /search /export /resume");
+            app.push("━━━ Agent ━━━");
+            app.push("  /model /models /plan /thinking /effort /compact /tokens /context /cost /retry");
+            app.push("━━━ Code ━━━");
+            app.push("  /diff /log /commit /stash /undo /review /security-review /debug /template /spec");
+            app.push("━━━ Tools ━━━");
+            app.push("  /run /grep /tree /cat /head /tail /files /wc /pwd /env /open /size /image");
+            app.push("━━━ Workflow ━━━");
+            app.push("  /todo /test /ship /auto-test /auto-commit /dry-run /diff-preview /loop /cron");
+            app.push("━━━ Config ━━━");
+            app.push("  /config /permissions /init /add /memory /pin /alias /copy /agents /plugin");
+        },
+        "/quit" => {
+            if app.state != AgentState::Idle {
+                app.push("⚠ Agent is running. Press /quit again to force exit.");
+                app.pending_quit = true;
+            } else if !app.pending_quit && app.total_input_tokens > 0 {
+                app.push("⚠ Unsaved session. /quit again to exit, or /save first.");
+                app.pending_quit = true;
+            } else {
+                app.should_quit = true;
+            }
+        },
         "/status" => cmd_status(app),
         "/plan" => cmd_plan(app),
         "/clear" => cmd_clear(app),
