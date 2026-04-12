@@ -301,6 +301,30 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
             }),
         },
         ToolSpec {
+            name: "edit_plan".into(),
+            description: "Present a multi-file edit plan to the user for approval BEFORE making changes. Use this when modifying 2+ files to show the full scope of changes upfront. After approval, execute with edit_file/write_file/batch_edit.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Short title for the plan"},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "file": {"type": "string", "description": "File path"},
+                                "action": {"type": "string", "enum": ["create", "edit", "delete"], "description": "What to do"},
+                                "description": {"type": "string", "description": "What changes and why"}
+                            },
+                            "required": ["file", "action", "description"]
+                        },
+                        "description": "Ordered list of file changes"
+                    }
+                },
+                "required": ["title", "steps"]
+            }),
+        },
+        ToolSpec {
             name: "sleep".into(),
             description: "Pause execution for a duration. Useful in polling loops or waiting for processes. Max 60 seconds.".into(),
             input_schema: serde_json::json!({
