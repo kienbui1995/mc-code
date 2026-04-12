@@ -381,7 +381,7 @@ fn cmd_effort(app: &mut App, arg: &str) {
 
 fn cmd_template(app: &mut App, arg: &str) {
     if arg.is_empty() {
-        app.push("Templates: review, refactor, test, explain, document, optimize, security");
+        app.push("Templates: review, refactor, test, explain, document, optimize, security, debug");
         app.push("Usage: /template <name>");
         return;
     }

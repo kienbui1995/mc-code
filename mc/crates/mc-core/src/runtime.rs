@@ -411,6 +411,8 @@ impl ConversationRuntime {
                         | "ask_user"
                         | "sleep"
                         | "edit_plan"
+                        | "debug"
+                        | "browser"
                 ) || (review_writes
                     && matches!(
                         tool.1.as_str(),
@@ -1707,6 +1709,12 @@ fn execute_debug(input: &serde_json::Value) -> (String, bool) {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let file = input.get("file").and_then(|v| v.as_str()).unwrap_or("");
+            if root_cause.is_empty() {
+                return ("root_cause is required for fix".into(), true);
+            }
+            if file.is_empty() {
+                return ("file is required for fix".into(), true);
+            }
             let prompt = format!(
                 "🔨 **Debug Mode — Targeted Fix**\n\n\
                  Root cause: {root_cause}\n\
