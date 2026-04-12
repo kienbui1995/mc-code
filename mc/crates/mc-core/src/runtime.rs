@@ -495,6 +495,76 @@ impl ConversationRuntime {
                 ));
             }
 
+            // Auto-verify: quick syntax check after writes (always on, no config needed)
+            {
+                let had_writes = tool_calls.iter().any(|t| {
+                    matches!(
+                        t.as_str(),
+                        "write_file" | "edit_file" | "batch_edit" | "apply_patch"
+                    )
+                });
+                if had_writes {
+                    let mut paths_to_check: Vec<String> = Vec::new();
+                    if let Some(msg) = self.session.messages.iter().rev().next() {
+                        for block in &msg.blocks {
+                            if let Block::ToolUse {
+                                name: tool_name,
+                                input,
+                                ..
+                            } = block
+                            {
+                                if matches!(tool_name.as_str(), "write_file" | "edit_file") {
+                                    if let Ok(val) =
+                                        serde_json::from_str::<serde_json::Value>(input)
+                                    {
+                                        if let Some(path) = val
+                                            .get("file_path")
+                                            .or(val.get("path"))
+                                            .and_then(|v| v.as_str())
+                                        {
+                                            paths_to_check.push(path.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for path in &paths_to_check {
+                        let check = match path.rsplit('.').next() {
+                            Some("py") => Some(format!("python3 -c \"import ast; ast.parse(open(\'{path}\').read())\" 2>&1")),
+                            Some("json") => Some(format!("python3 -c \"import json; json.load(open(\'{path}\'))\" 2>&1")),
+                            _ => None,
+                        };
+                        if let Some(cmd) = check {
+                            if let Ok(out) = std::process::Command::new("sh")
+                                .arg("-c")
+                                .arg(&cmd)
+                                .output()
+                            {
+                                if !out.status.success() {
+                                    let err = String::from_utf8_lossy(&out.stderr);
+                                    let stdout = String::from_utf8_lossy(&out.stdout);
+                                    let verify_msg = format!(
+                                        "⚠️ Syntax error in `{path}`:
+```
+{stdout}{err}
+```
+Fix this before continuing."
+                                    );
+                                    self.session
+                                        .messages
+                                        .push(ConversationMessage::user(&verify_msg));
+                                    on_event(&ProviderEvent::ToolOutputDelta(format!(
+                                        "⚠️ Syntax error in {path}
+"
+                                    )));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Auto-test: run tests after write tools, feed failures back to LLM
             if let Some(ref test_cmd) = self.auto_test_cmd {
                 let had_writes = tool_calls.iter().any(|t| {
@@ -685,8 +755,10 @@ impl ConversationRuntime {
                         ProviderEvent::MessageStop
                         | ProviderEvent::RetryAttempt { .. }
                         | ProviderEvent::StreamReset
-                        | ProviderEvent::ToolOutputDelta(_)
-                        | ProviderEvent::ToolInputDelta { .. } => {}
+                        | ProviderEvent::ToolOutputDelta(_) => {}
+                        evt @ ProviderEvent::ToolInputDelta { .. } => {
+                            on_event(&evt);
+                        }
                     }
                 }
                 Some(Err(e)) => return Err(e),

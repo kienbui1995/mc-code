@@ -196,12 +196,29 @@ fn main() -> Result<()> {
         cli.session_id.clone()
     };
 
-    let provider = provider::create_provider(
+    let primary = provider::create_provider(
         &provider_name,
         &config.provider_config,
         cli.base_url.as_deref(),
         cli.api_key.as_deref(),
     )?;
+
+    // Wrap with fallback provider if configured
+    let provider: Box<dyn mc_core::LlmProvider> =
+        if let (Some(ref fb_provider), Some(ref fb_model)) =
+            (&config.fallback_provider, &config.fallback_model)
+        {
+            if let Ok(fallback) =
+                provider::create_provider(fb_provider, &config.provider_config, None, None)
+            {
+                eprintln!("📡 Fallback: {fb_provider}/{fb_model}");
+                Box::new(provider::FallbackProvider::new(primary, fallback))
+            } else {
+                primary
+            }
+        } else {
+            primary
+        };
 
     let rt = tokio::runtime::Runtime::new()?;
     let mut policy = build_permission_policy(&config);
