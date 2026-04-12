@@ -23,7 +23,7 @@ impl CronManager {
         }
     }
 
-    /// Add a trigger. schedule_secs is the interval in seconds.
+    /// Add a trigger. `schedule_secs` is the interval in seconds.
     pub fn add(&mut self, name: &str, schedule_secs: u64, prompt: &str) {
         self.triggers.insert(
             name.to_string(),

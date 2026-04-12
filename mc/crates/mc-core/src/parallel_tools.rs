@@ -282,7 +282,7 @@ fn is_write_tool(name: &str) -> bool {
     )
 }
 
-/// Compute a diff preview summary for write tools (used by runtime for review_writes).
+/// Compute a diff preview summary for write tools (used by runtime for `review_writes`).
 #[must_use]
 pub fn diff_preview_summary(tool_name: &str, input_json: &str) -> String {
     compute_diff_preview(tool_name, input_json)

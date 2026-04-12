@@ -42,8 +42,7 @@ pub fn micro_compact(session: &mut Session) {
                         .rev()
                         .take_while(|&(i, _)| total - i <= 500)
                         .last()
-                        .map(|(i, _)| i)
-                        .unwrap_or(total);
+                        .map_or(total, |(i, _)| i);
                     *output = format!(
                         "{}...[trimmed {total}B]...{}",
                         &output[..first_end],
@@ -243,7 +242,7 @@ fn micro_compact_trims_long_output() {
     session.messages.push(ConversationMessage::tool_result(
         "t1",
         "bash",
-        &"x".repeat(3000),
+        "x".repeat(3000),
         false,
     ));
     micro_compact(&mut session);
@@ -259,7 +258,7 @@ fn collapse_reads_shrinks_large_output() {
     session.messages.push(ConversationMessage::tool_result(
         "t1",
         "read_file",
-        &"line\n".repeat(500),
+        "line\n".repeat(500),
         false,
     ));
     collapse_reads(&mut session);

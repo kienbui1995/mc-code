@@ -99,7 +99,7 @@ impl EditFileTool {
 pub struct BatchEditTool;
 
 impl BatchEditTool {
-    /// Apply multiple edits. Each edit is {path, old_string, new_string, replace_all?}.
+    /// Apply multiple edits. Each edit is {path, `old_string`, `new_string`, `replace_all`?}.
     /// Edits are applied in order. If any fails, the batch is aborted (no partial writes).
     pub fn execute(edits: &[serde_json::Value]) -> Result<String, ToolError> {
         let mut planned: Vec<(String, String, String)> = Vec::new();
@@ -130,7 +130,7 @@ impl BatchEditTool {
             let replace_all = edits
                 .get(count)
                 .and_then(|e| e.get("replace_all"))
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             EditFileTool::execute(path, old_str, new_str, replace_all)?;
             count += 1;

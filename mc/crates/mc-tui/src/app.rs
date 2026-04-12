@@ -133,7 +133,7 @@ pub enum PendingCommand {
     RunShell(String),
     /// Plugin management: install, list, remove, update.
     Plugin(String),
-    /// Toggle review_writes mode.
+    /// Toggle `review_writes` mode.
     ReviewToggle,
     /// Toggle auto-test mode.
     AutoTestToggle,
@@ -163,7 +163,7 @@ pub struct App {
     pub total_input_tokens: u32,
     pub total_output_tokens: u32,
     pub session_cost: f64,
-    /// Per-turn cost breakdown: (turn_number, input_tokens, output_tokens, cost, model).
+    /// Per-turn cost breakdown: (`turn_number`, `input_tokens`, `output_tokens`, cost, model).
     pub turn_costs: Vec<(u32, u32, u32, f64, String)>,
     /// Per-tool call count for cost analysis.
     pub tool_call_counts: std::collections::HashMap<String, u32>,
@@ -495,7 +495,7 @@ impl App {
         self.scroll_offset = self.max_scroll();
     }
 
-    /// Cap output_lines to prevent unbounded memory growth.
+    /// Cap `output_lines` to prevent unbounded memory growth.
     fn cap_output_lines(&mut self) {
         const MAX_OUTPUT_LINES: usize = 10_000;
         if self.output_lines.len() > MAX_OUTPUT_LINES {

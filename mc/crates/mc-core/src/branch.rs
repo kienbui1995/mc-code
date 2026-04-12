@@ -23,7 +23,7 @@ impl BranchManager {
     /// New.
     pub fn new(branches_dir: PathBuf, max_branches: usize) -> Self {
         // Initialize counter from existing branches
-        let count = fs::read_dir(&branches_dir).map_or(0, |e| e.count());
+        let count = fs::read_dir(&branches_dir).map_or(0, std::iter::Iterator::count);
         Self {
             branches_dir,
             max_branches,
