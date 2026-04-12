@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.6.0 (2026-04-12)
+
+### Managed Agents & Agentic AI
+- **Manager-executor pattern** — delegate to cheap executor models, coordinate with expensive manager
+- **Named agents** — `agents/*.md` with model/tools/instructions, routed via `agent_name`
+- **codebase_search** — symbol-aware code retrieval with TF-IDF scoring
+- **edit_plan** — multi-file edit planning before execution
+- **Auto-verify** — syntax check (py/json) after writes, errors fed back for self-healing
+- **ToolInputDelta preview** — real-time streaming of what agent is writing
+- **FallbackProvider** — automatic failover to secondary provider
+- **Auto-permission learning** — approved tools remembered within session
+- **Smart compaction** — importance scoring keeps errors/writes during context compaction
+- **Structured output** — `ResponseFormat::Json` / `JsonSchema` for OpenAI-compatible providers
+- **Conversation search** — `Session.search()` with context snippets
+
+### Security
+- Subagent inherits parent permission policy (was hardcoded Allow)
+- Budget enforcement at runtime (was config-only)
+- Tool filter enforced at execution (was schema-only)
+- Config validation for managed agent numeric bounds
+
+### Quality
+- 192 tests (was 183)
+- 0 clippy warnings
+- 28 tools (was 26)
+- Version bump to 1.6.0
+
+## v1.5.0 (2026-04-11)
+
+### Managed Agents (initial)
+- Manager-executor architecture
+- Tool filtering per agent
+- Background agent polling
+- Configurable max_concurrent
+
+## v1.4.2 (2026-04-11)
+
+- Session branching wired to BranchManager
+- JSON output completeness (cost, cache tokens)
+- Token budget config
+
+## v1.4.1 (2026-04-11)
+
+- Named agents (`agents/*.md` with YAML frontmatter)
+- `--trace` structured logging
+- Audit timestamps
+- Security: `--yes` no longer bypasses bash
+
 ## v1.4.0 (2026-04-11)
 
 ### Release Highlights
