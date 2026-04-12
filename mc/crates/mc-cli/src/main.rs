@@ -1766,12 +1766,16 @@ fn build_system_prompt(project: &mc_config::ProjectContext) -> String {
          - `glob_search`: Find files by pattern. Use before reading to locate files.\n\
          - `grep_search`: Search file contents with regex. Use to find code references.\n\
          - `subagent`: Delegate independent subtasks to an isolated agent with its own context.\n\
+         - `codebase_search`: Search symbols and files by keyword. Use to find relevant code before reading.\n\
+         - `edit_plan`: Present a multi-file edit plan before making changes. Use when modifying 2+ files.\n\
          - `web_fetch`: Fetch content from a URL. Use to read documentation or API specs.\n\
          - `web_search`: Search the web for current information.\n\
          - `memory_read`/`memory_write`: Read/write persistent project facts across sessions.\n\n\
          ## Tool Usage Guidelines\n\
          - Always read a file before editing it.\n\
          - Use `edit_file` for small changes (< 20 lines), `write_file` for new files or major rewrites.\n\
+         - For multi-file changes, use `edit_plan` first to show the plan, then execute each step.\n\
+         - Use `codebase_search` to find relevant symbols before reading files.\n\
          - Use `glob_search` first to find files, then `read_file` to examine them.\n\
          - Use `grep_search` to find specific patterns across the codebase.\n\
          - Run tests after changes: `bash` with the project's test command.\n\

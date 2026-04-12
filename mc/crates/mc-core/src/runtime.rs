@@ -404,7 +404,12 @@ impl ConversationRuntime {
             for tool in pending_tools {
                 if matches!(
                     tool.1.as_str(),
-                    "subagent" | "memory_read" | "memory_write" | "ask_user" | "sleep"
+                    "subagent"
+                        | "memory_read"
+                        | "memory_write"
+                        | "ask_user"
+                        | "sleep"
+                        | "edit_plan"
                 ) || (review_writes
                     && matches!(
                         tool.1.as_str(),
@@ -867,6 +872,40 @@ impl ConversationRuntime {
             } else {
                 (format!("Task {id} not found or not running"), true)
             };
+        }
+
+        if name == "edit_plan" {
+            let title = input_val
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Edit Plan");
+            let steps = input_val.get("steps").and_then(|v| v.as_array());
+            if let Some(steps) = steps {
+                let mut plan = format!("📋 **{title}** ({} files)\n\n", steps.len());
+                for (i, step) in steps.iter().enumerate() {
+                    let file = step.get("file").and_then(|v| v.as_str()).unwrap_or("?");
+                    let action = step
+                        .get("action")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("edit");
+                    let desc = step
+                        .get("description")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let icon = match action {
+                        "create" => "✨",
+                        "delete" => "🗑️",
+                        _ => "✏️",
+                    };
+                    plan.push_str(&format!(
+                        "{}. {icon} **{action}** `{file}`\n   {desc}\n\n",
+                        i + 1
+                    ));
+                }
+                plan.push_str("Proceed with this plan? (The agent will now execute each step)");
+                return (plan, false);
+            }
+            return ("Invalid plan format: steps array required".into(), true);
         }
 
         if name == "codebase_search" {
