@@ -85,17 +85,67 @@ pub fn snip_thinking(session: &mut Session, keep_recent: usize) {
     }
 }
 
-/// Compact session.
+/// Compact session with importance scoring — keeps high-value messages.
 pub fn compact_session(session: &mut Session, preserve_recent: usize) {
     if session.messages.len() <= preserve_recent {
         return;
     }
     let split = session.messages.len() - preserve_recent;
     let old: Vec<_> = session.messages.drain(..split).collect();
-    let summary = build_naive_summary(&old);
+
+    // Score each old message by importance
+    let mut scored: Vec<(usize, f32, &ConversationMessage)> = old
+        .iter()
+        .enumerate()
+        .map(|(i, msg)| {
+            let mut score: f32 = 0.0;
+            // User messages with substantial content are important
+            if msg.role == Role::User && msg.content_len() > 50 {
+                score += 2.0;
+            }
+            // Messages with errors are important (context for fixes)
+            for block in &msg.blocks {
+                match block {
+                    Block::ToolResult { is_error, .. } if *is_error => score += 3.0,
+                    Block::ToolUse { name, .. }
+                        if matches!(
+                            name.as_str(),
+                            "write_file" | "edit_file" | "bash" | "memory_write"
+                        ) =>
+                    {
+                        score += 1.5
+                    }
+                    _ => {}
+                }
+            }
+            (i, score, msg)
+        })
+        .collect();
+
+    // Keep high-importance messages (score > 1.0), summarize the rest
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    let keep_count = scored.iter().filter(|(_, s, _)| *s > 1.0).count().min(5);
+    let kept_indices: std::collections::BTreeSet<usize> =
+        scored.iter().take(keep_count).map(|(i, _, _)| *i).collect();
+
+    let to_summarize: Vec<_> = old
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !kept_indices.contains(i))
+        .map(|(_, m)| m.clone())
+        .collect();
+
+    let summary = build_naive_summary(&to_summarize);
     session
         .messages
         .insert(0, ConversationMessage::user(summary));
+
+    // Re-insert kept important messages after summary
+    for (idx, msg) in old.iter().enumerate() {
+        if kept_indices.contains(&idx) {
+            session.messages.insert(1, msg.clone());
+        }
+    }
 }
 
 /// Smart compaction: use LLM to summarize old messages.
@@ -138,6 +188,7 @@ pub async fn smart_compact(
         tools: Vec::new(),
         tool_choice: None,
         thinking_budget: None,
+        response_format: None,
     };
 
     let mut summary = String::new();

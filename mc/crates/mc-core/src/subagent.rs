@@ -254,6 +254,7 @@ async fn run_simple_agent(
             tools: tools.clone(),
             tool_choice: Some(ToolChoice::Auto),
             thinking_budget: None,
+            response_format: None,
         };
 
         let mut stream = provider.stream(&request);
