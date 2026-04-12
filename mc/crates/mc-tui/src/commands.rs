@@ -393,6 +393,7 @@ fn cmd_template(app: &mut App, arg: &str) {
         "document" => "Add documentation to this code. Include doc comments, inline comments for complex logic, and a module-level overview.",
         "optimize" => "Analyze this code for performance. Identify bottlenecks and suggest optimizations with benchmarks.",
         "security" => "Audit this code for security vulnerabilities. Check for injection, auth issues, data leaks, and unsafe patterns.",
+        "debug" => "Enter Debug Mode. I'll describe a bug and you will:\n1. Generate 3-5 hypotheses about the root cause\n2. For each hypothesis, suggest specific instrumentation (logging/assertions)\n3. After I provide evidence, analyze which hypotheses are confirmed/eliminated\n4. Apply a targeted fix based on evidence\n5. Remove instrumentation and add a regression test\n\nUse the `debug` tool to structure each phase. Start by asking me to describe the bug.",
         _ => { app.push(&format!("Unknown template: {arg}")); return; }
     };
     app.push(&format!("📋 Template: {arg}"));

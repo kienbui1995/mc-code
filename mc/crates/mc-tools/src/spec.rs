@@ -388,5 +388,21 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["action"]
             }),
         },
+        ToolSpec {
+            name: "debug".into(),
+            description: "Structured debugging: generate hypotheses about a bug, instrument code with logging, analyze evidence, and produce targeted fixes. Use this when standard approaches fail.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["hypothesize", "instrument", "analyze", "fix"], "description": "Debug phase"},
+                    "bug_description": {"type": "string", "description": "Description of the bug (for 'hypothesize')"},
+                    "hypotheses": {"type": "array", "items": {"type": "string"}, "description": "List of hypotheses to test (for 'instrument')"},
+                    "file": {"type": "string", "description": "File to instrument or fix"},
+                    "evidence": {"type": "string", "description": "Collected evidence/logs (for 'analyze')"},
+                    "root_cause": {"type": "string", "description": "Identified root cause (for 'fix')"}
+                },
+                "required": ["action"]
+            }),
+        },
     ]
 }

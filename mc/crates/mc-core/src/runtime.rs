@@ -1205,6 +1205,8 @@ Fix this before continuing."
             }
         } else if name == "browser" {
             return execute_browser(&input_val).await;
+        } else if name == "debug" {
+            return execute_debug(&input_val);
         } else {
             let result = match self.tool_registry.execute(name, &input_val).await {
                 Ok(out) => (out, false),
@@ -1630,5 +1632,93 @@ const {{ chromium }} = require('playwright');
                 (format!("Failed to run browser: {e}"), true)
             }
         }
+    }
+}
+
+/// Structured debug mode — guides agent through hypothesis-driven debugging.
+fn execute_debug(input: &serde_json::Value) -> (String, bool) {
+    let action = input.get("action").and_then(|v| v.as_str()).unwrap_or("");
+    match action {
+        "hypothesize" => {
+            let bug = input
+                .get("bug_description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown bug");
+            let prompt = format!(
+                "🔍 **Debug Mode — Hypothesis Generation**\n\n\
+                 Bug: {bug}\n\n\
+                 Generate 3-5 hypotheses about what could cause this bug.\n\
+                 For each hypothesis:\n\
+                 1. What could be wrong\n\
+                 2. How to verify (what logging/instrumentation to add)\n\
+                 3. Expected vs actual behavior if this hypothesis is correct\n\n\
+                 Next step: Use `debug` with action='instrument' to add logging for each hypothesis."
+            );
+            (prompt, false)
+        }
+        "instrument" => {
+            let file = input.get("file").and_then(|v| v.as_str()).unwrap_or("");
+            let hypotheses = input
+                .get("hypotheses")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n- ")
+                })
+                .unwrap_or_default();
+            if file.is_empty() {
+                return ("file is required for instrument".into(), true);
+            }
+            let prompt = format!(
+                "🔧 **Debug Mode — Instrumentation**\n\n\
+                 File: `{file}`\n\
+                 Testing hypotheses:\n- {hypotheses}\n\n\
+                 Add targeted logging/assertions to verify each hypothesis.\n\
+                 Use `edit_file` to add:\n\
+                 - Print/log statements at key decision points\n\
+                 - Variable value dumps before/after suspect operations\n\
+                 - Timing markers for race condition hypotheses\n\n\
+                 After adding instrumentation, reproduce the bug and collect output.\n\
+                 Then use `debug` with action='analyze' and the collected evidence."
+            );
+            (prompt, false)
+        }
+        "analyze" => {
+            let evidence = input.get("evidence").and_then(|v| v.as_str()).unwrap_or("");
+            if evidence.is_empty() {
+                return ("evidence is required for analyze".into(), true);
+            }
+            let prompt = format!(
+                "🧪 **Debug Mode — Evidence Analysis**\n\n\
+                 Evidence collected:\n```\n{evidence}\n```\n\n\
+                 Analyze the evidence against each hypothesis:\n\
+                 1. Which hypotheses are confirmed/eliminated?\n\
+                 2. What is the most likely root cause?\n\
+                 3. Is more evidence needed?\n\n\
+                 If root cause identified, use `debug` with action='fix'."
+            );
+            (prompt, false)
+        }
+        "fix" => {
+            let root_cause = input
+                .get("root_cause")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let file = input.get("file").and_then(|v| v.as_str()).unwrap_or("");
+            let prompt = format!(
+                "🔨 **Debug Mode — Targeted Fix**\n\n\
+                 Root cause: {root_cause}\n\
+                 File: `{file}`\n\n\
+                 Apply a targeted fix:\n\
+                 1. Fix the root cause\n\
+                 2. Remove instrumentation/logging added during debug\n\
+                 3. Add a regression test\n\
+                 4. Verify the fix resolves the original bug"
+            );
+            (prompt, false)
+        }
+        _ => (format!("Unknown debug action: {action}"), true),
     }
 }
