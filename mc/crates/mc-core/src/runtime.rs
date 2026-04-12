@@ -411,6 +411,8 @@ impl ConversationRuntime {
                         | "ask_user"
                         | "sleep"
                         | "edit_plan"
+                        | "debug"
+                        | "browser"
                 ) || (review_writes
                     && matches!(
                         tool.1.as_str(),
@@ -1205,6 +1207,8 @@ Fix this before continuing."
             }
         } else if name == "browser" {
             return execute_browser(&input_val).await;
+        } else if name == "debug" {
+            return crate::debug::execute_debug(&input_val);
         } else {
             let result = match self.tool_registry.execute(name, &input_val).await {
                 Ok(out) => (out, false),

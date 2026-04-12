@@ -388,5 +388,27 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                 "required": ["action"]
             }),
         },
+        ToolSpec {
+            name: "debug".into(),
+            description: "Structured debugging: generate hypotheses about a bug, instrument code with logging, analyze evidence, and produce targeted fixes. Use this when standard approaches fail.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["hypothesize", "instrument", "analyze", "fix"], "description": "Debug phase"},
+                    "bug_description": {"type": "string", "description": "Description of the bug (required for 'hypothesize')"},
+                    "hypotheses": {"type": "array", "items": {"type": "string"}, "description": "List of hypotheses to test (for 'instrument')"},
+                    "file": {"type": "string", "description": "File to instrument or fix (required for 'instrument' and 'fix')"},
+                    "evidence": {"type": "string", "description": "Collected evidence/logs (required for 'analyze')"},
+                    "root_cause": {"type": "string", "description": "Identified root cause (required for 'fix')"}
+                },
+                "required": ["action"],
+                "allOf": [
+                    {"if": {"properties": {"action": {"const": "hypothesize"}}, "required": ["action"]}, "then": {"required": ["bug_description"]}},
+                    {"if": {"properties": {"action": {"const": "instrument"}}, "required": ["action"]}, "then": {"required": ["file"]}},
+                    {"if": {"properties": {"action": {"const": "analyze"}}, "required": ["action"]}, "then": {"required": ["evidence"]}},
+                    {"if": {"properties": {"action": {"const": "fix"}}, "required": ["action"]}, "then": {"required": ["root_cause", "file"]}}
+                ]
+            }),
+        },
     ]
 }
