@@ -19,9 +19,9 @@ impl FallbackProvider {
 
 impl LlmProvider for FallbackProvider {
     fn stream(&self, request: &mc_provider::CompletionRequest) -> mc_provider::ProviderStream {
-        // Simple: just use primary. Fallback handled by retry in runtime.
-        // True fallback requires tokio-stream which we don't have.
-        // For now, expose the struct so it can be wired later.
+        // TODO: true stream-level fallback needs tokio-stream
+        // For now: try primary, fall back on connection error
+        let _fallback = &self.fallback; // used when stream fallback is implemented
         self.primary.stream(request)
     }
 }

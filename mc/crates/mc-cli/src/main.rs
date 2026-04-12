@@ -50,24 +50,34 @@ impl mc_tools::PermissionPrompter for TuiPrompter {
 )]
 #[allow(clippy::struct_excessive_bools)]
 struct Cli {
+    /// LLM model to use.
     #[arg(long, default_value = "claude-sonnet-4-20250514")]
     model: String,
+    /// Max tokens per response.
     #[arg(long, default_value = "8192")]
     max_tokens: u32,
+    /// LLM provider (anthropic, openai, gemini, groq, etc.).
     #[arg(long, default_value = "anthropic")]
     provider: String,
+    /// Custom API base URL.
     #[arg(long)]
     base_url: Option<String>,
+    /// API key (overrides env var).
     #[arg(long)]
     api_key: Option<String>,
+    /// Enable verbose output.
     #[arg(long, short)]
     verbose: bool,
+    /// Resume last session.
     #[arg(long)]
     resume: bool,
+    /// Resume a specific session by ID.
     #[arg(long)]
     session_id: Option<String>,
+    /// Read prompt from stdin (pipe mode).
     #[arg(long)]
     pipe: bool,
+    /// Write final output to file.
     #[arg(long, short)]
     output: Option<String>,
     /// Output results as JSON (for automation/scripting).
