@@ -88,6 +88,8 @@ pub struct ConfigLayer {
     pub mcp_servers: Vec<McpServerConfig>,
     #[serde(default)]
     pub hooks: Vec<HookConfig>,
+    #[serde(default)]
+    pub managed_agents: ManagedAgentConfig,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -126,9 +128,21 @@ pub struct McpServerConfig {
     pub env: BTreeMap<String, String>,
 }
 
+/// Managed agent configuration.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct ManagedAgentConfig {
+    pub enabled: bool,
+    pub manager_model: Option<String>,
+    pub executor_model: Option<String>,
+    pub executor_max_turns: Option<usize>,
+    pub max_concurrent: Option<usize>,
+    pub isolation: Option<String>,
+    pub budget_usd: Option<f64>,
+}
+
 /// Hook configuration.
 #[derive(Debug, Clone, Deserialize)]
-/// Hookconfig.
 pub struct HookConfig {
     pub event: String,
     pub command: String,
@@ -165,6 +179,7 @@ pub struct RuntimeConfig {
     pub model_aliases: std::collections::HashMap<String, String>,
     pub protected_patterns: Vec<String>,
     pub tool_permissions: std::collections::HashMap<String, String>,
+    pub managed_agents: ManagedAgentConfig,
 }
 
 impl RuntimeConfig {
@@ -296,6 +311,10 @@ impl RuntimeConfig {
             model_aliases: std::collections::HashMap::new(),
             protected_patterns: Vec::new(),
             tool_permissions,
+            managed_agents: layers
+                .last()
+                .map(|l| l.managed_agents.clone())
+                .unwrap_or_default(),
         }
     }
 
@@ -319,6 +338,18 @@ impl RuntimeConfig {
         for mcp in &self.mcp_servers {
             if mcp.command.is_empty() {
                 warnings.push(format!("MCP server '{}' has empty command", mcp.name));
+            }
+        }
+        if self.managed_agents.enabled {
+            if let Some(t) = self.managed_agents.executor_max_turns {
+                if t == 0 {
+                    warnings.push("managed_agents.executor_max_turns is 0".into());
+                }
+            }
+            if let Some(b) = self.managed_agents.budget_usd {
+                if b <= 0.0 {
+                    warnings.push("managed_agents.budget_usd must be positive".into());
+                }
             }
         }
         warnings
