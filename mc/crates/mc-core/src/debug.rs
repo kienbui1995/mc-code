@@ -1,12 +1,13 @@
 /// Structured debug mode — guides agent through hypothesis-driven debugging.
+#[must_use]
 pub fn execute_debug(input: &serde_json::Value) -> (String, bool) {
     let action = input.get("action").and_then(|v| v.as_str()).unwrap_or("");
     match action {
         "hypothesize" => {
-            let bug = input
-                .get("bug_description")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown bug");
+            let bug = match input.get("bug_description").and_then(|v| v.as_str()) {
+                Some(b) if !b.is_empty() => b,
+                _ => return ("bug_description is required for hypothesize".into(), true),
+            };
             (format!(
                 "🔍 **Debug Mode — Hypothesis Generation**\n\n\
                  Bug: {bug}\n\n\
@@ -108,6 +109,13 @@ mod tests {
             execute_debug(&json!({"action": "hypothesize", "bug_description": "crash on login"}));
         assert!(!err);
         assert!(out.contains("crash on login"));
+    }
+
+    #[test]
+    fn hypothesize_requires_bug_description() {
+        let (out, err) = execute_debug(&json!({"action": "hypothesize"}));
+        assert!(err);
+        assert!(out.contains("bug_description is required"));
     }
 
     #[test]
