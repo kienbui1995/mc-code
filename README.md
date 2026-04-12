@@ -27,15 +27,32 @@
 
 ## Install
 
+### Quick install (Linux/macOS)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh | sh
 ```
 
-Or build from source:
+### Download binary
+Pre-built binaries for Linux (x86_64, aarch64) and macOS (x86_64, aarch64):
+```bash
+# Latest release
+gh release download --repo kienbui1995/mc-code --pattern '*linux-x86_64*'
+tar xzf magic-code-linux-x86_64.tar.gz
+sudo mv magic-code /usr/local/bin/
+```
+
+### Build from source
 ```bash
 git clone https://github.com/kienbui1995/mc-code.git
 cd mc-code/mc
 cargo install --path crates/mc-cli
+```
+
+### Setup
+```bash
+export ANTHROPIC_API_KEY="your-key"   # or OPENAI_API_KEY, GEMINI_API_KEY, etc.
+magic-code                             # start TUI
+magic-code "fix the bug in auth.rs"   # single-shot mode
 ```
 
 ## Features
@@ -43,7 +60,7 @@ cargo install --path crates/mc-cli
 ### Multi-Provider
 Works with **15 providers**: Anthropic, OpenAI, Gemini, Groq, DeepSeek, Mistral, xAI, OpenRouter, Together, Perplexity, Cohere, Cerebras, Ollama, LM Studio, llama.cpp. Switch mid-session with `/model`.
 
-### 26 Built-in Tools
+### 28 Built-in Tools
 | Tool | Description |
 |------|-------------|
 | `bash` | Execute shell commands (streaming output) |

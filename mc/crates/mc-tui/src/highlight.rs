@@ -34,7 +34,13 @@ impl Highlighter {
             .theme_set
             .themes
             .get(&self.theme_name)
-            .unwrap_or_else(|| self.theme_set.themes.values().next().unwrap());
+            .unwrap_or_else(|| {
+                self.theme_set
+                    .themes
+                    .values()
+                    .next()
+                    .expect("theme_set must have at least one theme")
+            });
 
         let mut h = HighlightLines::new(syntax, theme);
         let mut lines = Vec::new();
