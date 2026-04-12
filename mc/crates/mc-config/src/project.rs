@@ -118,6 +118,7 @@ fn detect_stack(cwd: &Path) -> Vec<String> {
 /// Load instruction files hierarchically from filesystem root to cwd.
 /// Checks each directory for CLAUDE.md, AGENTS.md, .claude/CLAUDE.md, .magic-code/instructions.md
 /// Files are loaded root-first so child directories can override parent.
+#[must_use]
 pub fn load_hierarchical_instructions(cwd: &Path) -> Vec<(PathBuf, String)> {
     let mut results = Vec::new();
     let names = [
@@ -147,6 +148,7 @@ pub fn load_hierarchical_instructions(cwd: &Path) -> Vec<(PathBuf, String)> {
 
 /// Process @include directives in instruction content.
 /// Format: @include path/to/file.md (relative to the including file's directory)
+#[must_use]
 pub fn resolve_includes(base_dir: &Path, content: &str) -> String {
     let mut result = String::new();
     for line in content.lines() {

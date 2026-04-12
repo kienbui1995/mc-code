@@ -352,6 +352,9 @@ async fn run_tui(
         let mut rt =
             mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
         rt.set_tool_registry(tool_registry);
+        if let Some(n) = config.managed_agents.max_concurrent {
+            rt.set_max_concurrent_agents(n);
+        }
         if !hooks.is_empty() {
             rt.set_hooks(mc_tools::HookEngine::new(hooks));
         }
@@ -433,8 +436,7 @@ async fn run_tui(
                     if let Some(max_usd) = cli_max_budget {
                         if app.session_cost >= max_usd {
                             app.handle_event(AppEvent::Error(format!(
-                                "Budget limit reached: ${:.2}",
-                                max_usd
+                                "Budget limit reached: ${max_usd:.2}"
                             )));
                             break;
                         }
@@ -442,19 +444,17 @@ async fn run_tui(
                     if let Some(max_t) = cli_max_turns {
                         if turn_count >= max_t {
                             app.handle_event(AppEvent::Error(format!(
-                                "Turn limit reached: {}",
-                                max_t
+                                "Turn limit reached: {max_t}"
                             )));
                             break;
                         }
                     }
                     if let Some(max_tok) = cli_max_tokens_total {
-                        if (app.total_input_tokens as u64 + app.total_output_tokens as u64)
+                        if (u64::from(app.total_input_tokens) + u64::from(app.total_output_tokens))
                             >= max_tok
                         {
                             app.handle_event(AppEvent::Error(format!(
-                                "Token limit reached: {}",
-                                max_tok
+                                "Token limit reached: {max_tok}"
                             )));
                             break;
                         }
@@ -1067,7 +1067,7 @@ async fn run_tui(
                                             .push(format!("🌿 Switched to branch '{name}'"));
                                     }
                                     Err(e) => {
-                                        app.output_lines.push(format!("❌ Switch failed: {e}"))
+                                        app.output_lines.push(format!("❌ Switch failed: {e}"));
                                     }
                                 }
                             }
@@ -1077,13 +1077,13 @@ async fn run_tui(
                                     .parent()
                                     .unwrap_or(std::path::Path::new("."))
                                     .join("branches");
-                                let mut branch_mgr = mc_core::BranchManager::new(branch_dir, 10);
+                                let branch_mgr = mc_core::BranchManager::new(branch_dir, 10);
                                 match branch_mgr.delete_branch(name) {
                                     Ok(()) => {
-                                        app.output_lines.push(format!("🗑 Deleted branch '{name}'"))
+                                        app.output_lines.push(format!("🗑 Deleted branch '{name}'"));
                                     }
                                     Err(e) => {
-                                        app.output_lines.push(format!("❌ Delete failed: {e}"))
+                                        app.output_lines.push(format!("❌ Delete failed: {e}"));
                                     }
                                 }
                             }

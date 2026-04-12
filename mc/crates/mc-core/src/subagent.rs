@@ -36,7 +36,10 @@ impl SharedContext {
     /// Get all entries as a formatted string for injection into subagent context.
     #[must_use]
     pub fn summary(&self) -> String {
-        let map = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let map = self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if map.is_empty() {
             return String::new();
         }
@@ -81,7 +84,7 @@ impl SubagentSpawner {
         let results = self
             .background_results
             .lock()
-            .unwrap_or_else(|e| e.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         results.get(agent_id).cloned()
     }
 
@@ -174,7 +177,7 @@ impl SubagentSpawner {
         let results = self
             .background_results
             .lock()
-            .unwrap_or_else(|e| e.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         results
             .iter()
             .map(|(id, r)| (id.clone(), r.is_some()))
@@ -204,7 +207,7 @@ async fn run_simple_agent(
         .all_specs()
         .iter()
         .filter(|s| s.name != "subagent")
-        .filter(|s| allowed_tools.map_or(true, |at| at.iter().any(|a| a == &s.name)))
+        .filter(|s| allowed_tools.is_none_or(|at| at.iter().any(|a| a == &s.name)))
         .map(|s| ToolDefinition {
             name: s.name.clone(),
             description: s.description.clone(),
@@ -258,7 +261,7 @@ async fn run_simple_agent(
                     messages.push(ConversationMessage::tool_result(
                         &id,
                         &name,
-                        &format!("Tool '{name}' not allowed for this agent"),
+                        format!("Tool '{name}' not allowed for this agent"),
                         true,
                     ));
                     continue;

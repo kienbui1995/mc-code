@@ -28,7 +28,7 @@ pub struct ToolRegistry {
     plugin_specs: Vec<ToolSpec>,
     cached_specs: std::sync::OnceLock<Vec<ToolSpec>>,
     read_files: std::sync::Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
-    /// When true, write_file/edit_file require interactive approval with diff preview.
+    /// When true, `write_file/edit_file` require interactive approval with diff preview.
     pub review_writes: std::sync::atomic::AtomicBool,
 }
 
@@ -230,11 +230,14 @@ impl ToolRegistry {
                 let path = self.check_path(str_field(input, "path")?)?;
                 // Read-before-write enforcement
                 {
-                    let reads = self.read_files.lock().unwrap_or_else(|e| e.into_inner());
+                    let reads = self
+                        .read_files
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     let file_exists = std::path::Path::new(&path).exists();
                     if file_exists && !reads.contains(&path) {
                         return Err(ToolError::ExecutionFailed(
-                            format!("Cannot write to '{}': file has not been read in this session. Use read_file first.", path)
+                            format!("Cannot write to '{path}': file has not been read in this session. Use read_file first.")
                         ));
                     }
                 }
@@ -252,11 +255,14 @@ impl ToolRegistry {
                 let path = self.check_path(str_field(input, "path")?)?;
                 // Read-before-write enforcement
                 {
-                    let reads = self.read_files.lock().unwrap_or_else(|e| e.into_inner());
+                    let reads = self
+                        .read_files
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     let file_exists = std::path::Path::new(&path).exists();
                     if file_exists && !reads.contains(&path) {
                         return Err(ToolError::ExecutionFailed(
-                            format!("Cannot write to '{}': file has not been read in this session. Use read_file first.", path)
+                            format!("Cannot write to '{path}': file has not been read in this session. Use read_file first.")
                         ));
                     }
                 }

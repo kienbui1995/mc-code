@@ -135,11 +135,15 @@ impl ConversationRuntime {
     pub fn set_tool_registry(&mut self, registry: ToolRegistry) {
         self.tool_registry = Arc::new(registry);
     }
-    /// Set review_writes flag on the tool registry.
+    /// Set `review_writes` flag on the tool registry.
     pub fn set_review_writes(&self, enabled: bool) {
         self.tool_registry
             .review_writes
             .store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+    /// Set max concurrent subagents.
+    pub fn set_max_concurrent_agents(&mut self, n: usize) {
+        self.subagent.set_max_concurrent(n);
     }
     /// Set retry policy.
     pub fn set_retry_policy(&mut self, policy: RetryPolicy) {
@@ -496,10 +500,10 @@ impl ConversationRuntime {
                             let fail_msg = format!(
                                 "Tests failed after code changes. Fix the errors:\n```\n{}{}\n```",
                                 &stdout[..stdout.len().min(2000)],
-                                if !stderr.is_empty() {
-                                    format!("\nSTDERR:\n{}", &stderr[..stderr.len().min(500)])
-                                } else {
+                                if stderr.is_empty() {
                                     String::new()
+                                } else {
+                                    format!("\nSTDERR:\n{}", &stderr[..stderr.len().min(500)])
                                 }
                             );
                             on_event(&ProviderEvent::ToolOutputDelta("❌ Tests failed\n".into()));
@@ -983,7 +987,7 @@ impl ConversationRuntime {
                 });
             let max_turns = input_val
                 .get("max_turns")
-                .and_then(|v| v.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .map(|v| v as usize);
             let sub_prompt = if context.is_empty() {
                 task.to_string()

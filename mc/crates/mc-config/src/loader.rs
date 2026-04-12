@@ -54,6 +54,7 @@ pub fn load_layer(path: &Path) -> Result<ConfigLayer, ConfigError> {
 
 /// Check if config file has been modified since last load.
 /// Returns the new modification time if changed, None if unchanged.
+#[must_use]
 pub fn config_changed(
     path: &std::path::Path,
     last_mtime: &std::time::SystemTime,
@@ -64,7 +65,7 @@ pub fn config_changed(
         .filter(|mtime| mtime > last_mtime)
 }
 
-/// Reload config if the file has changed. Returns Some(new_config) if reloaded.
+/// Reload config if the file has changed. Returns `Some(new_config)` if reloaded.
 pub fn maybe_reload(
     path: &std::path::Path,
     last_mtime: &mut std::time::SystemTime,

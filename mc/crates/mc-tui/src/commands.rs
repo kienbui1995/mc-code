@@ -617,8 +617,7 @@ fn cmd_add(app: &mut App, arg: &str) {
 }
 
 fn cmd_sessions(app: &mut App, arg: &str) {
-    if arg.starts_with("delete ") {
-        let name = &arg[7..];
+    if let Some(name) = arg.strip_prefix("delete ") {
         app.pending_command = Some(PendingCommand::Search(format!("__delete__{name}")));
         app.push(&format!("Deleting session: {name}"));
     } else {
@@ -638,7 +637,7 @@ fn cmd_resume(app: &mut App, arg: &str) {
 fn cmd_unknown(app: &mut App, cmd: &str, cmd_name: &str) {
     let name = cmd_name.trim_start_matches('/');
     if let Some((_, content)) = app.custom_commands.iter().find(|(n, _)| n == name) {
-        let args = cmd.splitn(2, ' ').nth(1).unwrap_or("");
+        let args = cmd.split_once(' ').map_or("", |x| x.1);
         let prompt = content.replace("$ARGUMENTS", args);
         app.input.set(&prompt);
         app.push(&format!("📋 Command: {name}"));
@@ -759,15 +758,16 @@ fn cmd_connect(app: &mut App, arg: &str) {
         .is_some();
     if has_key {
         app.push(&format!("✓ {arg} already configured ({env_var} is set)"));
-        app.push(&format!("  Switch with: /model <model-name>"));
+        app.push("  Switch with: /model <model-name>");
     } else {
         app.push(&format!("To connect {arg}:"));
         app.push(&format!("  1. Get API key: {url}"));
         app.push(&format!("  2. Set: export {env_var}=<your-key>"));
-        app.push(&format!("  3. Switch: /model <model-name>"));
+        app.push("  3. Switch: /model <model-name>");
     }
 }
 
+#[must_use]
 pub fn random_tip() -> &'static str {
     const TIPS: &[&str] = &[
         "Use @filename to auto-include file content in your prompt",
