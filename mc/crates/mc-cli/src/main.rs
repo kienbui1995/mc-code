@@ -154,7 +154,16 @@ fn main() -> Result<()> {
     }
     let project = mc_config::ProjectContext::discover(&cwd);
     let model = if cli.model == "claude-sonnet-4-20250514" {
-        config.model.clone()
+        // Use manager_model if managed agents enabled, otherwise config model
+        if config.managed_agents.enabled {
+            config
+                .managed_agents
+                .manager_model
+                .clone()
+                .unwrap_or_else(|| config.model.clone())
+        } else {
+            config.model.clone()
+        }
     } else {
         cli.model.clone()
     };

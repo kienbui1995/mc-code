@@ -56,6 +56,7 @@ pub struct SubagentSpawner {
     model: String,
     max_tokens: u32,
     active_count: usize,
+    max_concurrent: usize,
     pub shared_context: SharedContext,
     background_results: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
@@ -68,6 +69,7 @@ impl SubagentSpawner {
             model,
             max_tokens,
             active_count: 0,
+            max_concurrent: MAX_CONCURRENT_SUBAGENTS,
             shared_context: SharedContext::default(),
             background_results: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -94,7 +96,7 @@ impl SubagentSpawner {
         allowed_tools: Option<&[String]>,
         max_turns: Option<usize>,
     ) -> Result<String, ProviderError> {
-        if self.active_count >= MAX_CONCURRENT_SUBAGENTS {
+        if self.active_count >= self.max_concurrent {
             return Ok("[subagent limit reached, task queued]".to_string());
         }
 
@@ -161,6 +163,11 @@ impl SubagentSpawner {
         self.active_count
     }
 
+    /// Set max concurrent agents.
+    pub fn set_max_concurrent(&mut self, n: usize) {
+        self.max_concurrent = n;
+    }
+
     /// List background agent IDs and their status.
     #[must_use]
     pub fn list_background(&self) -> Vec<(String, bool)> {
@@ -205,6 +212,10 @@ async fn run_simple_agent(
         })
         .collect();
 
+    // Build allowed tool names set for enforcement
+    let allowed_set: Option<std::collections::HashSet<&str>> =
+        allowed_tools.map(|at| at.iter().map(String::as_str).collect());
+
     for _ in 0..max_iters {
         let request = CompletionRequest {
             model: model.to_string(),
@@ -241,6 +252,18 @@ async fn run_simple_agent(
 
         for (id, name, input) in pending_tools {
             messages.push(ConversationMessage::tool_use(&id, &name, &input));
+            // Enforce tool filter at execution time
+            if let Some(ref allowed) = allowed_set {
+                if !allowed.contains(name.as_str()) {
+                    messages.push(ConversationMessage::tool_result(
+                        &id,
+                        &name,
+                        &format!("Tool '{name}' not allowed for this agent"),
+                        true,
+                    ));
+                    continue;
+                }
+            }
             let outcome = policy.authorize(&name, &input, None);
             let (tool_output, is_error) = match outcome {
                 PermissionOutcome::Allow => {

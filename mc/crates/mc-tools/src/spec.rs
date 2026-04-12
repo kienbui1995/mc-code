@@ -97,11 +97,10 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                     "task": { "type": "string", "description": "The task description for the subagent" },
                     "context": { "type": "string", "description": "Optional context to provide (file contents, specs, etc)" },
                     "model": { "type": "string", "description": "Optional model override (e.g. 'claude-haiku-4-5' for cheaper tasks)" },
-                    "tools": { "type": "array", "items": { "type": "string" }, "description": "Optional: restrict which tools the agent can use" },
-                    "max_turns": { "type": "number", "description": "Optional: max turns for this agent (default 8)" },
-                    "poll_agent_id": { "type": "string", "description": "Poll a background agent's result by ID" }
-                },
-                "required": ["task"]
+                    "tools": { "type": "array", "items": { "type": "string" }, "description": "Optional: restrict which tools the agent can use (enforced at execution)" },
+                    "max_turns": { "type": "integer", "description": "Optional: max turns for this agent (default 8)" },
+                    "poll_agent_id": { "type": "string", "description": "Poll a background agent's result by ID (no task needed)" }
+                }
             }),
         },
         ToolSpec {

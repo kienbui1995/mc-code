@@ -340,6 +340,18 @@ impl RuntimeConfig {
                 warnings.push(format!("MCP server '{}' has empty command", mcp.name));
             }
         }
+        if self.managed_agents.enabled {
+            if let Some(t) = self.managed_agents.executor_max_turns {
+                if t == 0 {
+                    warnings.push("managed_agents.executor_max_turns is 0".into());
+                }
+            }
+            if let Some(b) = self.managed_agents.budget_usd {
+                if b <= 0.0 {
+                    warnings.push("managed_agents.budget_usd must be positive".into());
+                }
+            }
+        }
         warnings
     }
 }
