@@ -332,4 +332,32 @@ mod tests {
         let spawner = SubagentSpawner::new("test".into(), 1000);
         assert_eq!(spawner.active_count(), 0);
     }
+
+    #[test]
+    fn max_concurrent_configurable() {
+        let mut spawner = SubagentSpawner::new("test".into(), 1000);
+        spawner.set_max_concurrent(2);
+        assert_eq!(spawner.active_count(), 0);
+    }
+
+    #[test]
+    fn background_poll_missing_returns_none() {
+        let spawner = SubagentSpawner::new("test".into(), 1000);
+        assert!(spawner.poll_background("nonexistent").is_none());
+    }
+
+    #[test]
+    fn list_background_empty() {
+        let spawner = SubagentSpawner::new("test".into(), 1000);
+        assert!(spawner.list_background().is_empty());
+    }
+
+    #[test]
+    fn shared_context_roundtrip() {
+        let spawner = SubagentSpawner::new("test".into(), 1000);
+        spawner.shared_context.set("key1", "value1");
+        let summary = spawner.shared_context.summary();
+        assert!(summary.contains("key1"));
+        assert!(summary.contains("value1"));
+    }
 }

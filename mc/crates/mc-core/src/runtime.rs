@@ -69,6 +69,7 @@ pub struct ConversationRuntime {
     hook_engine: Option<Arc<HookEngine>>,
     model_registry: ModelRegistry,
     subagent: SubagentSpawner,
+    agents: Vec<crate::agents::AgentDef>,
     audit_log: Option<Arc<AuditLog>>,
     tool_registry: Arc<ToolRegistry>,
     token_budget: TokenBudget,
@@ -107,6 +108,7 @@ impl ConversationRuntime {
             hook_engine: None,
             model_registry,
             subagent,
+            agents: Vec::new(),
             audit_log,
             tool_registry: Arc::new(ToolRegistry::new()),
             token_budget,
@@ -144,6 +146,10 @@ impl ConversationRuntime {
     /// Set max concurrent subagents.
     pub fn set_max_concurrent_agents(&mut self, n: usize) {
         self.subagent.set_max_concurrent(n);
+    }
+    /// Set named agent definitions.
+    pub fn set_agents(&mut self, agents: Vec<crate::agents::AgentDef>) {
+        self.agents = agents;
     }
     /// Set retry policy.
     pub fn set_retry_policy(&mut self, policy: RetryPolicy) {
@@ -976,7 +982,13 @@ impl ConversationRuntime {
                 .get("context")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let model_override = input_val.get("model").and_then(|v| v.as_str());
+            let agent_name = input_val.get("agent_name").and_then(|v| v.as_str());
+            let agent_def = agent_name.and_then(|n| self.agents.iter().find(|a| a.name == n));
+            let model_override = input_val
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| agent_def.and_then(|a| a.model.clone()));
             let allowed_tools: Option<Vec<String>> = input_val
                 .get("tools")
                 .and_then(|v| v.as_array())
@@ -984,16 +996,29 @@ impl ConversationRuntime {
                     arr.iter()
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect()
+                })
+                .or_else(|| {
+                    agent_def
+                        .filter(|a| !a.allowed_tools.is_empty())
+                        .map(|a| a.allowed_tools.clone())
                 });
             let max_turns = input_val
                 .get("max_turns")
                 .and_then(serde_json::Value::as_u64)
                 .map(|v| v as usize);
-            let sub_prompt = if context.is_empty() {
-                task.to_string()
-            } else {
-                format!("{task}\n\nContext:\n{context}")
-            };
+            // Build prompt: agent instructions + task + context
+            let mut sub_prompt = String::new();
+            if let Some(def) = agent_def {
+                if !def.instructions.is_empty() {
+                    sub_prompt.push_str(&def.instructions);
+                    sub_prompt.push_str("\n\n");
+                }
+            }
+            sub_prompt.push_str(task);
+            if !context.is_empty() {
+                sub_prompt.push_str("\n\nContext:\n");
+                sub_prompt.push_str(context);
+            }
             // Poll background agent
             if let Some(agent_id) = input_val.get("poll_agent_id").and_then(|v| v.as_str()) {
                 return match self.subagent.poll_background(agent_id) {
@@ -1012,7 +1037,7 @@ impl ConversationRuntime {
                     &sub_prompt,
                     &self.system_prompt,
                     &self.tool_registry,
-                    model_override,
+                    model_override.as_deref(),
                     allowed_tools.as_deref(),
                     max_turns,
                 )
