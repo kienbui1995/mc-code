@@ -289,6 +289,18 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
             }),
         },
         ToolSpec {
+            name: "codebase_search".into(),
+            description: "Search the codebase for symbols (functions, structs, classes) and files matching a query. Returns ranked results with file paths and matching symbols. Use this to find relevant code before reading files.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query — function names, class names, concepts (e.g. 'authentication handler', 'SubagentSpawner')"},
+                    "max_results": {"type": "integer", "description": "Max results to return (default 10)"}
+                },
+                "required": ["query"]
+            }),
+        },
+        ToolSpec {
             name: "sleep".into(),
             description: "Pause execution for a duration. Useful in polling loops or waiting for processes. Max 60 seconds.".into(),
             input_schema: serde_json::json!({

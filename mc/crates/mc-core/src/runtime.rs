@@ -78,7 +78,7 @@ pub struct ConversationRuntime {
     pending_image: Option<(String, String)>, // (path, media_type)
     thinking_budget: Option<u32>,
     context_resolver: Option<ContextResolver>,
-    repo_map: Option<String>,
+    repo_map: Option<RepoMap>,
     undo_manager: UndoManager,
     tool_cache: ToolCache,
     cost_tracker: Option<crate::cost::CostTracker>,
@@ -190,7 +190,7 @@ impl ConversationRuntime {
     pub fn set_repo_map(&mut self, root: &std::path::Path) {
         let map = RepoMap::build(root);
         if map.file_count() > 0 {
-            self.repo_map = Some(map.to_prompt_section());
+            self.repo_map = Some(map);
         }
     }
 
@@ -869,6 +869,43 @@ impl ConversationRuntime {
             };
         }
 
+        if name == "codebase_search" {
+            let query = input_val
+                .get("query")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let max = input_val
+                .get("max_results")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(10) as usize;
+            if let Some(ref map) = self.repo_map {
+                let results = map.search(query, max);
+                if results.is_empty() {
+                    return ("No matching files or symbols found.".into(), false);
+                }
+                let out: Vec<String> = results
+                    .iter()
+                    .map(|r| {
+                        if r.symbols.is_empty() {
+                            format!("📄 {} (score: {:.1})", r.path, r.score)
+                        } else {
+                            format!(
+                                "📄 {} (score: {:.1})\n   {}",
+                                r.path,
+                                r.score,
+                                r.symbols.join(", ")
+                            )
+                        }
+                    })
+                    .collect();
+                return (out.join("\n"), false);
+            }
+            return (
+                "Repo map not initialized. Run from a project directory.".into(),
+                true,
+            );
+        }
+
         if name == "todo_write" {
             let todos = input_val.get("todos").and_then(|v| v.as_array());
             if let Some(items) = todos {
@@ -1275,7 +1312,9 @@ impl ConversationRuntime {
                     self.system_prompt,
                     self.hierarchical_instructions.as_deref().unwrap_or(""),
                     memory_section,
-                    self.repo_map.as_deref().unwrap_or("")
+                    self.repo_map
+                        .as_ref()
+                        .map_or(String::new(), |m| m.to_prompt_section())
                 ),
             )
         };
