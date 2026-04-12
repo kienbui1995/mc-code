@@ -47,6 +47,12 @@ impl PermissionPolicy {
     }
 
     #[must_use]
+    /// Get default permission mode.
+    pub fn mode(&self) -> PermissionMode {
+        self.default_mode
+    }
+
+    #[must_use]
     /// With tool mode.
     pub fn with_tool_mode(mut self, tool: impl Into<String>, mode: PermissionMode) -> Self {
         self.tool_modes.insert(tool.into(), mode);

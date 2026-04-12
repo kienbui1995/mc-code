@@ -151,6 +151,14 @@ impl ConversationRuntime {
     pub fn set_agents(&mut self, agents: Vec<crate::agents::AgentDef>) {
         self.agents = agents;
     }
+    /// Set subagent permission mode (inherit from parent).
+    pub fn set_subagent_permission_mode(&mut self, mode: mc_tools::PermissionMode) {
+        self.subagent.set_permission_mode(mode);
+    }
+    /// Set subagent budget.
+    pub fn set_subagent_budget(&mut self, budget: Option<f64>) {
+        self.subagent.set_budget(budget);
+    }
     /// Set retry policy.
     pub fn set_retry_policy(&mut self, policy: RetryPolicy) {
         self.retry_policy = policy;

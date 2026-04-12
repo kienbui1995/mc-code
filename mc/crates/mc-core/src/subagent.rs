@@ -62,6 +62,9 @@ pub struct SubagentSpawner {
     max_concurrent: usize,
     pub shared_context: SharedContext,
     background_results: Arc<Mutex<HashMap<String, Option<String>>>>,
+    permission_mode: mc_tools::PermissionMode,
+    budget_usd: Option<f64>,
+    spent_usd: f64,
 }
 
 impl SubagentSpawner {
@@ -75,6 +78,9 @@ impl SubagentSpawner {
             max_concurrent: MAX_CONCURRENT_SUBAGENTS,
             shared_context: SharedContext::default(),
             background_results: Arc::new(Mutex::new(HashMap::new())),
+            permission_mode: mc_tools::PermissionMode::Auto,
+            budget_usd: None,
+            spent_usd: 0.0,
         }
     }
 
@@ -101,6 +107,14 @@ impl SubagentSpawner {
     ) -> Result<String, ProviderError> {
         if self.active_count >= self.max_concurrent {
             return Ok("[subagent limit reached, task queued]".to_string());
+        }
+        if let Some(budget) = self.budget_usd {
+            if self.spent_usd >= budget {
+                return Ok(format!(
+                    "[budget exhausted: ${:.2} of ${:.2} used]",
+                    self.spent_usd, budget
+                ));
+            }
         }
 
         self.active_count += 1;
@@ -130,6 +144,7 @@ impl SubagentSpawner {
             tool_registry,
             allowed_tools,
             max_turns,
+            self.permission_mode,
         )
         .await;
 
@@ -171,6 +186,16 @@ impl SubagentSpawner {
         self.max_concurrent = n;
     }
 
+    /// Set permission mode (inherited from parent).
+    pub fn set_permission_mode(&mut self, mode: mc_tools::PermissionMode) {
+        self.permission_mode = mode;
+    }
+
+    /// Set budget limit.
+    pub fn set_budget(&mut self, budget: Option<f64>) {
+        self.budget_usd = budget;
+    }
+
     /// List background agent IDs and their status.
     #[must_use]
     pub fn list_background(&self) -> Vec<(String, bool)> {
@@ -195,8 +220,9 @@ async fn run_simple_agent(
     tool_registry: &ToolRegistry,
     allowed_tools: Option<&[String]>,
     max_turns: Option<usize>,
+    permission_mode: mc_tools::PermissionMode,
 ) -> Result<String, ProviderError> {
-    let policy = PermissionPolicy::new(mc_tools::PermissionMode::Allow);
+    let policy = PermissionPolicy::new(permission_mode);
     let mut messages: Vec<ConversationMessage> = vec![ConversationMessage::user(user_input)];
     let mut output = String::new();
 

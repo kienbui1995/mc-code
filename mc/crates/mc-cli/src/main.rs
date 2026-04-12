@@ -352,9 +352,11 @@ async fn run_tui(
         let mut rt =
             mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
         rt.set_tool_registry(tool_registry);
+        rt.set_subagent_permission_mode(policy.mode());
         if let Some(n) = config.managed_agents.max_concurrent {
             rt.set_max_concurrent_agents(n);
         }
+        rt.set_subagent_budget(config.managed_agents.budget_usd);
         if !hooks.is_empty() {
             rt.set_hooks(mc_tools::HookEngine::new(hooks));
         }
