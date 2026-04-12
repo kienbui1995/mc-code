@@ -52,6 +52,68 @@ impl RepoMap {
     pub fn file_count(&self) -> usize {
         self.entries.len()
     }
+
+    /// Search symbols and files by query terms. Returns ranked results.
+    #[must_use]
+    pub fn search(&self, query: &str, max_results: usize) -> Vec<SearchResult> {
+        let terms: Vec<String> = query.split_whitespace().map(|t| t.to_lowercase()).collect();
+        if terms.is_empty() {
+            return Vec::new();
+        }
+
+        let mut results: Vec<SearchResult> = Vec::new();
+
+        for (path, symbols) in &self.entries {
+            let path_lower = path.to_lowercase();
+            let mut score: f64 = 0.0;
+            let mut matched_symbols = Vec::new();
+
+            for term in &terms {
+                // Path match (filename is worth more)
+                if let Some(fname) = path.rsplit('/').next() {
+                    if fname.to_lowercase().contains(term) {
+                        score += 3.0;
+                    } else if path_lower.contains(term) {
+                        score += 1.0;
+                    }
+                }
+                // Symbol match
+                for sym in symbols {
+                    let sym_lower = sym.to_lowercase();
+                    if sym_lower.contains(term) {
+                        score += 2.0;
+                        if !matched_symbols.contains(sym) {
+                            matched_symbols.push(sym.clone());
+                        }
+                    }
+                }
+            }
+
+            if score > 0.0 {
+                results.push(SearchResult {
+                    path: path.clone(),
+                    symbols: matched_symbols,
+                    score,
+                });
+            }
+        }
+
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(max_results);
+        results
+    }
+}
+
+/// A search result from the codebase index.
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub path: String,
+    pub symbols: Vec<String>,
+    pub score: f64,
 }
 
 fn scan_dir(dir: &Path, root: &Path, entries: &mut BTreeMap<String, Vec<String>>) {
@@ -259,6 +321,45 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let map = RepoMap::build(&dir);
         assert_eq!(map.to_prompt_section(), "");
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn search_finds_symbols() {
+        let dir = std::env::temp_dir().join(format!("mc-search-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("src/auth.rs"),
+            "pub fn authenticate(user: &str) {}\npub struct AuthConfig {}",
+        )
+        .unwrap();
+        std::fs::write(dir.join("src/main.rs"), "pub fn main() {}").unwrap();
+
+        let map = RepoMap::build(&dir);
+        let results = map.search("auth", 5);
+        assert!(!results.is_empty());
+        assert!(results[0].path.contains("auth"));
+        assert!(results[0].score > 0.0);
+
+        let results2 = map.search("nonexistent_xyz", 5);
+        assert!(results2.is_empty());
+
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn search_ranks_by_relevance() {
+        let dir = std::env::temp_dir().join(format!("mc-rank-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("src/handler.rs"), "pub fn handle_request() {}").unwrap();
+        std::fs::write(dir.join("src/utils.rs"), "pub fn helper() {}").unwrap();
+
+        let map = RepoMap::build(&dir);
+        let results = map.search("handler handle", 5);
+        assert!(!results.is_empty());
+        // handler.rs should rank higher (path + symbol match)
+        assert!(results[0].path.contains("handler"));
+
         std::fs::remove_dir_all(dir).ok();
     }
 }
