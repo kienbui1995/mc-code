@@ -960,6 +960,7 @@ dependencies = [
  "mc-tools",
  "mc-tui",
  "ratatui",
+ "reqwest",
  "serde_json",
  "tokio",
  "tokio-util",
