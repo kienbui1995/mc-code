@@ -141,7 +141,7 @@ pub fn compact_session(session: &mut Session, preserve_recent: usize) {
         .insert(0, ConversationMessage::user(summary));
 
     // Re-insert kept important messages after summary
-    for (idx, msg) in old.iter().enumerate() {
+    for (idx, msg) in old.into_iter().enumerate() {
         if kept_indices.contains(&idx) {
             session.messages.insert(1, msg.clone());
         }
@@ -161,8 +161,11 @@ pub async fn smart_compact(
     let split = session.messages.len() - preserve_recent;
     let old: Vec<_> = session.messages.drain(..split).collect();
 
+    // Preserve pinned messages — they survive compaction
+    let (pinned, to_summarize): (Vec<_>, Vec<_>) = old.into_iter().partition(|m| m.pinned);
+
     let mut transcript = String::new();
-    for msg in &old {
+    for msg in &to_summarize {
         let label = match msg.role {
             Role::User => "User",
             Role::Assistant => "Assistant",
@@ -199,9 +202,10 @@ pub async fn smart_compact(
             Some(Ok(ProviderEvent::MessageStop)) | None => break,
             Some(Err(e)) => {
                 tracing::warn!("smart compaction failed, falling back to naive: {e}");
-                session
-                    .messages
-                    .insert(0, ConversationMessage::user(build_naive_summary(&old)));
+                session.messages.insert(
+                    0,
+                    ConversationMessage::user(build_naive_summary(&to_summarize)),
+                );
                 return Ok(());
             }
             _ => {}
@@ -209,15 +213,19 @@ pub async fn smart_compact(
     }
 
     let text = if summary.trim().is_empty() {
-        build_naive_summary(&old)
+        build_naive_summary(&to_summarize)
     } else {
         format!(
             "[Session compacted via LLM. Summary of {} earlier messages:\n{}\n]",
-            old.len(),
+            to_summarize.len(),
             summary.trim()
         )
     };
     session.messages.insert(0, ConversationMessage::user(text));
+    // Re-insert pinned messages after summary
+    for (i, msg) in pinned.into_iter().enumerate() {
+        session.messages.insert(1 + i, msg);
+    }
     Ok(())
 }
 

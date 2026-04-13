@@ -421,6 +421,7 @@ mod tests {
         let msg = ConversationMessage {
             role: Role::User,
             blocks: vec![block],
+            pinned: false,
         };
         let input = msg_to_input(&msg);
         assert_eq!(input.role, MessageRole::User);
