@@ -189,6 +189,8 @@ pub struct Session {
     pub input_tokens: u32,
     pub output_tokens: u32,
     #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
     pub branch_id: Option<String>,
     #[serde(default)]
     pub parent_branch: Option<String>,

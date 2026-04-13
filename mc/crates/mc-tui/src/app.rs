@@ -111,6 +111,8 @@ pub enum PendingCommand {
     Init,
     Summary,
     Search(String),
+    /// Cross-session full-text search.
+    SearchAll(String),
     Doctor,
     Review,
     Retry,
