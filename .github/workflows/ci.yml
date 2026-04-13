@@ -57,7 +57,7 @@ jobs:
           workspaces: mc
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: magic-code-${{ matrix.target }}
           path: mc/target/${{ matrix.target }}/release/magic-code
