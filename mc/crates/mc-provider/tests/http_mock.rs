@@ -32,8 +32,7 @@ async fn collect_events(stream: mc_provider::ProviderStream) -> Vec<ProviderEven
         match next {
             Some(Ok(e)) => events.push(e),
             Some(Err(e)) => {
-                eprintln!("Stream error: {e:?}");
-                break;
+                panic!("Stream error: {e:?}");
             }
             None => break,
         }
