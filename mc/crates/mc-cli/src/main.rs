@@ -493,22 +493,36 @@ async fn run_tui(
                             let _ = rt.session.save(&session_path("last"));
                         }
                     }
-                    // Desktop notification + bell
-                    print!("\x07");
-                    #[cfg(target_os = "linux")]
-                    {
-                        let _ = std::process::Command::new("notify-send")
-                            .args(["magic-code", "Turn complete"])
-                            .spawn();
+                    // Notifications (gated by config)
+                    if config.notifications {
+                        print!("\x07");
+                        #[cfg(target_os = "linux")]
+                        {
+                            let _ = std::process::Command::new("notify-send")
+                                .args(["magic-code", "Turn complete"])
+                                .spawn();
+                        }
+                        #[cfg(target_os = "macos")]
+                        {
+                            let _ = std::process::Command::new("osascript")
+                                .args([
+                                    "-e",
+                                    "display notification \"Turn complete\" with title \"magic-code\"",
+                                ])
+                                .spawn();
+                        }
                     }
-                    #[cfg(target_os = "macos")]
-                    {
-                        let _ = std::process::Command::new("osascript")
-                            .args([
-                                "-e",
-                                "display notification \"Turn complete\" with title \"magic-code\"",
-                            ])
-                            .spawn();
+                    // Webhook notification
+                    if let Some(ref url) = config.notification_webhook {
+                        let url = url.clone();
+                        tokio::spawn(async move {
+                            let client = reqwest::Client::new();
+                            let _ = client
+                                .post(&url)
+                                .json(&serde_json::json!({"text": "magic-code: turn complete"}))
+                                .send()
+                                .await;
+                        });
                     }
                 }
                 UiMessage::Error(e) => {

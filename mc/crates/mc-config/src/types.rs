@@ -157,6 +157,10 @@ pub struct RuntimeConfig {
     pub provider: String,
     pub fallback_provider: Option<String>,
     pub fallback_model: Option<String>,
+    /// Enable desktop/bell notifications when agent finishes. Default: true.
+    pub notifications: bool,
+    /// Webhook URL to POST when agent completes a turn (Slack/Discord/custom).
+    pub notification_webhook: Option<String>,
     pub model: String,
     pub max_tokens: u32,
     pub permission_mode: PermissionMode,
@@ -289,6 +293,8 @@ impl RuntimeConfig {
             provider: resolved_provider,
             fallback_provider: None,
             fallback_model: None,
+            notifications: true,
+            notification_webhook: None,
             model: model.unwrap_or_else(|| "claude-sonnet-4-20250514".into()),
             max_tokens: max_tokens.unwrap_or(8192),
             permission_mode: perm,
