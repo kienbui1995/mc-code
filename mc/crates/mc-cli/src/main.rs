@@ -629,6 +629,19 @@ async fn run_tui(
                             ..
                         } if modifiers.contains(KeyModifiers::CONTROL) => app.scroll_end(),
                         event::KeyEvent {
+                            code: KeyCode::Char('r'),
+                            modifiers,
+                            ..
+                        } if modifiers.contains(KeyModifiers::CONTROL) => {
+                            // Ctrl+R: reverse history search
+                            let query = app.input.as_str().to_string();
+                            if !query.is_empty() {
+                                if let Some(found) = app.history.search(&query) {
+                                    app.input.set(found);
+                                }
+                            }
+                        }
+                        event::KeyEvent {
                             code: KeyCode::Up, ..
                         } => app.history_up(),
                         event::KeyEvent {

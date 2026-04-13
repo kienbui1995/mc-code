@@ -116,7 +116,7 @@ fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_status(frame: &mut Frame, app: &mut App, area: Rect) {
     // Show permission prompt if pending
     if let Some((ref tool, ref input)) = app.permission_pending {
         let prompt = Line::from(vec![
@@ -195,12 +195,18 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
                     .add_modifier(Modifier::BOLD),
             )
         } else {
-            match &app.state {
+            let state = app.state.clone();
+            match &state {
                 crate::AgentState::Streaming => {
-                    Span::styled("⟳ streaming...", Style::default().fg(Color::Yellow))
+                    let s = app.spinner_char();
+                    Span::styled(
+                        format!("{s} streaming..."),
+                        Style::default().fg(Color::Yellow),
+                    )
                 }
                 crate::AgentState::ToolExecuting(name) => {
-                    Span::styled(format!("⚙ {name}..."), Style::default().fg(Color::Cyan))
+                    let s = app.spinner_char();
+                    Span::styled(format!("{s} {name}..."), Style::default().fg(Color::Cyan))
                 }
                 crate::AgentState::WaitingPermission => {
                     Span::styled("⚠ permission", Style::default().fg(Color::Red))

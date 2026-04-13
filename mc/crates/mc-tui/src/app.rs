@@ -169,6 +169,8 @@ pub struct App {
     pub tool_call_counts: std::collections::HashMap<String, u32>,
     pub context_usage_pct: u8,
     pub should_quit: bool,
+    /// Double-tap quit confirmation.
+    pub pending_quit: bool,
     pub plan_mode: bool,
     pub dry_run: bool,
     pub review_writes: bool,
@@ -176,6 +178,8 @@ pub struct App {
     pub pending_command: Option<PendingCommand>,
     /// Whether user has manually scrolled up (disables auto-scroll).
     auto_scroll: bool,
+    /// Spinner frame counter for animation.
+    pub spinner_tick: u8,
     pub viewport_height: u16,
     /// Pending permission prompt (tool, input).
     pub permission_pending: Option<(String, String)>,
@@ -223,11 +227,13 @@ impl App {
             tool_call_counts: std::collections::HashMap::new(),
             context_usage_pct: 0,
             should_quit: false,
+            pending_quit: false,
             plan_mode: false,
             dry_run: false,
             review_writes: false,
             pending_command: None,
             auto_scroll: true,
+            spinner_tick: 0,
             viewport_height: 20,
             permission_pending: None,
             permission_response: None,
@@ -293,6 +299,8 @@ impl App {
                 if self.auto_scroll {
                     self.scroll_to_bottom();
                 }
+                // Bell notification — alerts user in other tabs/windows
+                eprint!("\x07");
             }
             AppEvent::ToolCall(name) => {
                 self.state = AgentState::ToolExecuting(name.clone());
@@ -493,6 +501,13 @@ impl App {
 
     fn scroll_to_bottom(&mut self) {
         self.scroll_offset = self.max_scroll();
+    }
+
+    /// Advance spinner and return current frame character.
+    pub fn spinner_char(&mut self) -> char {
+        const FRAMES: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        self.spinner_tick = self.spinner_tick.wrapping_add(1);
+        FRAMES[self.spinner_tick as usize % FRAMES.len()]
     }
 
     /// Cap `output_lines` to prevent unbounded memory growth.

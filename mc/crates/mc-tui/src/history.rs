@@ -93,6 +93,16 @@ impl InputHistory {
         &self.entries
     }
 
+    /// Search history backwards for a query. Returns matching entry.
+    pub fn search(&self, query: &str) -> Option<&str> {
+        let q = query.to_lowercase();
+        self.entries
+            .iter()
+            .rev()
+            .find(|e| e.to_lowercase().contains(&q))
+            .map(|s| s.as_str())
+    }
+
     fn save(&self) {
         if let Some(ref path) = self.path {
             if let Some(parent) = path.parent() {
