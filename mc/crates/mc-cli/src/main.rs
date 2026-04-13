@@ -944,22 +944,11 @@ async fn run_tui(
                     }
                 }
                 PendingCommand::CopyToClipboard(text) => {
-                    let cmd = if cfg!(target_os = "macos") {
-                        "pbcopy"
-                    } else {
-                        "xclip -selection clipboard"
-                    };
-                    if let Ok(mut child) = std::process::Command::new("sh")
-                        .arg("-c")
-                        .arg(cmd)
-                        .stdin(std::process::Stdio::piped())
-                        .spawn()
-                    {
-                        if let Some(ref mut stdin) = child.stdin {
-                            use std::io::Write;
-                            let _ = stdin.write_all(text.as_bytes());
+                    match arboard::Clipboard::new().and_then(|mut cb| cb.set_text(&text)) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            app.output_lines.push(format!("Clipboard error: {e}"));
                         }
-                        let _ = child.wait();
                     }
                 }
                 PendingCommand::Review => {

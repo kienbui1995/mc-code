@@ -1,0 +1,26 @@
+name: Bug Report
+description: Report a bug in magic-code
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      placeholder: Describe the bug
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect?
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Run `magic-code`\n2. Type...\n3. See error"
+  - type: input
+    attributes:
+      label: Version
+      placeholder: "magic-code --version"
+  - type: input
+    attributes:
+      label: OS
+      placeholder: "Linux / macOS / WSL"

@@ -20,6 +20,7 @@ mc-provider = { path = "../mc-provider" }
 mc-tools = { path = "../mc-tools" }
 mc-config = { path = "../mc-config" }
 anyhow.workspace = true
+arboard = "3"
 clap.workspace = true
 clap_complete = "4"
 crossterm.workspace = true

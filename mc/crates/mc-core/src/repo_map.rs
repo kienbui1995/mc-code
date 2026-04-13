@@ -184,6 +184,109 @@ fn extract_symbols(path: &Path) -> Vec<String> {
     let Ok(content) = std::fs::read_to_string(path) else {
         return Vec::new();
     };
+
+    // Try tree-sitter first (accurate AST), fall back to regex
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let symbols = extract_symbols_treesitter(ext, &content)
+        .unwrap_or_else(|| extract_symbols_regex(&content));
+
+    let mut symbols = symbols;
+    symbols.truncate(30);
+    symbols
+}
+
+fn extract_symbols_treesitter(ext: &str, source: &str) -> Option<Vec<String>> {
+    let language = match ext {
+        "rs" => tree_sitter_rust::LANGUAGE,
+        "py" => tree_sitter_python::LANGUAGE,
+        "js" | "jsx" => tree_sitter_javascript::LANGUAGE,
+        "ts" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
+        "tsx" => tree_sitter_typescript::LANGUAGE_TSX,
+        "go" => tree_sitter_go::LANGUAGE,
+        _ => return None,
+    };
+
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&language.into()).ok()?;
+    let tree = parser.parse(source, None)?;
+    let root = tree.root_node();
+    let bytes = source.as_bytes();
+
+    let mut symbols = Vec::new();
+    collect_symbols(&root, bytes, ext, &mut symbols);
+    Some(symbols)
+}
+
+fn collect_symbols(node: &tree_sitter::Node, source: &[u8], ext: &str, symbols: &mut Vec<String>) {
+    let kind = node.kind();
+    let name = match ext {
+        "rs" => match kind {
+            "function_item" | "struct_item" | "enum_item" | "trait_item" | "impl_item" => {
+                node.child_by_field_name("name").map(|n| {
+                    let prefix = match kind {
+                        "struct_item" => "struct ",
+                        "enum_item" => "enum ",
+                        "trait_item" => "trait ",
+                        "impl_item" => "impl ",
+                        _ => "fn ",
+                    };
+                    format!("{prefix}{}", n.utf8_text(source).unwrap_or(""))
+                })
+            }
+            _ => None,
+        },
+        "py" => match kind {
+            "function_definition" => node
+                .child_by_field_name("name")
+                .map(|n| format!("def {}", n.utf8_text(source).unwrap_or(""))),
+            "class_definition" => node
+                .child_by_field_name("name")
+                .map(|n| format!("class {}", n.utf8_text(source).unwrap_or(""))),
+            _ => None,
+        },
+        "js" | "jsx" | "ts" | "tsx" => match kind {
+            "function_declaration" => node
+                .child_by_field_name("name")
+                .map(|n| n.utf8_text(source).unwrap_or("").to_string()),
+            "class_declaration" => node
+                .child_by_field_name("name")
+                .map(|n| format!("class {}", n.utf8_text(source).unwrap_or(""))),
+            "export_statement" => None, // recurse into children
+            _ => None,
+        },
+        "go" => match kind {
+            "function_declaration" => node
+                .child_by_field_name("name")
+                .map(|n| format!("func {}", n.utf8_text(source).unwrap_or(""))),
+            "type_declaration" => node
+                .child_by_field_name("name")
+                .or_else(|| {
+                    (0..node.child_count())
+                        .filter_map(|i| node.child(i))
+                        .find(|c| c.kind() == "type_spec")
+                        .and_then(|ts| ts.child_by_field_name("name"))
+                })
+                .map(|n| format!("type {}", n.utf8_text(source).unwrap_or(""))),
+            _ => None,
+        },
+        _ => None,
+    };
+
+    if let Some(name) = name {
+        if !name.is_empty() {
+            symbols.push(name);
+        }
+    }
+
+    for i in 0..node.child_count() {
+        if let Some(child) = node.child(i) {
+            collect_symbols(&child, source, ext, symbols);
+        }
+    }
+}
+
+/// Fallback regex extraction for unsupported languages.
+fn extract_symbols_regex(content: &str) -> Vec<String> {
     let mut symbols = Vec::new();
     for line in content.lines() {
         let trimmed = line.trim();
@@ -194,8 +297,6 @@ fn extract_symbols(path: &Path) -> Vec<String> {
             symbols.push(name);
         }
     }
-    // Cap symbols per file
-    symbols.truncate(20);
     symbols
 }
 
