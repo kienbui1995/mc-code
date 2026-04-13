@@ -472,4 +472,92 @@ mod tests {
             PermissionOutcome::Allow
         );
     }
+
+    #[test]
+    fn learned_permission_auto_allows() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        // First call with prompter — gets auto-classified
+        let result = policy.authorize("bash", "cargo test", Some(&mut AllowAll));
+        assert_eq!(result, PermissionOutcome::Allow);
+        // Second call without prompter — learned, auto-allowed
+        let result2 = policy.authorize("bash", "cargo build", None);
+        // Same first-word "cargo" → learned
+        assert_eq!(result2, PermissionOutcome::Allow);
+    }
+
+    #[test]
+    fn learned_permission_prompt_mode() {
+        let policy = PermissionPolicy::new(PermissionMode::Prompt);
+        // First call needs prompter
+        let r = policy.authorize("bash", "make build", Some(&mut AllowAll));
+        assert_eq!(r, PermissionOutcome::Allow);
+        // Now learned — no prompter needed
+        let r2 = policy.authorize("bash", "make test", None);
+        assert_eq!(r2, PermissionOutcome::Allow);
+    }
+
+    #[test]
+    fn learn_allow_and_is_learned() {
+        let policy = PermissionPolicy::new(PermissionMode::Allow);
+        assert!(!policy.is_learned("test:key"));
+        policy.learn_allow("test:key");
+        assert!(policy.is_learned("test:key"));
+    }
+
+    #[test]
+    fn auto_allows_safe_reads() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        for tool in &[
+            "read_file",
+            "glob_search",
+            "grep_search",
+            "web_fetch",
+            "memory_read",
+        ] {
+            assert_eq!(policy.authorize(tool, "", None), PermissionOutcome::Allow);
+        }
+    }
+
+    #[test]
+    fn auto_allows_safe_bash() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        for cmd in &[
+            "ls -la",
+            "cat file.txt",
+            "grep pattern",
+            "cargo test",
+            "git status",
+        ] {
+            assert_eq!(
+                policy.authorize("bash", cmd, None),
+                PermissionOutcome::Allow
+            );
+        }
+    }
+
+    #[test]
+    fn auto_blocks_dangerous_bash() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        for cmd in &["sudo rm -rf /", "rm -rf /", "mkfs /dev/sda"] {
+            assert!(matches!(
+                policy.authorize("bash", cmd, None),
+                PermissionOutcome::Deny { .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn compound_commands_checked() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        // Safe compound
+        assert_eq!(
+            policy.authorize("bash", "cargo build && cargo test", None),
+            PermissionOutcome::Allow
+        );
+        // Dangerous in compound
+        assert!(matches!(
+            policy.authorize("bash", "ls && sudo rm -rf /", None),
+            PermissionOutcome::Deny { .. }
+        ));
+    }
 }

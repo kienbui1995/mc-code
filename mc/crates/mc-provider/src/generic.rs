@@ -430,3 +430,56 @@ mod tests {
         assert_eq!(json["tool_call_id"], "call_1");
     }
 }
+
+#[test]
+fn response_format_json_mode() {
+    let req = CompletionRequest {
+        model: "gpt-4".into(),
+        max_tokens: 100,
+        system_prompt: None,
+        messages: vec![],
+        tools: vec![],
+        tool_choice: None,
+        thinking_budget: None,
+        response_format: Some(crate::types::ResponseFormat::Json),
+    };
+    let body = build_request_body(&req);
+    assert_eq!(body["response_format"]["type"], "json_object");
+}
+
+#[test]
+fn response_format_json_schema() {
+    let schema = serde_json::json!({"type": "object", "properties": {"name": {"type": "string"}}});
+    let req = CompletionRequest {
+        model: "gpt-4".into(),
+        max_tokens: 100,
+        system_prompt: None,
+        messages: vec![],
+        tools: vec![],
+        tool_choice: None,
+        thinking_budget: None,
+        response_format: Some(crate::types::ResponseFormat::JsonSchema {
+            name: "test".into(),
+            schema: schema.clone(),
+        }),
+    };
+    let body = build_request_body(&req);
+    assert_eq!(body["response_format"]["type"], "json_schema");
+    assert_eq!(body["response_format"]["json_schema"]["name"], "test");
+}
+
+#[test]
+fn response_format_none_omitted() {
+    let req = CompletionRequest {
+        model: "gpt-4".into(),
+        max_tokens: 100,
+        system_prompt: None,
+        messages: vec![],
+        tools: vec![],
+        tool_choice: None,
+        thinking_budget: None,
+        response_format: None,
+    };
+    let body = build_request_body(&req);
+    assert!(body.get("response_format").is_none());
+}

@@ -237,4 +237,29 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, ToolError::ExecutionFailed(_)));
     }
+
+    #[test]
+    fn strips_script_and_style() {
+        let html = "<html><style>body{}</style><script>alert(1)</script><p>text</p></html>";
+        let result = strip_html(html);
+        assert!(result.contains("text"));
+        assert!(!result.contains("alert"));
+        assert!(!result.contains("body{}"));
+    }
+
+    #[test]
+    fn strips_nested_tags() {
+        assert_eq!(strip_html("<div><span>inner</span></div>"), "inner");
+    }
+
+    #[test]
+    fn handles_empty_input() {
+        assert_eq!(strip_html(""), "");
+        assert_eq!(strip_html("   "), "");
+    }
+
+    #[test]
+    fn decodes_numeric_entities() {
+        assert_eq!(strip_html("&#39;hello&#39;"), "'hello'");
+    }
 }

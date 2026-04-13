@@ -341,3 +341,33 @@ fn snip_thinking_removes_old() {
         .iter()
         .any(|b| matches!(b, Block::Thinking { .. })));
 }
+
+#[test]
+fn smart_compact_keeps_important_messages() {
+    let mut session = Session::default();
+    // Add user instruction (important, score 2.0)
+    session.messages.push(ConversationMessage::user(
+        "Please fix the auth bug in login.rs with detailed error handling",
+    ));
+    // Add tool error (important, score 3.0)
+    let mut err_msg = ConversationMessage::assistant("trying fix");
+    err_msg.push_block(Block::ToolResult {
+        tool_use_id: "1".into(),
+        name: "bash".into(),
+        output: "error: compilation failed".into(),
+        is_error: true,
+    });
+    session.messages.push(err_msg);
+    // Add 8 filler messages
+    for i in 0..8 {
+        session
+            .messages
+            .push(ConversationMessage::assistant(format!("filler {i}")));
+    }
+    // 10 total, compact keeping 2 recent
+    compact_session(&mut session, 2);
+    // Should have: summary + some important kept + 2 recent
+    assert!(session.messages.len() >= 3); // at least summary + 2 recent
+                                          // Summary should exist
+    assert!(session.messages[0].contains_text("compacted"));
+}
