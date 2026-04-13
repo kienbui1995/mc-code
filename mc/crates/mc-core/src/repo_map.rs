@@ -200,7 +200,8 @@ fn extract_symbols_treesitter(ext: &str, source: &str) -> Option<Vec<String>> {
         "rs" => tree_sitter_rust::LANGUAGE,
         "py" => tree_sitter_python::LANGUAGE,
         "js" | "jsx" => tree_sitter_javascript::LANGUAGE,
-        "ts" | "tsx" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
+        "ts" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
+        "tsx" => tree_sitter_typescript::LANGUAGE_TSX,
         "go" => tree_sitter_go::LANGUAGE,
         _ => return None,
     };
@@ -277,7 +278,6 @@ fn collect_symbols(node: &tree_sitter::Node, source: &[u8], ext: &str, symbols: 
         }
     }
 
-    let mut cursor = node.walk();
     for i in 0..node.child_count() {
         if let Some(child) = node.child(i) {
             collect_symbols(&child, source, ext, symbols);
