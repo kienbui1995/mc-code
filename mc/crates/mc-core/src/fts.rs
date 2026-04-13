@@ -110,4 +110,42 @@ mod tests {
         assert!(results.is_empty());
         std::fs::remove_dir_all(&dir).ok();
     }
+
+    #[test]
+    fn search_finds_text_in_session() {
+        let dir = std::env::temp_dir().join(format!("mc-fts2-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let session = crate::Session {
+            messages: vec![crate::session::ConversationMessage::user(
+                "fixed the auth timeout bug",
+            )],
+            created_at: "2026-04-13".into(),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&session).unwrap();
+        std::fs::write(dir.join("test-session.json"), json).unwrap();
+        let results = search_all_sessions(&dir, "auth timeout");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].snippet.contains("auth timeout"));
+        assert_eq!(results[0].session_file, "test-session");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn search_unicode_safe() {
+        let dir = std::env::temp_dir().join(format!("mc-fts3-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let session = crate::Session {
+            messages: vec![crate::session::ConversationMessage::user(
+                "修复了认证超时的错误 fixed auth",
+            )],
+            created_at: "2026-04-13".into(),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&session).unwrap();
+        std::fs::write(dir.join("unicode.json"), json).unwrap();
+        let results = search_all_sessions(&dir, "fixed auth");
+        assert_eq!(results.len(), 1);
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

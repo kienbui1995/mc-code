@@ -561,8 +561,20 @@ mod tests {
     #[test]
     fn quit_command() {
         let mut app = App::new("test".into());
+        // Fresh app with no tokens → quits immediately
         app.handle_event(AppEvent::SlashCommand("/quit".into()));
         assert!(app.should_quit);
+    }
+
+    #[test]
+    fn quit_confirmation_with_unsaved() {
+        let mut app = App::new("test".into());
+        app.total_input_tokens = 100; // simulate active session
+        app.handle_event(AppEvent::SlashCommand("/quit".into()));
+        assert!(!app.should_quit); // first quit = warning
+        assert!(app.pending_quit);
+        app.handle_event(AppEvent::SlashCommand("/quit".into()));
+        assert!(app.should_quit); // second quit = exit
     }
 
     #[test]

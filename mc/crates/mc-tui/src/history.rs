@@ -151,6 +151,17 @@ mod tests {
     }
 
     #[test]
+    fn search_finds_match() {
+        let mut h = InputHistory::new(100);
+        h.push("cargo test --workspace");
+        h.push("git commit -m fix");
+        h.push("cargo build --release");
+        assert_eq!(h.search("commit"), Some("git commit -m fix"));
+        assert_eq!(h.search("CARGO"), Some("cargo build --release")); // case-insensitive
+        assert_eq!(h.search("nonexistent"), None);
+    }
+
+    #[test]
     fn persistence_roundtrip() {
         let path = std::env::temp_dir().join(format!("mc-hist-{}", std::process::id()));
         {

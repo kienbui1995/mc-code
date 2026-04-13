@@ -350,3 +350,69 @@ fn cost_tracker_roundtrip() {
     assert!((c - 0.015).abs() < 1e-9);
     std::fs::remove_file(path).ok();
 }
+
+#[test]
+fn debug_tool_validates_all_actions() {
+    use mc_core::debug::execute_debug;
+    use serde_json::json;
+
+    // All actions with valid input should succeed
+    let (_, err) = execute_debug(&json!({"action": "hypothesize", "bug_description": "crash"}));
+    assert!(!err);
+    let (_, err) = execute_debug(&json!({"action": "instrument", "file": "main.rs"}));
+    assert!(!err);
+    let (_, err) = execute_debug(&json!({"action": "analyze", "evidence": "log output"}));
+    assert!(!err);
+    let (_, err) = execute_debug(&json!({"action": "fix", "root_cause": "null", "file": "x.rs"}));
+    assert!(!err);
+
+    // Unknown action
+    let (_, err) = execute_debug(&json!({"action": "unknown"}));
+    assert!(err);
+}
+
+#[test]
+fn auto_skill_threshold_and_generate() {
+    assert!(!mc_core::auto_skill::should_create_skill(3, false));
+    assert!(mc_core::auto_skill::should_create_skill(8, false));
+    assert!(!mc_core::auto_skill::should_create_skill(8, true)); // errors = no skill
+
+    let content = mc_core::auto_skill::generate_skill_content(
+        "Setup React project",
+        &["bash".into(), "write_file".into(), "edit_file".into()],
+    );
+    assert!(content.contains("Setup React project"));
+    assert!(content.contains("- bash"));
+}
+
+#[test]
+fn fts_search_across_sessions() {
+    let dir = std::env::temp_dir().join(format!("mc-fts-int-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // Create 2 sessions
+    for (name, text) in [("s1", "fixed auth bug"), ("s2", "added new feature")] {
+        let session = mc_core::Session {
+            messages: vec![mc_core::ConversationMessage::user(text)],
+            created_at: "2026-04-13".into(),
+            ..Default::default()
+        };
+        std::fs::write(
+            dir.join(format!("{name}.json")),
+            serde_json::to_string(&session).unwrap(),
+        )
+        .unwrap();
+    }
+
+    let results = mc_core::fts::search_all_sessions(&dir, "auth bug");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].session_file, "s1");
+
+    let results2 = mc_core::fts::search_all_sessions(&dir, "feature");
+    assert_eq!(results2.len(), 1);
+
+    let results3 = mc_core::fts::search_all_sessions(&dir, "nonexistent");
+    assert!(results3.is_empty());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
