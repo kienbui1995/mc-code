@@ -89,7 +89,7 @@ pub fn handle(app: &mut App, cmd: &str) {
             app.pending_command = Some(PendingCommand::ReviewToggle);
         }
         "/retry" => cmd_retry(app),
-        "/pin" => { let idx = app.output_lines.len().saturating_sub(1); app.pinned_messages.push(idx); app.push(&format!("📌 Pinned message at line {idx}")); }
+        "/pin" => { app.pending_command = Some(PendingCommand::Pin); app.push("📌 Last message pinned — survives compaction."); }
         "/theme" => { app.theme = if app.theme == "dark" { "light".into() } else { "dark".into() }; app.push(&format!("Theme: {}", app.theme)); }
         "/copy" => cmd_copy(app),
         "/version" => app.push(&format!("magic-code v{} ({} {})", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH)),
@@ -121,6 +121,9 @@ pub fn handle(app: &mut App, cmd: &str) {
 
         // --- Async shell commands (non-blocking via PendingCommand::RunShell) ---
         "/run" => if arg.is_empty() { app.push("Usage: /run <command>"); } else { app.push(&format!("$ {arg}")); app.pending_command = Some(PendingCommand::RunShell(arg.into())); },
+        // --- GitHub integration (via gh CLI) ---
+        "/gh" => cmd_gh(app, arg),
+        "/profile" => cmd_profile(app, arg),
         "/grep" => cmd_grep(app, arg),
         "/cat" => if arg.is_empty() { app.push("Usage: /cat <file>"); } else { app.pending_command = Some(PendingCommand::RunShell(format!("head -100 {arg}"))); },
         "/head" => cmd_head(app, arg),
@@ -573,6 +576,117 @@ fn cmd_tail(app: &mut App, arg: &str) {
             "tail -n {n} {}",
             parts[0]
         )));
+    }
+}
+
+fn cmd_profile(app: &mut App, arg: &str) {
+    let profiles_dir = std::env::var_os("HOME")
+        .map(|h| std::path::PathBuf::from(h).join(".config/magic-code/profiles"));
+    let Some(dir) = profiles_dir else {
+        app.push("Cannot determine HOME directory.");
+        return;
+    };
+    let parts: Vec<&str> = arg.splitn(2, ' ').collect();
+    match parts.first().copied().unwrap_or("") {
+        "save" => {
+            let name = parts.get(1).copied().unwrap_or("default");
+            let _ = std::fs::create_dir_all(&dir);
+            let profile = format!(
+                "model = \"{}\"\neffort = \"{}\"\nplan_mode = {}\ntheme = \"{}\"",
+                app.model,
+                app.effort.symbol(),
+                app.plan_mode,
+                app.theme
+            );
+            let path = dir.join(format!("{name}.toml"));
+            match std::fs::write(&path, profile) {
+                Ok(()) => app.push(&format!("✅ Profile saved: {name}")),
+                Err(e) => app.push(&format!("✗ {e}")),
+            }
+        }
+        "load" => {
+            let name = parts.get(1).copied().unwrap_or("default");
+            let path = dir.join(format!("{name}.toml"));
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    for line in content.lines() {
+                        if let Some(model) = line
+                            .strip_prefix("model = \"")
+                            .and_then(|s| s.strip_suffix('"'))
+                        {
+                            app.model = model.to_string();
+                        }
+                        if let Some(theme) = line
+                            .strip_prefix("theme = \"")
+                            .and_then(|s| s.strip_suffix('"'))
+                        {
+                            app.theme = theme.to_string();
+                        }
+                    }
+                    app.push(&format!("✅ Profile loaded: {name} (model: {})", app.model));
+                }
+                Err(_) => app.push(&format!("Profile not found: {name}")),
+            }
+        }
+        "list" | "" => {
+            let entries = std::fs::read_dir(&dir)
+                .ok()
+                .map(|e| {
+                    e.flatten()
+                        .filter(|e| e.path().extension().is_some_and(|x| x == "toml"))
+                        .map(|e| {
+                            e.path()
+                                .file_stem()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if entries.is_empty() {
+                app.push("No profiles. Use /profile save <name> to create one.");
+            } else {
+                app.push(&format!("Profiles: {}", entries.join(", ")));
+            }
+        }
+        _ => {
+            app.push("Usage: /profile save <name> | /profile load <name> | /profile list");
+        }
+    }
+}
+
+fn cmd_gh(app: &mut App, arg: &str) {
+    let parts: Vec<&str> = arg.splitn(2, ' ').collect();
+    let (sub, rest) = (
+        parts.first().copied().unwrap_or(""),
+        parts.get(1).copied().unwrap_or(""),
+    );
+    match sub {
+        "pr" | "prs" => app.pending_command = Some(PendingCommand::RunShell("gh pr list --limit 10".into())),
+        "pr-create" => {
+            let title = if rest.is_empty() { "WIP" } else { rest };
+            app.pending_command = Some(PendingCommand::RunShell(format!("gh pr create --title '{title}' --body '' --fill")));
+        }
+        "issues" => app.pending_command = Some(PendingCommand::RunShell("gh issue list --limit 10".into())),
+        "issue" => if rest.is_empty() { app.push("Usage: /gh issue <number>"); } else {
+            app.pending_command = Some(PendingCommand::RunShell(format!("gh issue view {rest}")));
+        },
+        "status" => app.pending_command = Some(PendingCommand::RunShell("gh pr status".into())),
+        "checks" => app.pending_command = Some(PendingCommand::RunShell("gh pr checks".into())),
+        "repo" => app.pending_command = Some(PendingCommand::RunShell("gh repo view --json name,description,url --jq '.name + \" — \" + .description + \"\\n\" + .url'".into())),
+        "browse" => app.pending_command = Some(PendingCommand::RunShell("gh browse".into())),
+        _ => {
+            app.push("GitHub commands (requires gh CLI):");
+            app.push("  /gh prs          — list open PRs");
+            app.push("  /gh pr-create    — create PR from current branch");
+            app.push("  /gh issues       — list open issues");
+            app.push("  /gh issue <N>    — view issue details");
+            app.push("  /gh status       — PR status for current branch");
+            app.push("  /gh checks       — CI check status");
+            app.push("  /gh repo         — repo info");
+            app.push("  /gh browse       — open in browser");
+        }
     }
 }
 

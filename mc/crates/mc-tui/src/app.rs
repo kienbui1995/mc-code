@@ -137,6 +137,8 @@ pub enum PendingCommand {
     Plugin(String),
     /// Toggle `review_writes` mode.
     ReviewToggle,
+    /// Pin last message (survives compaction).
+    Pin,
     /// Toggle auto-test mode.
     AutoTestToggle,
     /// Toggle auto-commit mode.

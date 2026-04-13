@@ -1275,6 +1275,13 @@ async fn run_tui(
                         rt.set_review_writes(app.review_writes);
                     }
                 }
+                PendingCommand::Pin => {
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        if let Some(msg) = rt.session.messages.last_mut() {
+                            msg.pinned = true;
+                        }
+                    }
+                }
                 PendingCommand::AutoTestToggle => {
                     if let Ok(mut rt) = runtime.try_lock() {
                         if rt.auto_test_cmd.is_some() {

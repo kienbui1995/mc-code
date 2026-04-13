@@ -53,6 +53,9 @@ pub enum ImageSource {
 pub struct ConversationMessage {
     pub role: Role,
     pub blocks: Vec<Block>,
+    /// Pinned messages survive compaction.
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 impl ConversationMessage {
@@ -62,6 +65,7 @@ impl ConversationMessage {
         Self {
             role: Role::User,
             blocks: vec![Block::Text { text: text.into() }],
+            pinned: false,
         }
     }
 
@@ -71,6 +75,7 @@ impl ConversationMessage {
         Self {
             role: Role::Assistant,
             blocks: vec![Block::Text { text: text.into() }],
+            pinned: false,
         }
     }
 
@@ -88,6 +93,7 @@ impl ConversationMessage {
                 name: name.into(),
                 input: input.into(),
             }],
+            pinned: false,
         }
     }
 
@@ -107,6 +113,7 @@ impl ConversationMessage {
                 output: output.into(),
                 is_error,
             }],
+            pinned: false,
         }
     }
 
