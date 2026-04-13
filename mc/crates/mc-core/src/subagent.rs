@@ -387,4 +387,43 @@ mod tests {
         assert!(summary.contains("key1"));
         assert!(summary.contains("value1"));
     }
+
+    #[test]
+    fn permission_mode_inherited() {
+        let mut spawner = SubagentSpawner::new("test".into(), 1000);
+        spawner.set_permission_mode(mc_tools::PermissionMode::Deny);
+        assert_eq!(spawner.permission_mode, mc_tools::PermissionMode::Deny);
+    }
+
+    #[test]
+    fn budget_enforcement() {
+        let mut spawner = SubagentSpawner::new("test".into(), 1000);
+        spawner.set_budget(Some(1.0));
+        assert_eq!(spawner.budget_usd, Some(1.0));
+        assert_eq!(spawner.spent_usd, 0.0);
+    }
+
+    #[test]
+    fn shared_context_overwrite() {
+        let spawner = SubagentSpawner::new("test".into(), 1000);
+        spawner.shared_context.set("k", "v1");
+        spawner.shared_context.set("k", "v2");
+        let summary = spawner.shared_context.summary();
+        assert!(summary.contains("v2"));
+        assert!(!summary.contains("v1"));
+    }
+
+    #[test]
+    fn convert_block_to_content() {
+        let block = Block::Text {
+            text: "hello".into(),
+        };
+        let msg = ConversationMessage {
+            role: Role::User,
+            blocks: vec![block],
+        };
+        let input = msg_to_input(&msg);
+        assert_eq!(input.role, MessageRole::User);
+        assert!(!input.content.is_empty());
+    }
 }

@@ -812,3 +812,210 @@ pub fn random_tip() -> &'static str {
         .subsec_nanos() as usize
         % TIPS.len()]
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::app::{App, AppEvent, PendingCommand};
+
+    fn cmd(app: &mut App, s: &str) {
+        app.handle_event(AppEvent::SlashCommand(s.into()));
+    }
+
+    #[test]
+    fn help_shows_categories() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/help");
+        assert!(app.output_lines.iter().any(|l| l.contains("Navigation")));
+        assert!(app.output_lines.iter().any(|l| l.contains("Agent")));
+        assert!(app.output_lines.iter().any(|l| l.contains("Workflow")));
+    }
+
+    #[test]
+    fn status_shows_info() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/status");
+        assert!(app.output_lines.iter().any(|l| l.contains("Model")));
+    }
+
+    #[test]
+    fn clear_resets_output() {
+        let mut app = App::new("test".into());
+        app.output_lines.push("old".into());
+        cmd(&mut app, "/clear");
+        assert!(app.output_lines.iter().any(|l| l.contains("cleared")));
+    }
+
+    #[test]
+    fn cost_shows_session_cost() {
+        let mut app = App::new("test".into());
+        app.session_cost = 0.05;
+        cmd(&mut app, "/cost");
+        assert!(app.output_lines.iter().any(|l| l.contains("0.05")));
+    }
+
+    #[test]
+    fn plan_toggles() {
+        let mut app = App::new("test".into());
+        assert!(!app.plan_mode);
+        cmd(&mut app, "/plan");
+        assert!(app.plan_mode);
+        cmd(&mut app, "/plan");
+        assert!(!app.plan_mode);
+    }
+
+    #[test]
+    fn theme_toggles() {
+        let mut app = App::new("test".into());
+        let orig = app.theme.clone();
+        cmd(&mut app, "/theme");
+        assert_ne!(app.theme, orig);
+        cmd(&mut app, "/theme");
+        assert_eq!(app.theme, orig);
+    }
+
+    #[test]
+    fn version_shows() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/version");
+        assert!(app.output_lines.iter().any(|l| l.contains("magic-code")));
+    }
+
+    #[test]
+    fn model_no_arg_shows_current() {
+        let mut app = App::new("test-model".into());
+        cmd(&mut app, "/model");
+        assert!(app.output_lines.iter().any(|l| l.contains("test-model")));
+    }
+
+    #[test]
+    fn save_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/save mysession");
+        assert!(
+            matches!(app.pending_command, Some(PendingCommand::Save(ref n)) if n == "mysession")
+        );
+    }
+
+    #[test]
+    fn load_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/load mysession");
+        assert!(
+            matches!(app.pending_command, Some(PendingCommand::Load(ref n)) if n == "mysession")
+        );
+    }
+
+    #[test]
+    fn compact_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/compact");
+        assert!(matches!(app.pending_command, Some(PendingCommand::Compact)));
+    }
+
+    #[test]
+    fn undo_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/undo");
+        assert!(matches!(app.pending_command, Some(PendingCommand::Undo)));
+    }
+
+    #[test]
+    fn search_requires_arg() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/search");
+        assert!(app.output_lines.iter().any(|l| l.contains("Usage")));
+    }
+
+    #[test]
+    fn search_all_requires_arg() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/search-all");
+        assert!(app.output_lines.iter().any(|l| l.contains("Usage")));
+    }
+
+    #[test]
+    fn search_all_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/search-all auth bug");
+        assert!(
+            matches!(app.pending_command, Some(PendingCommand::SearchAll(ref q)) if q == "auth bug")
+        );
+    }
+
+    #[test]
+    fn diff_preview_toggles() {
+        let mut app = App::new("test".into());
+        assert!(!app.review_writes);
+        cmd(&mut app, "/diff-preview");
+        assert!(app.review_writes);
+        cmd(&mut app, "/diff-preview");
+        assert!(!app.review_writes);
+    }
+
+    #[test]
+    fn dry_run_toggles() {
+        let mut app = App::new("test".into());
+        assert!(!app.dry_run);
+        cmd(&mut app, "/dry-run");
+        assert!(app.dry_run);
+    }
+
+    #[test]
+    fn effort_changes_level() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/effort high");
+        assert!(app.output_lines.iter().any(|l| l.contains("High")));
+    }
+
+    #[test]
+    fn template_debug() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/template debug");
+        assert!(!app.input.is_empty());
+        assert!(app.input.as_str().contains("Debug Mode"));
+    }
+
+    #[test]
+    fn template_unknown() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/template nonexistent");
+        assert!(app.output_lines.iter().any(|l| l.contains("Unknown")));
+    }
+
+    #[test]
+    fn aliases_work() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/h");
+        assert!(app.output_lines.iter().any(|l| l.contains("Navigation")));
+
+        let mut app2 = App::new("test".into());
+        cmd(&mut app2, "/q");
+        assert!(app2.should_quit);
+    }
+
+    #[test]
+    fn export_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/export json");
+        assert!(matches!(app.pending_command, Some(PendingCommand::Export(ref f)) if f == "json"));
+    }
+
+    #[test]
+    fn fork_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/fork");
+        assert!(matches!(
+            app.pending_command,
+            Some(PendingCommand::Branch(_))
+        ));
+    }
+
+    #[test]
+    fn sessions_sets_pending() {
+        let mut app = App::new("test".into());
+        cmd(&mut app, "/sessions");
+        assert!(
+            matches!(app.pending_command, Some(PendingCommand::Search(ref q)) if q == "__list__")
+        );
+    }
+}

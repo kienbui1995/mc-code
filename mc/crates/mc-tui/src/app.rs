@@ -622,4 +622,75 @@ mod tests {
         assert_eq!(app.output_lines.len(), initial + 2); // 2 new lines added
         assert!(app.output_lines.last().unwrap().contains("line3"));
     }
+
+    #[test]
+    fn tool_call_sets_state() {
+        let mut app = App::new("test".into());
+        app.handle_event(AppEvent::ToolCall("bash".into()));
+        assert_eq!(app.state, AgentState::ToolExecuting("bash".into()));
+        assert!(app.output_lines.iter().any(|l| l.contains("bash")));
+    }
+
+    #[test]
+    fn stream_done_resets_to_idle() {
+        let mut app = App::new("test".into());
+        app.state = AgentState::Streaming;
+        app.handle_event(AppEvent::StreamDone);
+        assert_eq!(app.state, AgentState::Idle);
+    }
+
+    #[test]
+    fn error_resets_to_idle() {
+        let mut app = App::new("test".into());
+        app.state = AgentState::Streaming;
+        app.handle_event(AppEvent::Error("fail".into()));
+        assert_eq!(app.state, AgentState::Idle);
+        assert!(app.output_lines.iter().any(|l| l.contains("fail")));
+    }
+
+    #[test]
+    fn scroll_home_and_end() {
+        let mut app = App::new("test".into());
+        for i in 0..100 {
+            app.output_lines.push(format!("line {i}"));
+        }
+        app.scroll_to_bottom();
+        let max = app.scroll_offset;
+        app.scroll_home();
+        assert_eq!(app.scroll_offset, 0);
+        app.scroll_end();
+        assert_eq!(app.scroll_offset, max);
+    }
+
+    #[test]
+    fn spinner_advances() {
+        let mut app = App::new("test".into());
+        let c1 = app.spinner_char();
+        let c2 = app.spinner_char();
+        // Should advance (different frames)
+        assert_ne!(app.spinner_tick, 0);
+        // Both should be valid braille chars
+        assert!(c1 as u32 > 0x2800);
+        assert!(c2 as u32 > 0x2800);
+    }
+
+    #[test]
+    fn tab_complete_slash() {
+        let mut app = App::new("test".into());
+        app.input.set("/hel");
+        let completed = app.tab_complete();
+        assert!(completed);
+        assert_eq!(app.input.as_str(), "/help");
+    }
+
+    #[test]
+    fn cap_output_lines() {
+        let mut app = App::new("test".into());
+        for i in 0..11_000 {
+            app.output_lines.push(format!("line {i}"));
+        }
+        app.cap_output_lines();
+        assert!(app.output_lines.len() <= 10_001);
+        assert!(app.output_lines[0].contains("trimmed"));
+    }
 }

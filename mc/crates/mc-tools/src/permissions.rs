@@ -503,4 +503,61 @@ mod tests {
         policy.learn_allow("test:key");
         assert!(policy.is_learned("test:key"));
     }
+
+    #[test]
+    fn auto_allows_safe_reads() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        for tool in &[
+            "read_file",
+            "glob_search",
+            "grep_search",
+            "web_fetch",
+            "memory_read",
+        ] {
+            assert_eq!(policy.authorize(tool, "", None), PermissionOutcome::Allow);
+        }
+    }
+
+    #[test]
+    fn auto_allows_safe_bash() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        for cmd in &[
+            "ls -la",
+            "cat file.txt",
+            "grep pattern",
+            "cargo test",
+            "git status",
+        ] {
+            assert_eq!(
+                policy.authorize("bash", cmd, None),
+                PermissionOutcome::Allow
+            );
+        }
+    }
+
+    #[test]
+    fn auto_blocks_dangerous_bash() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        for cmd in &["sudo rm -rf /", "rm -rf /", "mkfs /dev/sda"] {
+            assert!(matches!(
+                policy.authorize("bash", cmd, None),
+                PermissionOutcome::Deny { .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn compound_commands_checked() {
+        let policy = PermissionPolicy::new(PermissionMode::Auto);
+        // Safe compound
+        assert_eq!(
+            policy.authorize("bash", "cargo build && cargo test", None),
+            PermissionOutcome::Allow
+        );
+        // Dangerous in compound
+        assert!(matches!(
+            policy.authorize("bash", "ls && sudo rm -rf /", None),
+            PermissionOutcome::Deny { .. }
+        ));
+    }
 }
