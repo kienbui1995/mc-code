@@ -671,6 +671,33 @@ Fix this before continuing."
         }
         // Auto-memory: save useful facts from the response
         self.auto_save_memory(&final_text);
+
+        // Auto-skill: create skill from complex successful turns
+        let had_errors = tool_calls.iter().any(|t| t.contains("error"));
+        if crate::auto_skill::should_create_skill(tool_calls.len(), had_errors) {
+            let skills_dir = std::env::var_os("HOME")
+                .map(|h| std::path::PathBuf::from(h).join(".config/magic-code/skills"));
+            if let Some(dir) = skills_dir {
+                let summary = final_text.chars().take(200).collect::<String>();
+                let content = crate::auto_skill::generate_skill_content(&summary, &tool_calls);
+                if let Some(path) = crate::auto_skill::save_auto_skill(
+                    &dir,
+                    &format!(
+                        "auto-{iterations}t-{}-{}",
+                        tool_calls.len(),
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map_or(0, |d| d.as_secs())
+                    ),
+                    &content,
+                ) {
+                    on_event(&ProviderEvent::TextDelta(format!(
+                        "\n💡 Auto-skill saved: {path}\n"
+                    )));
+                }
+            }
+        }
+
         Ok(TurnResult {
             text: final_text,
             tool_calls,

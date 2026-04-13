@@ -71,6 +71,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/init" => app.pending_command = Some(PendingCommand::Init),
         "/summary" => app.pending_command = Some(PendingCommand::Summary),
         "/search" => if arg.is_empty() { app.push("Usage: /search <keyword>"); } else { app.pending_command = Some(PendingCommand::Search(arg.into())); },
+        "/search-all" => if arg.is_empty() { app.push("Usage: /search-all <keyword> — search across all saved sessions"); } else { app.pending_command = Some(PendingCommand::SearchAll(arg.into())); },
         "/doctor" => app.pending_command = Some(PendingCommand::Doctor),
         "/review" => app.pending_command = Some(PendingCommand::Review),
         "/security-review" => {

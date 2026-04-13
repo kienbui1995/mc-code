@@ -1047,6 +1047,25 @@ async fn run_tui(
                         });
                     }
                 }
+                PendingCommand::SearchAll(query) => {
+                    let dir = session_path("")
+                        .parent()
+                        .unwrap_or(std::path::Path::new("."))
+                        .to_path_buf();
+                    let results = mc_core::fts::search_all_sessions(&dir, &query);
+                    if results.is_empty() {
+                        app.output_lines
+                            .push(format!("No matches for \"{query}\" across sessions."));
+                    } else {
+                        app.output_lines
+                            .push(format!("🔍 {} matches for \"{query}\":", results.len()));
+                        for r in &results {
+                            app.output_lines
+                                .push(format!("  📁 {} ({})", r.session_file, r.timestamp));
+                            app.output_lines.push(format!("     {}", r.snippet));
+                        }
+                    }
+                }
                 PendingCommand::Memory(cmd) => {
                     app.output_lines.push(format!("📌 memory: {cmd}"));
                 }

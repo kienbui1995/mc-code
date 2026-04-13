@@ -42,6 +42,7 @@ impl BranchManager {
             messages: session.messages[..end].to_vec(),
             input_tokens: session.input_tokens,
             output_tokens: session.output_tokens,
+            created_at: session.created_at.clone(),
             branch_id: Some(branch_id),
             parent_branch: Some(parent),
             fork_point: Some(end),
