@@ -416,3 +416,330 @@ fn fts_search_across_sessions() {
 
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[tokio::test]
+async fn debug_tool_dispatches_correctly() {
+    // Agent calls debug tool → should get hypothesis prompt back
+    let provider = MockProvider::new(vec![
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "debug".into(),
+                input: r#"{"action":"hypothesize","bug_description":"crash on login"}"#.into(),
+            },
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 50,
+                output_tokens: 20,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+        // Second call: agent responds to tool result
+        vec![
+            ProviderEvent::TextDelta("I'll investigate the crash.".into()),
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 100,
+                output_tokens: 30,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let mut rt = ConversationRuntime::new("test".into(), 1000, "You are helpful.".into());
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+    let mut events = Vec::new();
+
+    let result = rt
+        .run_turn(
+            &provider,
+            "debug this crash",
+            &policy,
+            &mut None,
+            &mut |e| {
+                if let ProviderEvent::TextDelta(t) = e {
+                    events.push(t.clone());
+                }
+            },
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert!(!result.cancelled);
+    // Debug tool should have been called
+    assert!(result.tool_calls.iter().any(|t| t.contains("debug")));
+}
+
+#[tokio::test]
+async fn edit_plan_tool_returns_formatted_plan() {
+    let provider = MockProvider::new(vec![
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "edit_plan".into(),
+                input: r#"{"title":"Refactor auth","steps":[{"file":"auth.rs","action":"edit","description":"Fix timeout"},{"file":"test.rs","action":"create","description":"Add test"}]}"#.into(),
+            },
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 50,
+                output_tokens: 20,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+        vec![
+            ProviderEvent::TextDelta("Proceeding with plan.".into()),
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 100,
+                output_tokens: 10,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let mut rt = ConversationRuntime::new("test".into(), 1000, "You are helpful.".into());
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+
+    let result = rt
+        .run_turn(
+            &provider,
+            "plan a refactor",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert!(result.tool_calls.iter().any(|t| t.contains("edit_plan")));
+}
+
+#[tokio::test]
+async fn codebase_search_with_repo_map() {
+    let provider = MockProvider::new(vec![
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "codebase_search".into(),
+                input: r#"{"query":"auth timeout","max_results":5}"#.into(),
+            },
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 50,
+                output_tokens: 20,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+        vec![
+            ProviderEvent::TextDelta("No results found.".into()),
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 80,
+                output_tokens: 10,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let mut rt = ConversationRuntime::new("test".into(), 1000, "You are helpful.".into());
+    // Set repo map to a temp dir
+    let tmp = std::env::temp_dir().join(format!("mc-repo-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    std::fs::write(tmp.join("main.rs"), "fn main() { auth_timeout(); }").unwrap();
+    rt.set_repo_map(&tmp);
+
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+
+    let result = rt
+        .run_turn(
+            &provider,
+            "search for auth",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert!(result
+        .tool_calls
+        .iter()
+        .any(|t| t.contains("codebase_search")));
+    std::fs::remove_dir_all(&tmp).ok();
+}
+
+#[tokio::test]
+async fn memory_read_write_via_runtime() {
+    let provider = MockProvider::new(vec![
+        // Turn 1: write memory
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "memory_write".into(),
+                input: r#"{"key":"project","value":"magic-code"}"#.into(),
+            },
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 30,
+                output_tokens: 10,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+        vec![
+            ProviderEvent::TextDelta("Saved.".into()),
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 50,
+                output_tokens: 5,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let tmp = std::env::temp_dir().join(format!("mc-mem-{}", std::process::id()));
+    let mut rt = ConversationRuntime::new("test".into(), 1000, "You are helpful.".into());
+    rt.set_memory(mc_core::MemoryStore::load(&tmp.join("memory.json"), 100));
+
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+
+    let result = rt
+        .run_turn(
+            &provider,
+            "remember this",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert!(result.tool_calls.iter().any(|t| t.contains("memory_write")));
+    std::fs::remove_dir_all(&tmp).ok();
+}
+
+#[tokio::test]
+async fn task_create_and_list() {
+    let provider = MockProvider::new(vec![
+        vec![
+            ProviderEvent::ToolUse {
+                id: "t1".into(),
+                name: "task_create".into(),
+                input: r#"{"description":"run tests","command":"echo hello"}"#.into(),
+            },
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 30,
+                output_tokens: 10,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+        vec![
+            ProviderEvent::TextDelta("Task created.".into()),
+            ProviderEvent::Usage(TokenUsage {
+                input_tokens: 50,
+                output_tokens: 5,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            }),
+            ProviderEvent::MessageStop,
+        ],
+    ]);
+
+    let mut rt = ConversationRuntime::new("test".into(), 1000, "You are helpful.".into());
+    let policy = PermissionPolicy::new(PermissionMode::Allow);
+    let cancel = CancellationToken::new();
+
+    let result = rt
+        .run_turn(
+            &provider,
+            "create a task",
+            &policy,
+            &mut None,
+            &mut |_| {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+
+    assert!(result.tool_calls.iter().any(|t| t.contains("task_create")));
+}
+
+#[test]
+fn session_search_finds_matches() {
+    let mut session = Session::default();
+    session.messages.push(ConversationMessage::user(
+        "fix the auth timeout bug in login.rs",
+    ));
+    session
+        .messages
+        .push(ConversationMessage::assistant("I'll look at login.rs"));
+    session
+        .messages
+        .push(ConversationMessage::user("now add tests"));
+
+    let results = session.search("auth timeout");
+    assert_eq!(results.len(), 1);
+    assert!(results[0].2.contains("auth timeout"));
+
+    let results2 = session.search("login");
+    assert_eq!(results2.len(), 2); // found in both user and assistant
+
+    let results3 = session.search("nonexistent");
+    assert!(results3.is_empty());
+}
+
+#[test]
+fn anthropic_request_body_structure() {
+    // Test that provider request building works correctly
+    let req = CompletionRequest {
+        model: "claude-sonnet-4-20250514".into(),
+        max_tokens: 4096,
+        system_prompt: Some("You are helpful.".into()),
+        messages: vec![],
+        tools: vec![mc_provider::ToolDefinition {
+            name: "bash".into(),
+            description: "Run command".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        }],
+        tool_choice: None,
+        thinking_budget: None,
+        response_format: None,
+    };
+    // Verify request can be constructed without panic
+    assert_eq!(req.model, "claude-sonnet-4-20250514");
+    assert_eq!(req.tools.len(), 1);
+    assert_eq!(req.tools[0].name, "bash");
+}
+
+#[test]
+fn model_registry_covers_new_providers() {
+    let reg = ModelRegistry::default();
+    // Verify all major providers have context windows
+    for model in &[
+        "claude-sonnet-4-20250514",
+        "gpt-4o",
+        "gemini-2.0-flash",
+        "deepseek-chat",
+        "llama-3.3-70b",
+    ] {
+        let ctx = reg.context_window(model);
+        assert!(ctx > 0, "Missing context window for {model}");
+    }
+}

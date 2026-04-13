@@ -422,4 +422,42 @@ mod tests {
         assert_eq!(info.context_window, 200_000);
         assert_eq!(info.provider, "anthropic");
     }
+
+    #[test]
+    fn model_info_opus() {
+        let info = AnthropicProvider::model_info("claude-opus-4-20250514");
+        assert_eq!(info.context_window, 200_000);
+    }
+
+    #[test]
+    fn model_info_haiku() {
+        let info = AnthropicProvider::model_info("claude-haiku-3-5-20241022");
+        assert_eq!(info.context_window, 200_000);
+    }
+
+    #[test]
+    fn wire_message_with_tool_use() {
+        let msg = InputMessage {
+            role: MessageRole::Assistant,
+            content: vec![ContentBlock::ToolUse {
+                id: "t1".into(),
+                name: "bash".into(),
+                input: r#"{"command": "ls"}"#.into(),
+            }],
+        };
+        let wire = to_wire_message(&msg);
+        assert_eq!(wire.role, "assistant");
+    }
+
+    #[test]
+    fn wire_message_with_thinking() {
+        let msg = InputMessage {
+            role: MessageRole::Assistant,
+            content: vec![ContentBlock::Thinking {
+                text: "let me think".into(),
+            }],
+        };
+        let wire = to_wire_message(&msg);
+        assert_eq!(wire.role, "assistant");
+    }
 }
