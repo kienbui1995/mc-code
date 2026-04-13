@@ -682,7 +682,13 @@ Fix this before continuing."
                 let content = crate::auto_skill::generate_skill_content(&summary, &tool_calls);
                 if let Some(path) = crate::auto_skill::save_auto_skill(
                     &dir,
-                    &format!("auto-{iterations}t-{}", tool_calls.len()),
+                    &format!(
+                        "auto-{iterations}t-{}-{}",
+                        tool_calls.len(),
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map_or(0, |d| d.as_secs())
+                    ),
                     &content,
                 ) {
                     on_event(&ProviderEvent::TextDelta(format!(

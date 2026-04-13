@@ -55,19 +55,38 @@ pub fn search_all_sessions(sessions_dir: &Path, query: &str) -> Vec<FtsResult> {
             .unwrap_or_default();
 
         for msg in &session.messages {
+            let mut matched = false;
             for block in &msg.blocks {
-                if let crate::session::Block::Text { text } = block {
-                    if let Some(pos) = text.to_lowercase().find(&q) {
-                        let start = pos.saturating_sub(60);
-                        let end = (pos + q.len() + 60).min(text.len());
-                        results.push(FtsResult {
-                            session_file: file_name.clone(),
-                            timestamp: session.created_at.clone(),
-                            snippet: format!("...{}...", &text[start..end]),
-                        });
-                        break; // one match per message is enough
-                    }
+                let text = match block {
+                    crate::session::Block::Text { text } => text.as_str(),
+                    crate::session::Block::Thinking { text } => text.as_str(),
+                    crate::session::Block::ToolUse { input, .. } => input.as_str(),
+                    crate::session::Block::ToolResult { output, .. } => output.as_str(),
+                    _ => continue,
+                };
+                let lower = text.to_lowercase();
+                if let Some(char_pos) = lower.find(&q) {
+                    // Safe byte slicing via char_indices
+                    let byte_start = lower[..char_pos]
+                        .char_indices()
+                        .rev()
+                        .nth(59)
+                        .map_or(0, |(i, _)| i);
+                    let byte_end = lower[char_pos..]
+                        .char_indices()
+                        .nth(q.len() + 60)
+                        .map_or(text.len(), |(i, _)| char_pos + i);
+                    results.push(FtsResult {
+                        session_file: file_name.clone(),
+                        timestamp: session.created_at.clone(),
+                        snippet: format!("...{}...", &text[byte_start..byte_end]),
+                    });
+                    matched = true;
+                    break;
                 }
+            }
+            if matched && results.len() >= 20 {
+                break;
             }
         }
 

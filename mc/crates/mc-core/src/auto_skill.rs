@@ -30,6 +30,7 @@ pub fn generate_skill_content(task_summary: &str, tools_used: &[String]) -> Stri
 
 /// Save an auto-generated skill to the skills directory.
 /// Returns the path if successful.
+#[must_use]
 pub fn save_auto_skill(skills_dir: &Path, name: &str, content: &str) -> Option<String> {
     let dir = skills_dir.join("auto");
     if std::fs::create_dir_all(&dir).is_err() {
@@ -46,10 +47,17 @@ pub fn save_auto_skill(skills_dir: &Path, name: &str, content: &str) -> Option<S
         })
         .collect();
     let path = dir.join(format!("{safe_name}.md"));
-    if path.exists() {
-        return None; // don't overwrite existing skills
-    }
-    std::fs::write(&path, content).ok()?;
+    // Atomic create — avoids TOCTOU race
+    use std::io::Write;
+    let mut file = match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
+        Ok(f) => f,
+        Err(_) => return None,
+    };
+    file.write_all(content.as_bytes()).ok()?;
     Some(path.to_string_lossy().to_string())
 }
 
