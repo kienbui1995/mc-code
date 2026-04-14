@@ -211,7 +211,46 @@ fn main() -> Result<()> {
         &config.provider_config,
         cli.base_url.as_deref(),
         cli.api_key.as_deref(),
-    )?;
+    );
+
+    let primary = match primary {
+        Ok(p) => p,
+        Err(e) => {
+            let err_str = format!("{e:?}"); // Debug format includes full chain
+            if err_str.contains("MC-E001")
+                || err_str.contains("missing API key")
+                || err_str.contains("MissingApiKey")
+                || err_str.contains("API_KEY")
+            {
+                eprintln!();
+                eprintln!("  ╭─────────────────────────────────────────╮");
+                eprintln!("  │     Welcome to magic-code! 🚀          │");
+                eprintln!("  ╰─────────────────────────────────────────╯");
+                eprintln!();
+                eprintln!("  To get started, set an API key for your LLM provider:");
+                eprintln!();
+                eprintln!("  # Anthropic (default)");
+                eprintln!("  export ANTHROPIC_API_KEY=\"sk-ant-...\"");
+                eprintln!();
+                eprintln!("  # Or use another provider:");
+                eprintln!("  export OPENAI_API_KEY=\"sk-...\"        # then: magic-code --provider openai");
+                eprintln!("  export GEMINI_API_KEY=\"...\"           # then: magic-code --provider gemini");
+                eprintln!(
+                    "  export GROQ_API_KEY=\"gsk_...\"         # then: magic-code --provider groq"
+                );
+                eprintln!("  export OPENROUTER_API_KEY=\"sk-or-...\" # then: magic-code --provider openrouter");
+                eprintln!();
+                eprintln!("  # Or use a local model (no API key needed):");
+                eprintln!("  magic-code --provider ollama --model llama3");
+                eprintln!();
+                eprintln!("  Add to ~/.bashrc or ~/.zshrc to persist.");
+                eprintln!("  Docs: https://github.com/kienbui1995/mc-code#install");
+                eprintln!();
+                std::process::exit(1);
+            }
+            return Err(e.into());
+        }
+    };
 
     // Wrap with fallback provider if configured
     let provider: Box<dyn mc_core::LlmProvider> =
