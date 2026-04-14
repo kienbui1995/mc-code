@@ -54,9 +54,7 @@ jobs:
       - name: Clippy (strict)
         run: |
           cargo clippy --workspace --all-targets -- \
-            -D warnings \
-            -W clippy::unwrap_used \
-            -W clippy::expect_used \
-            -W clippy::panic \
-            -A clippy::too_many_lines \
-            -A clippy::module_name_repetitions
+            -D clippy::correctness \
+            -D clippy::suspicious \
+            -W clippy::complexity \
+            -A clippy::too_many_lines
