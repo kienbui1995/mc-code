@@ -18,7 +18,7 @@ impl ReadFileTool {
         limit: Option<usize>,
     ) -> Result<String, ToolError> {
         // Jupyter notebook support: extract cell sources as readable text
-        if path.ends_with(".ipynb") {
+        if path.to_ascii_lowercase().ends_with(".ipynb") {
             let content = std::fs::read_to_string(path)
                 .map_err(|e| ToolError::ExecutionFailed(format!("read {path}: {e}")))?;
             return Ok(extract_notebook_cells(&content));

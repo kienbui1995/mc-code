@@ -23,7 +23,6 @@ fn make_request(model: &str) -> CompletionRequest {
 }
 
 async fn collect_events(stream: mc_provider::ProviderStream) -> Vec<ProviderEvent> {
-    use futures_core::Stream;
     use std::pin::Pin;
     let mut stream = stream;
     let mut events = Vec::new();
