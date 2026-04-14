@@ -116,12 +116,13 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
         },
         ToolSpec {
             name: "memory_write".into(),
-            description: "Save a project fact to long-term memory (persists across sessions). Set delete=true to remove.".into(),
+            description: "Save a project fact to long-term memory (persists across sessions). Categories: project, user, feedback, reference. Set delete=true to remove.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "key": { "type": "string", "description": "Fact key" },
                     "value": { "type": "string", "description": "Fact value" },
+                    "category": { "type": "string", "enum": ["project", "user", "feedback", "reference"], "description": "Category: project (default), user (preferences), feedback (corrections), reference (locations)" },
                     "delete": { "type": "boolean", "description": "Set true to delete this key" }
                 },
                 "required": ["key"]

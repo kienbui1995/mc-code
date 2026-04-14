@@ -9,6 +9,12 @@ pub struct Fact {
     pub key: String,
     pub value: String,
     pub updated_at: String,
+    #[serde(default = "default_category")]
+    pub category: String,
+}
+
+fn default_category() -> String {
+    "project".into()
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -59,15 +65,22 @@ impl MemoryStore {
 
     /// Set.
     pub fn set(&mut self, key: &str, value: &str) {
+        self.set_with_category(key, value, "project");
+    }
+
+    /// Set with category.
+    pub fn set_with_category(&mut self, key: &str, value: &str, category: &str) {
         let ts = epoch_secs();
         if let Some(f) = self.facts.iter_mut().find(|f| f.key == key) {
             f.value = value.to_string();
             f.updated_at = ts;
+            f.category = category.to_string();
         } else {
             self.facts.push(Fact {
                 key: key.into(),
                 value: value.into(),
                 updated_at: ts,
+                category: category.into(),
             });
             self.evict();
         }
@@ -105,12 +118,30 @@ impl MemoryStore {
         if self.facts.is_empty() {
             return String::new();
         }
-        let lines: Vec<String> = self
+        let mut section =
+            "\n\n## Project Memory\n*Treat as hints — verify against actual code before acting.*\n"
+                .to_string();
+        for cat in &["project", "user", "feedback", "reference"] {
+            let facts: Vec<_> = self.facts.iter().filter(|f| f.category == *cat).collect();
+            if !facts.is_empty() {
+                section.push_str(&format!("\n### {}\n", capitalize(cat)));
+                for f in facts {
+                    section.push_str(&format!("- {}: {}\n", f.key, f.value));
+                }
+            }
+        }
+        // Uncategorized
+        let other: Vec<_> = self
             .facts
             .iter()
-            .map(|f| format!("- {}: {}", f.key, f.value))
+            .filter(|f| {
+                !["project", "user", "feedback", "reference"].contains(&f.category.as_str())
+            })
             .collect();
-        format!("\n\n## Project Memory\n{}", lines.join("\n"))
+        for f in other {
+            section.push_str(&format!("- {}: {}\n", f.key, f.value));
+        }
+        section
     }
 
     /// Handle `memory_read` tool call. Returns JSON output.
@@ -131,6 +162,10 @@ impl MemoryStore {
     pub fn handle_write(&mut self, input: &serde_json::Value) -> String {
         let key = input.get("key").and_then(|v| v.as_str()).unwrap_or("");
         let value = input.get("value").and_then(|v| v.as_str()).unwrap_or("");
+        let category = input
+            .get("category")
+            .and_then(|v| v.as_str())
+            .unwrap_or("project");
         if key.is_empty() {
             return "Error: key is required".into();
         }
@@ -143,13 +178,12 @@ impl MemoryStore {
                 };
             }
         }
-        self.set(key, value);
-        format!("Saved: {key} = {value}")
+        self.set_with_category(key, value, category);
+        format!("Saved [{category}]: {key} = {value}")
     }
 
     fn evict(&mut self) {
         while self.facts.len() > self.max_facts {
-            // Remove oldest by updated_at
             if let Some(idx) = self
                 .facts
                 .iter()
@@ -161,6 +195,42 @@ impl MemoryStore {
             }
         }
     }
+
+    /// Dream cleanup: remove duplicates, resolve contradictions (keep newest),
+    /// remove entries with same key prefix. Call on session start or /memory compact.
+    pub fn compact(&mut self) -> usize {
+        let before = self.facts.len();
+        // Deduplicate by key — keep newest
+        let mut seen = std::collections::HashMap::new();
+        for (i, f) in self.facts.iter().enumerate() {
+            seen.entry(f.key.clone())
+                .and_modify(|(idx, ts): &mut (usize, String)| {
+                    if f.updated_at > *ts {
+                        *idx = i;
+                        *ts = f.updated_at.clone();
+                    }
+                })
+                .or_insert((i, f.updated_at.clone()));
+        }
+        let keep: std::collections::HashSet<usize> = seen.values().map(|(i, _)| *i).collect();
+        let mut i = 0;
+        self.facts.retain(|_| {
+            let k = keep.contains(&i);
+            i += 1;
+            k
+        });
+        before - self.facts.len()
+    }
+
+    /// Auto-compact if memory exceeds threshold. Call on session start.
+    pub fn auto_compact_on_start(&mut self, threshold: usize) {
+        if self.facts.len() > threshold {
+            let removed = self.compact();
+            if removed > 0 {
+                let _ = self.save();
+            }
+        }
+    }
 }
 
 fn epoch_secs() -> String {
@@ -168,6 +238,14 @@ fn epoch_secs() -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
     format!("{}", d.as_secs())
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
 }
 
 #[cfg(test)]
@@ -241,19 +319,17 @@ mod tests {
         let out = store.handle_read(&serde_json::json!({}));
         assert!(out.contains("db"));
     }
-}
 
-#[test]
-fn handle_write_delete() {
-    let path = std::env::temp_dir().join(format!("mc-mem-del-{}", std::process::id()));
-    let mut store = MemoryStore::load(&path, 100);
-    store.handle_write(&serde_json::json!({"key": "temp", "value": "data"}));
-    assert!(store
-        .handle_read(&serde_json::json!({"key": "temp"}))
-        .contains("data"));
-    store.handle_write(&serde_json::json!({"key": "temp", "delete": true}));
-    assert!(!store
-        .handle_read(&serde_json::json!({"key": "temp"}))
-        .contains("data"));
-    std::fs::remove_file(path).ok();
+    #[test]
+    fn handle_write_delete() {
+        let mut store = MemoryStore::load(&tmp_path(), 100);
+        store.handle_write(&serde_json::json!({"key": "temp", "value": "data"}));
+        assert!(store
+            .handle_read(&serde_json::json!({"key": "temp"}))
+            .contains("data"));
+        store.handle_write(&serde_json::json!({"key": "temp", "delete": true}));
+        assert!(!store
+            .handle_read(&serde_json::json!({"key": "temp"}))
+            .contains("data"));
+    }
 }

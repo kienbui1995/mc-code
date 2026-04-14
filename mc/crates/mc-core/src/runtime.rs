@@ -1307,17 +1307,36 @@ Fix this before continuing."
             if trimmed.len() < 20 || trimmed.len() > 300 {
                 continue;
             }
-            // Detect project facts worth remembering
-            let is_fact = trimmed.starts_with("Note:")
-                || trimmed.starts_with("Remember:")
-                || trimmed.contains("convention is")
-                || trimmed.contains("always use")
-                || trimmed.contains("project uses")
-                || trimmed.contains("test command:")
-                || trimmed.contains("configured with")
-                || trimmed.contains("running on port")
-                || trimmed.contains("database is")
-                || trimmed.contains("deploy with");
+            // Categorized auto-detection
+            let (is_fact, category) =
+                if trimmed.starts_with("Note:") || trimmed.starts_with("Remember:") {
+                    (true, "project")
+                } else if trimmed.contains("convention is")
+                    || trimmed.contains("always use")
+                    || trimmed.contains("coding style")
+                {
+                    (true, "feedback")
+                } else if trimmed.contains("project uses")
+                    || trimmed.contains("test command:")
+                    || trimmed.contains("configured with")
+                    || trimmed.contains("database is")
+                    || trimmed.contains("deploy with")
+                {
+                    (true, "project")
+                } else if trimmed.contains("running on port")
+                    || trimmed.contains("endpoint is")
+                    || trimmed.contains("located at")
+                    || trimmed.contains("file is at")
+                {
+                    (true, "reference")
+                } else if trimmed.contains("prefers")
+                    || trimmed.contains("user wants")
+                    || trimmed.contains("user likes")
+                {
+                    (true, "user")
+                } else {
+                    (false, "")
+                };
             if is_fact {
                 let key = format!(
                     "auto_{}",
@@ -1326,7 +1345,7 @@ Fix this before continuing."
                         .unwrap_or_default()
                         .as_millis(),
                 );
-                memory.set(&key, trimmed);
+                memory.set_with_category(&key, trimmed, category);
                 let _ = memory.save();
             }
         }
