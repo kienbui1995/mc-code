@@ -60,7 +60,7 @@ magic-code "fix the bug in auth.rs"   # single-shot mode
 ### Multi-Provider
 Works with **15 providers**: Anthropic, OpenAI, Gemini, Groq, DeepSeek, Mistral, xAI, OpenRouter, Together, Perplexity, Cohere, Cerebras, Ollama, LM Studio, llama.cpp. Switch mid-session with `/model`.
 
-### 29 Built-in Tools
+### 30 Built-in Tools
 | Tool | Description |
 |------|-------------|
 | `bash` | Execute shell commands (streaming output) |

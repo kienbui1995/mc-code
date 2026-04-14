@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.7.0 (2026-04-14)
+
+### Memory System v2 (Claude Code inspired)
+- **Memory categories**: project, user, feedback, reference — organized facts
+- **Self-skeptical prompt**: "Treat memory as hints — verify against actual code"
+- **Dream cleanup**: `memory.compact()` deduplicates, keeps newest
+- **Auto-compact on start**: runs when >150 facts accumulated
+- **Auto-categorized detection**: 15+ patterns auto-classify facts
+- **Critical fix**: MemoryStore was never initialized — all memory features were dead
+
+### System Prompt Hardening
+- **All 30 tools described** (was 12/30) in 5 categories
+- **Security section**: prompt injection detection, no untrusted execution
+- **What NOT to Do**: 7 negative rules (no write for small edits, no guess, etc.)
+- **Cost Awareness**: prefer cheap operations, edit over write
+- **Section reorder**: important rules at end for max model attention
+
+### Security & Quality CI
+- **cargo-audit**: dependency vulnerability scanning on every PR
+- **cargo-deny**: license compliance (allowlist), supply chain checks
+- **dependency-review**: block PRs adding high-severity vulns or GPL deps
+- **Strict clippy**: correctness + suspicious as errors
+- **Dependabot alerts**: enabled
+
+### New Features
+- **Browser automation**: headless Playwright (navigate, screenshot, click, type, eval JS)
+- **Debug mode**: hypothesis-driven structured debugging (4 phases)
+- **GitHub integration**: `/gh prs`, `/gh issues`, `/gh status`, `/gh checks`
+- **Agent profiles**: `/profile save/load/list`
+- **Context pinning**: `/pin` — pinned messages survive compaction
+- **Auto-skill creation**: auto-generate skills after complex tasks
+- **Cross-session FTS search**: `/search-all` across all saved sessions
+- **Configurable notifications**: `notifications` toggle + webhook (Slack/Discord)
+
+### UX Improvements
+- **Animated spinner** during streaming/tool execution
+- **Bell notification** when agent finishes
+- **Categorized /help** (Navigation, Session, Agent, Code, Tools, Workflow, Config)
+- **Quit confirmation** for unsaved sessions
+- **Ctrl+R** reverse history search
+
+### Infrastructure
+- **tree-sitter** AST symbol extraction (Rust, Python, JS/TS, Go)
+- **arboard** cross-platform clipboard (replaces shell pbcopy/xclip)
+- **GitHub templates**: bug report, feature request, PR template
+- **SECURITY.md**: vulnerability reporting policy
+- **274 tests**, 50% coverage, 0 warnings
+
 ## v1.6.0 (2026-04-12)
 
 ### Managed Agents & Agentic AI
