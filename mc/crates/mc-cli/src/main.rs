@@ -401,7 +401,9 @@ async fn run_tui(
                 .join(format!("{project_hash}.json"))
         });
         if let Some(ref path) = memory_path {
-            rt.set_memory(mc_core::MemoryStore::load(path, 200));
+            let mut mem = mc_core::MemoryStore::load(path, 200);
+            mem.auto_compact_on_start(150);
+            rt.set_memory(mem);
         }
         // Load hierarchical instructions (CLAUDE.md, AGENTS.md from root to cwd)
         let cwd = std::env::current_dir().unwrap_or_default();
