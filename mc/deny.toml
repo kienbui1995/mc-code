@@ -3,6 +3,7 @@ unmaintained = "workspace"
 yanked = "warn"
 
 [licenses]
+unused-allowed-license = "allow"
 allow = [
     "MIT",
     "Apache-2.0",
@@ -17,6 +18,7 @@ allow = [
     "BSL-1.0",
     "CC0-1.0",
     "MPL-2.0",
+    "CDLA-Permissive-2.0",
 ]
 
 [[licenses.clarify]]
