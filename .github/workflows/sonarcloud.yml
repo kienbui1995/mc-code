@@ -1,0 +1,43 @@
+name: SonarCloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for blame
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mc
+
+      - name: Run tests with coverage
+        run: |
+          cargo install cargo-tarpaulin --locked
+          cargo tarpaulin --workspace --skip-clean --out xml --output-dir ../
+        continue-on-error: true
+
+      - name: Run clippy for SonarCloud
+        run: |
+          cargo clippy --workspace --all-targets --message-format=json > ../clippy-report.json 2>&1 || true
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
