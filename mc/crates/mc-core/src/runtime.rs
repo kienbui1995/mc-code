@@ -172,6 +172,26 @@ impl ConversationRuntime {
         self.memory = Some(memory);
     }
 
+    /// Read from memory (for /memory command).
+    pub fn memory_read(&self, input: &serde_json::Value) -> String {
+        match &self.memory {
+            Some(store) => store.handle_read(input),
+            None => "Memory not configured".into(),
+        }
+    }
+
+    /// Write to memory (for /memory command).
+    pub fn memory_write(&mut self, input: &serde_json::Value) -> String {
+        match &mut self.memory {
+            Some(store) => {
+                let out = store.handle_write(input);
+                let _ = store.save();
+                out
+            }
+            None => "Memory not configured".into(),
+        }
+    }
+
     /// Attach an image to the next user message.
     pub fn attach_image(&mut self, path: String, media_type: String) {
         self.pending_image = Some((path, media_type));
@@ -1282,22 +1302,29 @@ Fix this before continuing."
         let Some(ref mut memory) = self.memory else {
             return;
         };
-        // Heuristic: save lines that look like project facts
         for line in text.lines() {
             let trimmed = line.trim();
-            if (trimmed.starts_with("Note:")
+            if trimmed.len() < 20 || trimmed.len() > 300 {
+                continue;
+            }
+            // Detect project facts worth remembering
+            let is_fact = trimmed.starts_with("Note:")
                 || trimmed.starts_with("Remember:")
-                || trimmed.contains("convention is"))
-                && trimmed.len() > 20
-                && trimmed.len() < 200
-            {
+                || trimmed.contains("convention is")
+                || trimmed.contains("always use")
+                || trimmed.contains("project uses")
+                || trimmed.contains("test command:")
+                || trimmed.contains("configured with")
+                || trimmed.contains("running on port")
+                || trimmed.contains("database is")
+                || trimmed.contains("deploy with");
+            if is_fact {
                 let key = format!(
-                    "auto_{}_{}",
+                    "auto_{}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
                         .as_millis(),
-                    trimmed.len(),
                 );
                 memory.set(&key, trimmed);
                 let _ = memory.save();

@@ -387,6 +387,22 @@ async fn run_tui(
         if !hooks.is_empty() {
             rt.set_hooks(mc_tools::HookEngine::new(hooks));
         }
+        // Initialize persistent memory
+        let memory_path = std::env::var_os("HOME").map(|h| {
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let project_hash = format!(
+                "{:x}",
+                cwd.to_string_lossy()
+                    .bytes()
+                    .fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)))
+            );
+            std::path::PathBuf::from(h)
+                .join(".local/share/magic-code/memory")
+                .join(format!("{project_hash}.json"))
+        });
+        if let Some(ref path) = memory_path {
+            rt.set_memory(mc_core::MemoryStore::load(path, 200));
+        }
         // Load hierarchical instructions (CLAUDE.md, AGENTS.md from root to cwd)
         let cwd = std::env::current_dir().unwrap_or_default();
         let instructions = mc_config::load_hierarchical_instructions(&cwd);
@@ -1070,7 +1086,40 @@ async fn run_tui(
                     }
                 }
                 PendingCommand::Memory(cmd) => {
-                    app.output_lines.push(format!("📌 memory: {cmd}"));
+                    if let Ok(mut rt) = runtime.try_lock() {
+                        let parts: Vec<&str> = cmd.splitn(3, ' ').collect();
+                        match parts.first().copied().unwrap_or("list") {
+                            "list" | "" => {
+                                let output = rt.memory_read(&serde_json::json!({}));
+                                app.output_lines.push("📌 Project Memory:".into());
+                                app.output_lines.push(output);
+                            }
+                            "get" => {
+                                let key = parts.get(1).copied().unwrap_or("");
+                                let output = rt.memory_read(&serde_json::json!({"key": key}));
+                                app.output_lines.push(output);
+                            }
+                            "set" => {
+                                let key = parts.get(1).copied().unwrap_or("");
+                                let value = parts.get(2).copied().unwrap_or("");
+                                let output = rt
+                                    .memory_write(&serde_json::json!({"key": key, "value": value}));
+                                app.output_lines.push(output);
+                            }
+                            "delete" => {
+                                let key = parts.get(1).copied().unwrap_or("");
+                                let output = rt
+                                    .memory_write(&serde_json::json!({"key": key, "delete": true}));
+                                app.output_lines.push(output);
+                            }
+                            _ => {
+                                app.output_lines.push("Usage: /memory [list|get <key>|set <key> <value>|delete <key>]".into());
+                            }
+                        }
+                    } else {
+                        app.output_lines
+                            .push("Memory not available (runtime busy)".into());
+                    }
                 }
                 PendingCommand::ThinkingToggle => {
                     app.output_lines.push("💭 Thinking toggled".into());
@@ -1850,6 +1899,8 @@ fn build_system_prompt(project: &mc_config::ProjectContext) -> String {
          - `lsp_query`: Query the Language Server for diagnostics, definitions, references. Use for type errors and navigation.\n\n\
          ## Context & Memory\n\
          - `memory_read`/`memory_write`: Read/write persistent project facts across sessions.\n\
+         - Proactively save useful facts: test commands, framework versions, coding conventions, architecture decisions.\n\
+         - Use `memory_write` after discovering project patterns (e.g. \"test_cmd\" = \"cargo test\").\n\
          - `web_fetch`: Fetch content from a URL. Use to read documentation or API specs.\n\
          - `web_search`: Search the web for current information.\n\
          - `ask_user`: Ask the user a clarifying question when requirements are ambiguous.\n\n\
