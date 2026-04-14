@@ -100,7 +100,7 @@ impl InputHistory {
             .iter()
             .rev()
             .find(|e| e.to_lowercase().contains(&q))
-            .map(|s| s.as_str())
+            .map(String::as_str)
     }
 
     fn save(&self) {

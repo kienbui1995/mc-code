@@ -1,0 +1,60 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 1" # Weekly Monday 8am
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Run audit
+        run: cargo audit
+
+  deny:
+    name: License & Supply Chain
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Check licenses & advisories
+        run: cargo deny check advisories licenses sources
+
+  clippy-strict:
+    name: Strict Clippy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mc
+      - name: Clippy (strict)
+        run: |
+          cargo clippy --workspace --all-targets -- \
+            -D clippy::correctness \
+            -D clippy::suspicious \
+            -W clippy::complexity \
+            -A clippy::too_many_lines

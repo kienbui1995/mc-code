@@ -242,6 +242,7 @@ fn split_shell_commands(cmd: &str) -> Vec<&str> {
                 start = i + 2;
                 i += 1;
             } else if c == b'|' && i + 1 < bytes.len() && bytes[i + 1] == b'|' {
+                // Same handling as &&
                 parts.push(&cmd[start..i]);
                 start = i + 2;
                 i += 1;

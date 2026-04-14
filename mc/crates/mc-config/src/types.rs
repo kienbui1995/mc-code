@@ -479,12 +479,12 @@ budget_usd = 10.0
     #[test]
     fn validates_managed_agents_bad_budget() {
         let layer: ConfigLayer = toml::from_str(
-            r#"
+            r"
 [managed_agents]
 enabled = true
 budget_usd = -1.0
 executor_max_turns = 0
-"#,
+",
         )
         .unwrap();
         let config = RuntimeConfig::from_layers(&[layer]);
