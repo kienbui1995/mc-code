@@ -35,7 +35,7 @@ jobs:
           cargo clippy --workspace --all-targets --message-format=json > ../clippy-report.json 2>&1 || true
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         with:
           projectBaseDir: .
         env:
