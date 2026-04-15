@@ -111,6 +111,12 @@ struct Cli {
     /// Validate config and exit.
     #[arg(long)]
     validate_config: bool,
+    /// Stream NDJSON events to stdout (for programmatic integration).
+    #[arg(long)]
+    ndjson: bool,
+    /// Process prompts from a file (one per line). Headless batch mode.
+    #[arg(long, value_name = "FILE")]
+    batch: Option<String>,
     prompt: Vec<String>,
 }
 
@@ -305,6 +311,28 @@ fn main() -> Result<()> {
             cli.max_tokens_total,
             &cli.add_dir,
         ))
+    } else if let Some(ref batch_file) = cli.batch {
+        // Batch mode: process each line as a prompt
+        let lines = std::fs::read_to_string(batch_file).context("failed to read batch file")?;
+        let prompts: Vec<&str> = lines.lines().filter(|l| !l.trim().is_empty()).collect();
+        eprintln!("[batch] {} prompts from {batch_file}", prompts.len());
+        for (i, p) in prompts.iter().enumerate() {
+            eprintln!("[batch {}/{}] {}", i + 1, prompts.len(), p);
+            rt.block_on(run_single(
+                &model,
+                cli.max_tokens,
+                p,
+                &system,
+                provider.as_ref(),
+                &policy,
+                hooks.clone(),
+                None,
+                cli.json || cli.ndjson,
+                &cli.add_dir,
+                &config.mcp_servers,
+            ))?;
+        }
+        Ok(())
     } else {
         rt.block_on(run_single(
             &model,
@@ -315,7 +343,7 @@ fn main() -> Result<()> {
             &policy,
             hooks,
             cli.output,
-            cli.json,
+            cli.json || cli.ndjson,
             &cli.add_dir,
             &config.mcp_servers,
         ))
@@ -1617,6 +1645,7 @@ async fn run_single(
         cancel_clone.cancel();
     });
 
+    let ndjson = json_output;
     let mut stdout = io::stdout();
     let result = runtime
         .run_turn(
@@ -1625,14 +1654,45 @@ async fn run_single(
             policy,
             &mut None,
             &mut |event| match event {
-                mc_provider::ProviderEvent::TextDelta(text)
-                | mc_provider::ProviderEvent::ToolOutputDelta(text) => {
-                    let _ = write!(stdout, "{text}");
+                mc_provider::ProviderEvent::TextDelta(text) => {
+                    if ndjson {
+                        let _ = writeln!(
+                            stdout,
+                            "{}",
+                            serde_json::json!({"type":"text","content":text})
+                        );
+                    } else {
+                        let _ = write!(stdout, "{text}");
+                    }
+                    let _ = stdout.flush();
+                }
+                mc_provider::ProviderEvent::ToolOutputDelta(text) => {
+                    if ndjson {
+                        let _ = writeln!(
+                            stdout,
+                            "{}",
+                            serde_json::json!({"type":"tool_output","content":text})
+                        );
+                    } else {
+                        let _ = write!(stdout, "{text}");
+                    }
                     let _ = stdout.flush();
                 }
                 mc_provider::ProviderEvent::ToolInputDelta { partial, .. } => {
-                    let _ = write!(stdout, "{partial}");
-                    let _ = stdout.flush();
+                    if !ndjson {
+                        let _ = write!(stdout, "{partial}");
+                        let _ = stdout.flush();
+                    }
+                }
+                mc_provider::ProviderEvent::ToolUse { name, input, .. } => {
+                    if ndjson {
+                        let _ = writeln!(
+                            stdout,
+                            "{}",
+                            serde_json::json!({"type":"tool_call","name":name,"input":input})
+                        );
+                        let _ = stdout.flush();
+                    }
                 }
                 _ => {}
             },
@@ -1675,6 +1735,9 @@ async fn run_single(
         "[tokens: {}↓ {}↑ | {} iters]",
         result.usage.input_tokens, result.usage.output_tokens, result.iterations
     );
+    if result.cancelled {
+        std::process::exit(130); // same as Ctrl+C convention
+    }
     Ok(())
 }
 
