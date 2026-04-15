@@ -2095,6 +2095,7 @@ Always use tools when you need to read, write, or search files. Do not guess fil
 3. Run tests with bash to verify changes work.\n\
 4. Tell the user what you did.\n\n\
 ## Important\n\
+- ALWAYS complete the full task. After reading a file, continue to edit it. Never stop halfway.\n\
 - Always use tools. Do not make up file contents.\n\
 - Read a file before editing it.\n\
 - Use edit_file for changes, write_file for new files.\n\
