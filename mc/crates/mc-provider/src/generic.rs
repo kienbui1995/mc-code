@@ -90,6 +90,7 @@ impl GenericProvider {
             let mut buf = String::new();
             let mut pending_tools: std::collections::HashMap<usize, (String, String, String)> =
                 std::collections::HashMap::new();
+            let mut reasoning_buf = String::new();
             let mut stream = response;
 
             while let Some(chunk) = stream.chunk().await? {
@@ -131,6 +132,10 @@ impl GenericProvider {
                                             yield ProviderEvent::TextDelta(text.to_string());
                                         }
                                     }
+                                    // Capture reasoning/thinking content (Qwen 3.5 via vLLM)
+                                    if let Some(rc) = delta.get("reasoning_content").and_then(|c| c.as_str()) {
+                                        reasoning_buf.push_str(rc);
+                                    }
                                     if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
                                         for tc in tcs {
                                             let idx = tc.get("index").and_then(serde_json::Value::as_u64).unwrap_or(0) as usize;
@@ -152,6 +157,15 @@ impl GenericProvider {
             }
 
             for ev in flush_pending_tools_vec(&mut pending_tools) { yield ev; }
+
+            // Fallback: extract tool calls from reasoning_content (Qwen 3.5 via vLLM
+            // puts tool calls inside thinking/reasoning blocks instead of tool_calls field)
+            if pending_tools.is_empty() && !reasoning_buf.is_empty() {
+                for tc in parse_tool_calls_from_reasoning(&reasoning_buf) {
+                    yield tc;
+                }
+            }
+
             yield ProviderEvent::MessageStop;
         })
     }
@@ -226,6 +240,42 @@ fn flush_pending_tools_vec(
         .collect()
 }
 
+/// Parse tool calls embedded in reasoning/thinking content (Qwen 3.5 via vLLM).
+/// Qwen puts `<tool_call><function=name><parameter=key>value</parameter></function></tool_call>`
+/// inside reasoning blocks when `--reasoning-parser qwen3` is active.
+fn parse_tool_calls_from_reasoning(reasoning: &str) -> Vec<ProviderEvent> {
+    let mut events = Vec::new();
+    let mut search = reasoning;
+    while let Some(start) = search.find("<function=") {
+        let rest = &search[start + 10..];
+        let name_end = rest.find('>').unwrap_or(rest.len());
+        let name = rest[..name_end].to_string();
+        let block_end = rest.find("</function>").unwrap_or(rest.len());
+        let body = &rest[name_end + 1..block_end];
+
+        let mut params = serde_json::Map::new();
+        let mut param_search = body;
+        while let Some(ps) = param_search.find("<parameter=") {
+            let pr = &param_search[ps + 11..];
+            let key_end = pr.find('>').unwrap_or(pr.len());
+            let key = pr[..key_end].trim().to_string();
+            let val_end = pr.find("</parameter>").unwrap_or(pr.len());
+            let val = pr[key_end + 1..val_end].trim().to_string();
+            params.insert(key, serde_json::Value::String(val));
+            param_search = &pr[val_end.min(pr.len())..];
+        }
+
+        let id = format!("reasoning-tc-{}", events.len());
+        events.push(ProviderEvent::ToolUse {
+            id,
+            name,
+            input: serde_json::Value::Object(params).to_string(),
+        });
+        search = &rest[block_end.min(rest.len())..];
+    }
+    events
+}
+
 fn build_request_body(req: &CompletionRequest) -> serde_json::Value {
     let messages: Vec<serde_json::Value> = std::iter::once(serde_json::json!({
         "role": "system",
@@ -255,6 +305,13 @@ fn build_request_body(req: &CompletionRequest) -> serde_json::Value {
                 }
             }))
             .collect::<Vec<_>>());
+        // Qwen 3.5 via vLLM: disable thinking when using tools.
+        // With thinking enabled, Qwen puts tool calls inside reasoning blocks
+        // which vLLM's qwen3_coder parser cannot extract.
+        if req.model.contains("qwen") {
+            body["chat_template_kwargs"] = serde_json::json!({"enable_thinking": false});
+            tracing::debug!("qwen detected: disabled thinking for tool calling");
+        }
         if let Some(choice) = &req.tool_choice {
             body["tool_choice"] = match choice {
                 ToolChoice::Auto => serde_json::json!("auto"),
