@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh
 
 ### Via cargo
 ```bash
-cargo install magic-code
+cargo install --git https://github.com/kienbui1995/mc-code --root ~/.local mc/crates/mc-cli
 ```
 
 ### Download binary
