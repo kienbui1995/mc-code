@@ -1,6 +1,12 @@
 # magic-code
 
-**Open-source TUI agentic AI coding agent.** Built in Rust. Fast. Multi-provider.
+[![CI](https://github.com/kienbui1995/mc-code/actions/workflows/ci.yml/badge.svg)](https://github.com/kienbui1995/mc-code/actions/workflows/ci.yml)
+[![Security](https://github.com/kienbui1995/mc-code/actions/workflows/security.yml/badge.svg)](https://github.com/kienbui1995/mc-code/actions/workflows/security.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/github/v/release/kienbui1995/mc-code)](https://github.com/kienbui1995/mc-code/releases)
+[![crates.io](https://img.shields.io/crates/v/magic-code.svg)](https://crates.io/crates/magic-code)
+
+**Open-source TUI agentic AI coding agent.** Built in Rust. Fast. Multi-provider. Self-hostable.
 
 ```
 ┌─ magic-code ████████░░ 62% ──────────────────────────────┐
@@ -30,6 +36,11 @@
 ### Quick install (Linux/macOS)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kienbui1995/mc-code/main/install.sh | sh
+```
+
+### Via cargo
+```bash
+cargo install magic-code
 ```
 
 ### Download binary

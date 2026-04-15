@@ -1,0 +1,17 @@
+# Self-hosted config: Qwen 3.5 via LiteLLM (zero cost)
+# Copy to .magic-code/config.toml
+
+[default]
+model = "qwen3.5-9b"
+provider = "litellm"
+base_url = "http://localhost:4000"
+max_tokens = 4096
+notifications = false
+
+# Memory
+[memory]
+max_facts = 100
+
+# Managed agents (disabled for small models)
+[managed_agents]
+enabled = false
