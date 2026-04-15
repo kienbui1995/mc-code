@@ -14,11 +14,11 @@ name = "magic-code"
 path = "src/main.rs"
 
 [dependencies]
-mc-tui = { path = "../mc-tui" }
-mc-core = { path = "../mc-core" }
-mc-provider = { path = "../mc-provider" }
-mc-tools = { path = "../mc-tools" }
-mc-config = { path = "../mc-config" }
+mc-tui = { path = "../mc-tui", version = "1.7.0" }
+mc-core = { path = "../mc-core", version = "1.7.0" }
+mc-provider = { path = "../mc-provider", version = "1.7.0" }
+mc-tools = { path = "../mc-tools", version = "1.7.0" }
+mc-config = { path = "../mc-config", version = "1.7.0" }
 anyhow.workspace = true
 arboard = "3"
 clap.workspace = true
