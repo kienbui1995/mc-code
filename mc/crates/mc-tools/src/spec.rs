@@ -402,13 +402,7 @@ pub fn all_tool_specs() -> Vec<ToolSpec> {
                     "evidence": {"type": "string", "description": "Collected evidence/logs (required for 'analyze')"},
                     "root_cause": {"type": "string", "description": "Identified root cause (required for 'fix')"}
                 },
-                "required": ["action"],
-                "allOf": [
-                    {"if": {"properties": {"action": {"const": "hypothesize"}}, "required": ["action"]}, "then": {"required": ["bug_description"]}},
-                    {"if": {"properties": {"action": {"const": "instrument"}}, "required": ["action"]}, "then": {"required": ["file"]}},
-                    {"if": {"properties": {"action": {"const": "analyze"}}, "required": ["action"]}, "then": {"required": ["evidence"]}},
-                    {"if": {"properties": {"action": {"const": "fix"}}, "required": ["action"]}, "then": {"required": ["root_cause", "file"]}}
-                ]
+                "required": ["action"]
             }),
         },
     ]
