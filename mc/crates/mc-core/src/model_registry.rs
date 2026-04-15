@@ -100,6 +100,10 @@ impl Default for ModelRegistry {
         // Cerebras
         models.insert("llama3.1-70b".into(), m(128_000, true, 0.0, 0.0));
 
+        // Qwen (self-hosted)
+        models.insert("qwen3.5-9b".into(), m(262_144, true, 0.0, 0.0));
+        models.insert("qwen3.5:9b".into(), m(262_144, true, 0.0, 0.0));
+
         Self { models }
     }
 }
