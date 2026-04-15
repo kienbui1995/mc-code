@@ -10,6 +10,8 @@ publish = false
 rust-version = "1.75"
 repository = "https://github.com/kienbui1995/mc-code"
 description = "Open-source TUI agentic AI coding agent"
+keywords = ["ai", "coding", "agent", "tui", "llm"]
+categories = ["command-line-utilities", "development-tools"]
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
