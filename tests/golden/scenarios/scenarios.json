@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "description": "Golden test scenarios for mc-code intelligence features",
+  "categories": {
+    "tool_calling": {
+      "description": "Basic tool selection and execution",
+      "scenarios": [
+        {"id": "TC01", "prompt": "what files are in this project?", "expect_tools": ["glob_search"], "tags": ["search"]},
+        {"id": "TC02", "prompt": "read src/model.rs and tell me what structs are defined", "expect_tools": ["read_file"], "tags": ["read"]},
+        {"id": "TC03", "prompt": "search for the word 'completed' in all source files", "expect_tools": ["grep_search"], "tags": ["search"]},
+        {"id": "TC04", "prompt": "use write_file to create src/error.rs with: pub enum TodoError { NotFound, Empty }", "expect_tools": ["write_file"], "tags": ["write"]},
+        {"id": "TC05", "prompt": "read src/store.rs then add a count(&self) -> usize method using edit_file", "expect_tools": ["read_file", "edit_file"], "tags": ["read", "edit"]}
+      ]
+    },
+    "single_edit": {
+      "description": "Read file then make targeted edit",
+      "scenarios": [
+        {"id": "SE01", "prompt": "read src/model.rs then add a due_date: Option<String> field to Todo struct using edit_file", "verify_grep": ["due_date"], "verify_file": "src/model.rs"},
+        {"id": "SE02", "prompt": "read src/store.rs then add a by_tag(&self, tag: &str) -> Vec<&Todo> method using edit_file", "verify_grep": ["fn by_tag"], "verify_file": "src/store.rs"},
+        {"id": "SE03", "prompt": "read src/model.rs then add a method is_overdue(&self) -> bool that returns true if completed is false. Use edit_file.", "verify_grep": ["fn is_overdue"], "verify_file": "src/model.rs"}
+      ]
+    },
+    "multi_file_edit": {
+      "description": "Changes spanning multiple files",
+      "scenarios": [
+        {"id": "MF01", "prompt": "read src/store.rs and src/main.rs, then add a clear_completed method to store and call it in main", "verify_grep": ["clear_completed"], "verify_files": ["src/store.rs", "src/main.rs"]},
+        {"id": "MF02", "prompt": "read src/model.rs and src/store.rs, then rename the field 'completed' to 'done' in both files using edit_file", "verify_grep": ["done"], "verify_files": ["src/model.rs", "src/store.rs"]}
+      ]
+    },
+    "bug_fix": {
+      "description": "Find and fix bugs",
+      "setup": "sed -i 's/a\\.is_some()/a.is_none()/' src/store.rs",
+      "scenarios": [
+        {"id": "BF01", "prompt": "the delete method in src/store.rs returns the wrong boolean. Read the file, find the bug, and fix it.", "verify_grep": ["is_some"], "verify_file": "src/store.rs"},
+        {"id": "BF02", "setup": "sed -i 's/a + b/a - b/' src/model.rs", "prompt": "there is a bug in src/model.rs where addition is wrong. Read and fix.", "note": "requires model.rs to have add function"},
+        {"id": "BF03", "setup_file": "src/stats.rs", "setup_content": "use crate::store::TodoStore;\npub fn rate(s: &TodoStore) -> f64 {\n    let t = s.list();\n    let d = t.iter().filter(|x| x.completed).count();\n    d / t.len()\n}", "prompt": "src/stats.rs has a type error: integer division returns usize not f64. Read and fix it.", "verify_grep": ["as f64"], "verify_file": "src/stats.rs"}
+      ]
+    },
+    "context_awareness": {
+      "description": "Uses project context (CLAUDE.md, instructions, repo map)",
+      "scenarios": [
+        {"id": "CA01", "prompt": "read CLAUDE.md and tell me what conventions this project follows", "expect_tools": ["read_file"], "tags": ["context"]},
+        {"id": "CA02", "prompt": "which file contains the Todo struct? answer without reading any files", "expect_tools": [], "tags": ["repo_map"], "note": "should use repo map knowledge"},
+        {"id": "CA03", "prompt": "add serde as a dependency and derive Serialize for Todo", "tags": ["constraint"], "note": "should refuse — CLAUDE.md says no external deps"},
+        {"id": "CA04", "prompt": "add an inline test to store.rs", "tags": ["constraint"], "note": "should refuse or put in tests/ — CLAUDE.md says tests go in tests/"}
+      ]
+    },
+    "memory": {
+      "description": "Memory read/write across invocations",
+      "scenarios": [
+        {"id": "MM01", "prompt": "remember that this project's deployment target is ARM64 Linux", "expect_tools": ["memory_write"], "tags": ["memory"]},
+        {"id": "MM02", "prompt": "what do you remember about this project?", "expect_tools": ["memory_read"], "tags": ["memory"], "note": "run after MM01"},
+        {"id": "MM03", "prompt": "read memory and check if there are any project facts stored", "expect_tools": ["memory_read"], "tags": ["memory"]}
+      ]
+    },
+    "idiomatic_rust": {
+      "description": "Code quality and Rust idioms",
+      "scenarios": [
+        {"id": "IR01", "prompt": "read src/store.rs then refactor delete to return Result<(), TodoError> instead of bool. Create src/error.rs if needed.", "tags": ["rust", "error_handling"]},
+        {"id": "IR02", "prompt": "read src/store.rs then make TodoStore implement Default trait", "verify_grep": ["impl Default"], "verify_file": "src/store.rs"},
+        {"id": "IR03", "prompt": "read src/model.rs then add #[must_use] attribute to Todo::new", "verify_grep": ["must_use"], "verify_file": "src/model.rs"}
+      ]
+    },
+    "complex_task": {
+      "description": "Multi-step tasks requiring planning",
+      "scenarios": [
+        {"id": "CT01", "prompt": "implement an undo feature for delete: when a todo is deleted, store it in a 'trash' Vec. Add a restore(id) method to recover it. Read store.rs first.", "tags": ["complex"]},
+        {"id": "CT02", "prompt": "add a to_json(&self) -> String method to Todo that outputs valid JSON using format!() only, no serde. Read model.rs first.", "verify_grep": ["fn to_json"], "verify_file": "src/model.rs"},
+        {"id": "CT03", "prompt": "create a complete src/export.rs module that can export all todos as CSV format (id,title,completed,priority). Read model.rs and store.rs first.", "verify_file": "src/export.rs"}
+      ]
+    },
+    "error_recovery": {
+      "description": "Handling failures gracefully",
+      "scenarios": [
+        {"id": "ER01", "prompt": "read src/nonexistent.rs", "tags": ["error"], "note": "file doesn't exist"},
+        {"id": "ER02", "prompt": "edit src/model.rs: replace 'NONEXISTENT_STRING' with 'something'", "tags": ["error"], "note": "old_string won't match"},
+        {"id": "ER03", "prompt": "run cargo test in this project", "expect_tools": ["bash"], "tags": ["bash"], "extra_flags": "--dangerously-allow-bash"}
+      ]
+    },
+    "write_tests": {
+      "description": "Generate tests for existing code",
+      "scenarios": [
+        {"id": "WT01", "prompt": "read src/store.rs then add tests for the stats() method in tests/store_test.rs", "verify_grep": ["test_stats", "stats"], "verify_file": "tests/store_test.rs"},
+        {"id": "WT02", "prompt": "read src/model.rs then create tests/model_test.rs with tests for Todo::new, toggle, add_tag, and Display", "verify_file": "tests/model_test.rs"},
+        {"id": "WT03", "prompt": "read src/store.rs then add edge case tests: empty store list, search with no results, delete non-existent id", "verify_file": "tests/store_test.rs"}
+      ]
+    }
+  }
+}
