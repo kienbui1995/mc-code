@@ -307,10 +307,9 @@ fn build_request_body(req: &CompletionRequest) -> serde_json::Value {
             .collect::<Vec<_>>());
         // Qwen 3.5 via vLLM: disable thinking when using tools.
         // With thinking enabled, Qwen puts tool calls inside reasoning blocks
-        // which vLLM's qwen3_coder parser cannot extract.
+        // which neither qwen3_coder nor hermes parser can extract properly.
         if req.model.contains("qwen") {
             body["chat_template_kwargs"] = serde_json::json!({"enable_thinking": false});
-            tracing::debug!("qwen detected: disabled thinking for tool calling");
         }
         if let Some(choice) = &req.tool_choice {
             body["tool_choice"] = match choice {
