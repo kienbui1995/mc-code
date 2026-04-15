@@ -117,21 +117,21 @@ run_scenario() {
   python3 -c "
 import json, sys
 r = {
-    'id': '$id',
-    'category': '$category',
-    'model': '$MODEL',
-    'prompt': '''$prompt''',
-    'tools': '${tools}'.split(',') if '${tools}' else [],
-    'input_tokens': int('${input_tokens:-0}' or 0),
-    'output_tokens': int('${output_tokens:-0}' or 0),
-    'iterations': int('${iterations:-0}' or 0),
-    'duration_sec': $duration,
-    'files_changed': '${files_changed}'.split(',') if '${files_changed}' else [],
-    'has_output': int('${output_tokens:-0}' or 0) > 0,
-    'timestamp': '$TIMESTAMP'
+    'id': sys.argv[1],
+    'category': sys.argv[2],
+    'model': sys.argv[3],
+    'prompt': sys.argv[4],
+    'tools': sys.argv[5].split(',') if sys.argv[5] else [],
+    'input_tokens': int(sys.argv[6] or 0),
+    'output_tokens': int(sys.argv[7] or 0),
+    'iterations': int(sys.argv[8] or 0),
+    'duration_sec': int(sys.argv[9]),
+    'files_changed': sys.argv[10].split(',') if sys.argv[10] else [],
+    'has_output': int(sys.argv[7] or 0) > 0,
+    'timestamp': sys.argv[11]
 }
 print(json.dumps(r))
-" >> "$RESULT_FILE"
+" "$id" "$category" "$MODEL" "$prompt" "${tools}" "${input_tokens:-0}" "${output_tokens:-0}" "${iterations:-0}" "$duration" "${files_changed}" "$TIMESTAMP" >> "$RESULT_FILE"
 
   # Print summary
   local status="✅"
