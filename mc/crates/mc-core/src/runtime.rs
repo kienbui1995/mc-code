@@ -84,6 +84,8 @@ pub struct ConversationRuntime {
     cost_tracker: Option<crate::cost::CostTracker>,
     task_manager: crate::tasks::TaskManager,
     hierarchical_instructions: Option<String>,
+    /// Model capability tier for tool filtering (1=frontier, 2=strong, 3=local, 4=qwen).
+    pub tool_tier: u8,
     /// Auto-test: command to run after write tools. If set, test failures are fed back to LLM.
     pub auto_test_cmd: Option<String>,
     /// Auto-commit: if true, auto git add+commit after write tools with LLM-generated message.
@@ -124,6 +126,7 @@ impl ConversationRuntime {
                 .map(crate::cost::CostTracker::new),
             task_manager: crate::tasks::TaskManager::new(),
             hierarchical_instructions: None,
+            tool_tier: 1,
             auto_test_cmd: None,
             auto_commit: false,
         }
@@ -1356,7 +1359,14 @@ Fix this before continuing."
         let est = crate::compact::estimate_tokens(&self.session);
         let usage_pct = (est * 100) / ctx_window.max(1);
 
-        if usage_pct > 90 {
+        // Small context models (<64K) compact earlier
+        let (full_threshold, light_threshold) = if ctx_window < 65_536 {
+            (70, 55) // compact at 70%, light at 55%
+        } else {
+            (90, 80)
+        };
+
+        if usage_pct > full_threshold {
             // Full smart compact
             let preserve = 4;
             if let Err(e) =
@@ -1366,7 +1376,7 @@ Fix this before continuing."
                 tracing::warn!("smart compaction failed, using naive: {e}");
                 crate::compact::compact_session(&mut self.session, preserve);
             }
-        } else if usage_pct > 80 {
+        } else if usage_pct > light_threshold {
             // Collapse reads + snip thinking
             crate::compact::collapse_reads(&mut self.session);
             crate::compact::snip_thinking(&mut self.session, 6);
@@ -1489,6 +1499,7 @@ Fix this before continuing."
                 .tool_registry
                 .all_specs()
                 .iter()
+                .filter(|s| tool_allowed_for_tier(s.name.as_str(), self.tool_tier))
                 .map(|s| ToolDefinition {
                     name: s.name.clone(),
                     description: s.description.clone(),
@@ -1707,5 +1718,45 @@ const {{ chromium }} = require('playwright');
                 (format!("Failed to run browser: {e}"), true)
             }
         }
+    }
+}
+
+/// Filter tools by model tier. Smaller models get fewer tools to save context.
+fn tool_allowed_for_tier(tool: &str, tier: u8) -> bool {
+    match tier {
+        1 => true, // frontier: all 30 tools
+        2 => !matches!(
+            tool,
+            "worktree_enter"
+                | "worktree_exit"
+                | "notebook_edit"
+                | "mcp_list_resources"
+                | "mcp_read_resource"
+        ),
+        3 => matches!(
+            tool,
+            "bash"
+                | "read_file"
+                | "write_file"
+                | "edit_file"
+                | "glob_search"
+                | "grep_search"
+                | "web_search"
+                | "ask_user"
+        ),
+        4 => matches!(
+            tool,
+            "bash"
+                | "read_file"
+                | "write_file"
+                | "edit_file"
+                | "glob_search"
+                | "grep_search"
+                | "codebase_search"
+                | "ask_user"
+                | "memory_read"
+                | "memory_write"
+        ),
+        _ => true,
     }
 }

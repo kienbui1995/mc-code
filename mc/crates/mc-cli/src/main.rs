@@ -418,6 +418,7 @@ async fn run_tui(
         let mut rt =
             mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
         rt.set_tool_registry(tool_registry);
+        rt.tool_tier = model_prompt_tier(&model);
         rt.set_subagent_permission_mode(policy.mode());
         if let Some(n) = config.managed_agents.max_concurrent {
             rt.set_max_concurrent_agents(n);
