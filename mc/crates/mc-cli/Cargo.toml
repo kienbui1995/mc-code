@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 mc-tui = { path = "../mc-tui", version = "1.7.0" }
-mc-core = { path = "../mc-core", version = "1.7.0" }
+mc-core = { path = "../mc-core", version = "1.7.0", package = "mc-code-core" }
 mc-provider = { path = "../mc-provider", version = "1.7.0" }
 mc-tools = { path = "../mc-tools", version = "1.7.0" }
 mc-config = { path = "../mc-config", version = "1.7.0" }

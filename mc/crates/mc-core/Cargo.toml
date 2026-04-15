@@ -1,5 +1,5 @@
 [package]
-name = "mc-core"
+name = "mc-code-core"
 description = "Core runtime for magic-code AI coding agent (ReAct loop, agents, memory)"
 repository = "https://github.com/kienbui1995/mc-code"
 version.workspace = true
@@ -32,3 +32,6 @@ workspace = true
 [dev-dependencies]
 async-stream.workspace = true
 mc-tools = { path = "../mc-tools", version = "1.7.0" }
+
+[lib]
+name = "mc_core"
