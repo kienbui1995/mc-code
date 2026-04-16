@@ -106,6 +106,20 @@ We don't just check if the model responded. We verify:
 
 **Overall: 60% verified correct across 110 platform scenarios.**
 
+### Results: Qwen 3.5 27B (self-hosted, A40)
+
+| Platform | L0 (responds) | L2 (verified correct) |
+|----------|:-------------:|:---------------------:|
+| Python Web API (FastAPI) | 100% | **86%** |
+| Python Desktop (Tkinter) | 100% | **91%** |
+| Go Web API | 100% | **87%** |
+| React Web App | 100% | **81%** |
+| React Native Mobile | 100% | **86%** |
+
+**Overall: 88% verified correct — a 29% improvement over 9B.**
+
+The 27B model uses tier 2 (25 tools including edit_plan, batch_edit, subagent) and generates significantly better code, especially for TypeScript/React.
+
 We're sharing these numbers honestly. A 9B model on a single GPU won't match Claude Sonnet — but it handles Python and Go tasks well, and it costs nothing to run.
 
 ### Where Qwen 9B excels
@@ -123,21 +137,21 @@ We're sharing these numbers honestly. A 9B model on a single GPU won't match Cla
 - ❌ Multi-step refactoring
 - ❌ Abstract patterns (ABC, generics, advanced types)
 
-### Comparison: Gemini 2.5 Pro via LiteLLM
+### Comparison: Cloud vs Self-hosted
 
-| Platform | Qwen 3.5 9B | Gemini 2.5 Pro |
-|----------|:-----------:|:--------------:|
-| Python Web API | 69% | **96%** |
-| React Web App | 28% | **100%** |
-| Go Web API | 68% | **96%** |
-| Python Desktop | 82% | **95%** |
-| React Native | 47% | **90%** |
+| Platform | Qwen 9B (free) | Qwen 27B (free) | Gemini 2.5 Pro |
+|----------|:-----------:|:-----------:|:--------------:|
+| Python Web API | 69% | **86%** | 96% |
+| React Web App | 28% | **81%** | 100% |
+| Go Web API | 68% | **87%** | 96% |
+| Python Desktop | 82% | **91%** | 95% |
+| React Native | 47% | **86%** | 90% |
 
-Gemini 2.5 Pro scores significantly higher — but it's a cloud model. The beauty of magic-code is you can switch between models with a single flag:
+Qwen 27B on a single A40 reaches 88% average — closing the gap with cloud models. Switch between them with a flag:
 
 ```bash
 # Self-hosted (free)
-magic-code --base-url http://localhost:4000 --model vllm/qwen3.5-9b "fix the bug"
+magic-code --base-url http://localhost:4000 --model vllm/qwen3.5-27b "fix the bug"
 
 # Cloud (when you need it)
 magic-code --model gemini-2.5-pro "refactor the entire module"
