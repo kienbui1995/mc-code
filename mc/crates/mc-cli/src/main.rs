@@ -197,12 +197,14 @@ fn main() -> Result<()> {
     let mut prompt = cli.prompt.join(" ");
 
     if cli.pipe || (!atty_stdin() && prompt.is_empty()) {
-        let mut stdin_buf = String::new();
-        io::stdin().read_to_string(&mut stdin_buf)?;
-        if prompt.is_empty() {
-            prompt = stdin_buf;
-        } else {
-            prompt = format!("{prompt}\n\n{stdin_buf}");
+        if !cli.pipe {
+            let mut stdin_buf = String::new();
+            io::stdin().read_to_string(&mut stdin_buf)?;
+            if prompt.is_empty() {
+                prompt = stdin_buf;
+            } else {
+                prompt = format!("{prompt}\n\n{stdin_buf}");
+            }
         }
     }
 
@@ -296,7 +298,37 @@ fn main() -> Result<()> {
     }
     let hooks = build_hooks(&config);
 
-    if prompt.trim().is_empty() {
+    if let Some(ref batch_file) = cli.batch {
+        // Batch mode: process each line as a turn in the SAME session
+        let lines = std::fs::read_to_string(batch_file).context("failed to read batch file")?;
+        let prompts: Vec<&str> = lines.lines().filter(|l| !l.trim().is_empty()).collect();
+        eprintln!("[batch] {} prompts from {batch_file}", prompts.len());
+        rt.block_on(run_pipe_with_prompts(
+            &model,
+            cli.max_tokens,
+            &system,
+            provider.as_ref(),
+            &policy,
+            hooks,
+            cli.json || cli.ndjson,
+            &cli.add_dir,
+            &config.mcp_servers,
+            prompts,
+        ))
+    } else if cli.pipe {
+        // Multi-turn pipe mode
+        rt.block_on(run_pipe(
+            &model,
+            cli.max_tokens,
+            &system,
+            provider.as_ref(),
+            &policy,
+            hooks,
+            cli.json || cli.ndjson,
+            &cli.add_dir,
+            &config.mcp_servers,
+        ))
+    } else if prompt.trim().is_empty() {
         rt.block_on(run_tui(
             &model,
             cli.max_tokens,
@@ -311,28 +343,6 @@ fn main() -> Result<()> {
             cli.max_tokens_total,
             &cli.add_dir,
         ))
-    } else if let Some(ref batch_file) = cli.batch {
-        // Batch mode: process each line as a prompt
-        let lines = std::fs::read_to_string(batch_file).context("failed to read batch file")?;
-        let prompts: Vec<&str> = lines.lines().filter(|l| !l.trim().is_empty()).collect();
-        eprintln!("[batch] {} prompts from {batch_file}", prompts.len());
-        for (i, p) in prompts.iter().enumerate() {
-            eprintln!("[batch {}/{}] {}", i + 1, prompts.len(), p);
-            rt.block_on(run_single(
-                &model,
-                cli.max_tokens,
-                p,
-                &system,
-                provider.as_ref(),
-                &policy,
-                hooks.clone(),
-                None,
-                cli.json || cli.ndjson,
-                &cli.add_dir,
-                &config.mcp_servers,
-            ))?;
-        }
-        Ok(())
     } else {
         rt.block_on(run_single(
             &model,
@@ -1737,6 +1747,156 @@ async fn run_single(
     );
     if result.cancelled {
         std::process::exit(130); // same as Ctrl+C convention
+    }
+    Ok(())
+}
+
+/// Multi-turn pipe mode: read lines from stdin, each line is a turn in the same session.
+async fn run_pipe(
+    model: &str,
+    max_tokens: u32,
+    system: &str,
+    provider: &dyn LlmProvider,
+    policy: &mc_tools::PermissionPolicy,
+    hooks: Vec<mc_tools::Hook>,
+    json_output: bool,
+    extra_dirs: &[String],
+    mcp_servers: &[mc_config::McpServerConfig],
+) -> Result<()> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    let stdin = tokio::io::stdin();
+    let reader = BufReader::new(stdin);
+    let mut lines = reader.lines();
+    let mut prompts = Vec::new();
+    while let Ok(Some(line)) = lines.next_line().await {
+        let trimmed = line.trim().to_string();
+        if !trimmed.is_empty() {
+            prompts.push(trimmed);
+        }
+    }
+    let refs: Vec<&str> = prompts.iter().map(|s| s.as_str()).collect();
+    run_pipe_with_prompts(
+        model, max_tokens, system, provider, policy, hooks, json_output, extra_dirs, mcp_servers,
+        refs,
+    )
+    .await
+}
+
+/// Run multiple prompts as turns in a single shared session.
+async fn run_pipe_with_prompts(
+    model: &str,
+    max_tokens: u32,
+    system: &str,
+    provider: &dyn LlmProvider,
+    policy: &mc_tools::PermissionPolicy,
+    hooks: Vec<mc_tools::Hook>,
+    json_output: bool,
+    extra_dirs: &[String],
+    mcp_servers: &[mc_config::McpServerConfig],
+    prompts: Vec<&str>,
+) -> Result<()> {
+    let cancel = CancellationToken::new();
+    let mut runtime =
+        mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
+    let mut tool_registry = mc_tools::ToolRegistry::new()
+        .with_workspace_root(std::env::current_dir().unwrap_or_default());
+    for dir in extra_dirs {
+        let path = std::path::PathBuf::from(dir);
+        if path.is_dir() {
+            tool_registry = tool_registry.with_extra_root(path);
+        }
+    }
+    for mcp in mcp_servers {
+        let env: Vec<(String, String)> = mcp.env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        match tool_registry.add_mcp_server(&mcp.name, &mcp.command, &mcp.args, &env).await {
+            Ok(n) => tracing::info!(server = %mcp.name, tools = n, "MCP connected"),
+            Err(e) => tracing::warn!(server = %mcp.name, "MCP connect failed: {e}"),
+        }
+    }
+    runtime.set_tool_registry(tool_registry);
+    if !hooks.is_empty() {
+        runtime.set_hooks(mc_tools::HookEngine::new(hooks));
+    }
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let instructions = mc_config::load_hierarchical_instructions(&cwd);
+    if !instructions.is_empty() {
+        let combined: String = instructions
+            .iter()
+            .map(|(path, content)| {
+                let resolved = mc_config::resolve_includes(
+                    path.parent().unwrap_or(std::path::Path::new(".")),
+                    content,
+                );
+                format!("\n\n# Instructions from {}\n{}", path.display(), resolved)
+            })
+            .collect();
+        runtime.set_hierarchical_instructions(combined);
+    }
+
+    let cancel_clone = cancel.clone();
+    tokio::spawn(async move {
+        let _ = tokio::signal::ctrl_c().await;
+        cancel_clone.cancel();
+    });
+
+    let ndjson = json_output;
+    let mut stdout = io::stdout();
+
+    for (i, prompt) in prompts.iter().enumerate() {
+        if ndjson {
+            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"turn_start","turn":i+1,"prompt":prompt}));
+            let _ = stdout.flush();
+        } else {
+            eprintln!("[turn {}/{}] {}", i + 1, prompts.len(), prompt);
+        }
+
+        let result = runtime
+            .run_turn(
+                provider, prompt, policy, &mut None,
+                &mut |event| match event {
+                    mc_provider::ProviderEvent::TextDelta(text) => {
+                        if ndjson {
+                            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"text","content":text}));
+                        } else {
+                            let _ = write!(stdout, "{text}");
+                        }
+                        let _ = stdout.flush();
+                    }
+                    mc_provider::ProviderEvent::ToolOutputDelta(text) => {
+                        if ndjson {
+                            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"tool_output","content":text}));
+                        }
+                        let _ = stdout.flush();
+                    }
+                    mc_provider::ProviderEvent::ToolUse { name, input, .. } => {
+                        if ndjson {
+                            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"tool_call","name":name,"input":input}));
+                            let _ = stdout.flush();
+                        }
+                    }
+                    _ => {}
+                },
+                &cancel,
+            )
+            .await
+            .context("turn failed")?;
+
+        if ndjson {
+            let _ = writeln!(stdout, "{}", serde_json::json!({
+                "type": "turn_end",
+                "turn": i + 1,
+                "input_tokens": result.usage.input_tokens,
+                "output_tokens": result.usage.output_tokens,
+                "iterations": result.iterations,
+                "tool_calls": result.tool_calls,
+            }));
+            let _ = stdout.flush();
+        }
+        println!();
+
+        if cancel.is_cancelled() {
+            break;
+        }
     }
     Ok(())
 }
