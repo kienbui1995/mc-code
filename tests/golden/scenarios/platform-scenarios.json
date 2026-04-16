@@ -6,150 +6,1513 @@
       "fixture": "python-webapp",
       "description": "Python FastAPI web API",
       "scenarios": [
-        {"id": "PW01", "prompt": "read app/store.py then add a method by_tag(self, tag: str) -> list[Todo] using edit_file"},
-        {"id": "PW02", "prompt": "read app/models.py then add a due_date: Optional[datetime] field to Todo class using edit_file"},
-        {"id": "PW03", "prompt": "read app/main.py then add a GET /todos/search?q=query endpoint using edit_file"},
-        {"id": "PW04", "prompt": "read app/store.py, there is a bug: delete returns True even when todo does not exist. Fix it.", "setup": "sed -i 's/is not None/is None/' app/store.py"},
-        {"id": "PW05", "prompt": "read tests/test_store.py then add tests for stats() method using edit_file"},
-        {"id": "PW06", "prompt": "create app/middleware.py with a request logging middleware for FastAPI"},
-        {"id": "PW07", "prompt": "read app/main.py and app/store.py, then add a PATCH /todos/{id}/tags endpoint that adds a tag"},
-        {"id": "PW08", "prompt": "read app/models.py then add a method to_dict(self) -> dict that returns a plain dict representation"},
-        {"id": "PW09", "prompt": "read app/store.py then refactor to use an abstract base class (ABC) for the store interface"},
-        {"id": "PW10", "prompt": "read CLAUDE.md and check if all functions have type hints and docstrings as required"},
-        {"id": "PW11", "prompt": "create app/export.py with functions to export todos as CSV and JSON strings"},
-        {"id": "PW12", "prompt": "read app/main.py then add input validation: title must be non-empty and max 200 chars"},
-        {"id": "PW13", "prompt": "read app/store.py then add a sort_by(self, field: str, reverse: bool) -> list[Todo] method"},
-        {"id": "PW14", "prompt": "create tests/test_api.py with integration tests using FastAPI TestClient"},
-        {"id": "PW15", "prompt": "read all Python files and add missing type hints where needed"},
-        {"id": "PW16", "prompt": "thêm một endpoint PUT /todos/{id} để cập nhật title và priority", "note": "Vietnamese prompt"},
-        {"id": "PW17", "prompt": "read app/store.py then make it thread-safe using threading.Lock"},
-        {"id": "PW18", "prompt": "create app/pagination.py with a paginate(items, page, per_page) helper function"},
-        {"id": "PW19", "prompt": "read app/main.py then add error handling with custom exception handlers"},
-        {"id": "PW20", "prompt": "read all files and create a docs/API.md documenting all endpoints"},
-        {"id": "PW21", "prompt": "add a health check endpoint GET /health that returns status and todo count"},
-        {"id": "PW22", "prompt": "read app/models.py then add a Priority.URGENT variant and handle it everywhere"},
-        {"id": "PW23", "prompt": "create app/filters.py with filter functions: completed_todos, pending_todos, high_priority"},
-        {"id": "PW24", "prompt": "read tests/test_store.py then add edge case tests: empty title, duplicate add, search no results"}
+        {
+          "id": "PW01",
+          "prompt": "read app/store.py then add a method by_tag(self, tag: str) -> list[Todo] using edit_file",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "def by_tag",
+                "tag"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW02",
+          "prompt": "read app/models.py then add a due_date: Optional[datetime] field to Todo class using edit_file",
+          "verify": {
+            "file_contains": {
+              "app/models.py": [
+                "due_date",
+                "Optional"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW03",
+          "prompt": "read app/main.py then add a GET /todos/search?q=query endpoint using edit_file",
+          "verify": {
+            "file_contains": {
+              "app/main.py": [
+                "search",
+                "@app.get"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW04",
+          "prompt": "read app/store.py, there is a bug: delete returns True even when todo does not exist. Fix it.",
+          "setup": "sed -i 's/is not None/is None/' app/store.py",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "is not None"
+              ]
+            },
+            "file_not_contains": {
+              "app/store.py": [
+                "is None"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW05",
+          "prompt": "read tests/test_store.py then add tests for stats() method using edit_file",
+          "verify": {
+            "file_contains": {
+              "tests/test_store.py": [
+                "stats",
+                "def test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW06",
+          "prompt": "create app/middleware.py with a request logging middleware for FastAPI",
+          "verify": {
+            "file_exists": [
+              "app/middleware.py"
+            ],
+            "file_contains": {
+              "app/middleware.py": [
+                "middleware",
+                "request"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW07",
+          "prompt": "read app/main.py and app/store.py, then add a PATCH /todos/{id}/tags endpoint that adds a tag",
+          "verify": {
+            "file_contains": {
+              "app/main.py": [
+                "tag",
+                "patch"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW08",
+          "prompt": "read app/models.py then add a method to_dict(self) -> dict that returns a plain dict representation",
+          "verify": {
+            "file_contains": {
+              "app/models.py": [
+                "def to_dict",
+                "dict"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW09",
+          "prompt": "read app/store.py then refactor to use an abstract base class (ABC) for the store interface",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "ABC",
+                "abstractmethod"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW10",
+          "prompt": "read CLAUDE.md and check if all functions have type hints and docstrings as required",
+          "verify": {}
+        },
+        {
+          "id": "PW11",
+          "prompt": "create app/export.py with functions to export todos as CSV and JSON strings",
+          "verify": {
+            "file_exists": [
+              "app/export.py"
+            ],
+            "file_contains": {
+              "app/export.py": [
+                "csv",
+                "json"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW12",
+          "prompt": "read app/main.py then add input validation: title must be non-empty and max 200 chars",
+          "verify": {
+            "file_contains": {
+              "app/main.py": [
+                "valid",
+                "200",
+                "empty"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW13",
+          "prompt": "read app/store.py then add a sort_by(self, field: str, reverse: bool) -> list[Todo] method",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "def sort_by",
+                "field"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW14",
+          "prompt": "create tests/test_api.py with integration tests using FastAPI TestClient",
+          "verify": {
+            "file_exists": [
+              "tests/test_api.py"
+            ],
+            "file_contains": {
+              "tests/test_api.py": [
+                "TestClient",
+                "def test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW15",
+          "prompt": "read all Python files and add missing type hints where needed",
+          "verify": {}
+        },
+        {
+          "id": "PW16",
+          "prompt": "thêm một endpoint PUT /todos/{id} để cập nhật title và priority",
+          "note": "Vietnamese prompt",
+          "verify": {
+            "file_contains": {
+              "app/main.py": [
+                "put",
+                "title"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW17",
+          "prompt": "read app/store.py then make it thread-safe using threading.Lock",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "Lock",
+                "lock"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW18",
+          "prompt": "create app/pagination.py with a paginate(items, page, per_page) helper function",
+          "verify": {
+            "file_exists": [
+              "app/pagination.py"
+            ],
+            "file_contains": {
+              "app/pagination.py": [
+                "def paginate",
+                "page"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW19",
+          "prompt": "read app/main.py then add error handling with custom exception handlers",
+          "verify": {
+            "file_contains": {
+              "app/main.py": [
+                "exception_handler",
+                "Exception"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW20",
+          "prompt": "read all files and create a docs/API.md documenting all endpoints",
+          "verify": {
+            "file_exists": [
+              "docs/API.md"
+            ]
+          }
+        },
+        {
+          "id": "PW21",
+          "prompt": "add a health check endpoint GET /health that returns status and todo count",
+          "verify": {
+            "file_contains": {
+              "app/main.py": [
+                "health",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW22",
+          "prompt": "read app/models.py then add a Priority.URGENT variant and handle it everywhere",
+          "verify": {
+            "file_contains": {
+              "app/models.py": [
+                "URGENT",
+                "urgent"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW23",
+          "prompt": "create app/filters.py with filter functions: completed_todos, pending_todos, high_priority",
+          "verify": {
+            "file_exists": [
+              "app/filters.py"
+            ],
+            "file_contains": {
+              "app/filters.py": [
+                "completed",
+                "pending"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PW24",
+          "prompt": "read tests/test_store.py then add edge case tests: empty title, duplicate add, search no results",
+          "verify": {
+            "file_contains": {
+              "tests/test_store.py": [
+                "edge",
+                "empty"
+              ]
+            }
+          }
+        }
       ]
     },
     "react-webapp": {
       "fixture": "react-webapp",
       "description": "React TypeScript web app",
       "scenarios": [
-        {"id": "RW01", "prompt": "read src/hooks/useTodos.ts then add a filterByPriority(priority: Priority) method"},
-        {"id": "RW02", "prompt": "read src/components/TodoItem.tsx then add a priority badge with color coding (red=high, yellow=medium, green=low)"},
-        {"id": "RW03", "prompt": "create src/components/SearchBar.tsx with a search input that filters todos by title"},
-        {"id": "RW04", "prompt": "read src/hooks/useTodos.ts, the toggleTodo function has a bug: it creates a new array reference every time even when id not found. Fix it.", "setup": "sed -i 's/t.id === id/t.id !== id/' src/hooks/useTodos.ts"},
-        {"id": "RW05", "prompt": "read src/__tests__/useTodos.test.ts then add tests for searchTodos and stats"},
-        {"id": "RW06", "prompt": "create src/components/Stats.tsx showing total, completed, pending counts"},
-        {"id": "RW07", "prompt": "read src/App.tsx and src/components/TodoList.tsx, then add drag-and-drop reordering support"},
-        {"id": "RW08", "prompt": "read src/types.ts then add a Tag type and update Todo interface to use it"},
-        {"id": "RW09", "prompt": "create src/hooks/useLocalStorage.ts custom hook for persisting todos to localStorage"},
-        {"id": "RW10", "prompt": "read CLAUDE.md and verify all components follow the conventions (no class components, no any types)"},
-        {"id": "RW11", "prompt": "create src/components/AddTodoForm.tsx with title input, priority select, and submit button"},
-        {"id": "RW12", "prompt": "read src/components/TodoItem.tsx then add accessibility improvements: aria-labels, keyboard navigation"},
-        {"id": "RW13", "prompt": "create src/hooks/useFilter.ts with filter state management (by priority, completion status, search query)"},
-        {"id": "RW14", "prompt": "read src/App.tsx then split it into smaller components following single responsibility principle"},
-        {"id": "RW15", "prompt": "tạo component src/components/EmptyState.tsx hiển thị khi không có todo nào", "note": "Vietnamese"},
-        {"id": "RW16", "prompt": "create src/__tests__/TodoItem.test.tsx with render tests for TodoItem component"},
-        {"id": "RW17", "prompt": "read src/hooks/useTodos.ts then add an editTodo(id, updates) method for partial updates"},
-        {"id": "RW18", "prompt": "create src/components/PriorityFilter.tsx with buttons to filter by priority level"},
-        {"id": "RW19", "prompt": "read all component files and ensure they all have proper TypeScript Props interfaces"},
-        {"id": "RW20", "prompt": "create src/utils/dateFormat.ts with functions to format dates as relative time (2 hours ago)"},
-        {"id": "RW21", "prompt": "read src/App.tsx then add dark mode toggle using React context"},
-        {"id": "RW22", "prompt": "create src/components/ConfirmDialog.tsx for delete confirmation"},
-        {"id": "RW23", "prompt": "read src/hooks/useTodos.ts then add undo support for delete (keep last deleted, restore on undo)"},
-        {"id": "RW24", "prompt": "create src/__tests__/TodoList.test.tsx testing empty state, single item, and multiple items"}
+        {
+          "id": "RW01",
+          "prompt": "read src/hooks/useTodos.ts then add a filterByPriority(priority: Priority) method",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "filterByPriority",
+                "Priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW02",
+          "prompt": "read src/components/TodoItem.tsx then add a priority badge with color coding (red=high, yellow=medium, green=low)",
+          "verify": {
+            "file_contains": {
+              "src/components/TodoItem.tsx": [
+                "priority",
+                "color"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW03",
+          "prompt": "create src/components/SearchBar.tsx with a search input that filters todos by title",
+          "verify": {
+            "file_exists": [
+              "src/components/SearchBar.tsx"
+            ],
+            "file_contains": {
+              "src/components/SearchBar.tsx": [
+                "search",
+                "input",
+                "filter"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW04",
+          "prompt": "read src/hooks/useTodos.ts, the toggleTodo function has a bug: it creates a new array reference every time even when id not found. Fix it.",
+          "setup": "sed -i 's/t.id === id/t.id !== id/' src/hooks/useTodos.ts",
+          "verify": {
+            "file_not_contains": {
+              "src/hooks/useTodos.ts": [
+                "t.id !== id"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW05",
+          "prompt": "read src/__tests__/useTodos.test.ts then add tests for searchTodos and stats",
+          "verify": {
+            "file_contains": {
+              "src/__tests__/useTodos.test.ts": [
+                "search",
+                "stats"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW06",
+          "prompt": "create src/components/Stats.tsx showing total, completed, pending counts",
+          "verify": {
+            "file_exists": [
+              "src/components/Stats.tsx"
+            ],
+            "file_contains": {
+              "src/components/Stats.tsx": [
+                "total",
+                "completed"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW07",
+          "prompt": "read src/App.tsx and src/components/TodoList.tsx, then add drag-and-drop reordering support",
+          "verify": {
+            "file_contains": {
+              "src/components/TodoList.tsx": [
+                "drag"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW08",
+          "prompt": "read src/types.ts then add a Tag type and update Todo interface to use it",
+          "verify": {
+            "file_contains": {
+              "src/types.ts": [
+                "Tag"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW09",
+          "prompt": "create src/hooks/useLocalStorage.ts custom hook for persisting todos to localStorage",
+          "verify": {
+            "file_exists": [
+              "src/hooks/useLocalStorage.ts"
+            ],
+            "file_contains": {
+              "src/hooks/useLocalStorage.ts": [
+                "localStorage",
+                "useState"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW10",
+          "prompt": "read CLAUDE.md and verify all components follow the conventions (no class components, no any types)",
+          "verify": {}
+        },
+        {
+          "id": "RW11",
+          "prompt": "create src/components/AddTodoForm.tsx with title input, priority select, and submit button",
+          "verify": {
+            "file_exists": [
+              "src/components/AddTodoForm.tsx"
+            ],
+            "file_contains": {
+              "src/components/AddTodoForm.tsx": [
+                "input",
+                "submit",
+                "priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW12",
+          "prompt": "read src/components/TodoItem.tsx then add accessibility improvements: aria-labels, keyboard navigation",
+          "verify": {
+            "file_contains": {
+              "src/components/TodoItem.tsx": [
+                "aria",
+                "accessibility"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW13",
+          "prompt": "create src/hooks/useFilter.ts with filter state management (by priority, completion status, search query)",
+          "verify": {
+            "file_exists": [
+              "src/hooks/useFilter.ts"
+            ],
+            "file_contains": {
+              "src/hooks/useFilter.ts": [
+                "filter",
+                "priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW14",
+          "prompt": "read src/App.tsx then split it into smaller components following single responsibility principle",
+          "verify": {}
+        },
+        {
+          "id": "RW15",
+          "prompt": "tạo component src/components/EmptyState.tsx hiển thị khi không có todo nào",
+          "note": "Vietnamese",
+          "verify": {
+            "file_exists": [
+              "src/components/EmptyState.tsx"
+            ]
+          }
+        },
+        {
+          "id": "RW16",
+          "prompt": "create src/__tests__/TodoItem.test.tsx with render tests for TodoItem component",
+          "verify": {
+            "file_exists": [
+              "src/__tests__/TodoItem.test.tsx"
+            ],
+            "file_contains": {
+              "src/__tests__/TodoItem.test.tsx": [
+                "render",
+                "test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW17",
+          "prompt": "read src/hooks/useTodos.ts then add an editTodo(id, updates) method for partial updates",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "editTodo",
+                "update"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW18",
+          "prompt": "create src/components/PriorityFilter.tsx with buttons to filter by priority level",
+          "verify": {
+            "file_exists": [
+              "src/components/PriorityFilter.tsx"
+            ],
+            "file_contains": {
+              "src/components/PriorityFilter.tsx": [
+                "priority",
+                "filter"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW19",
+          "prompt": "read all component files and ensure they all have proper TypeScript Props interfaces",
+          "verify": {}
+        },
+        {
+          "id": "RW20",
+          "prompt": "create src/utils/dateFormat.ts with functions to format dates as relative time (2 hours ago)",
+          "verify": {
+            "file_exists": [
+              "src/utils/dateFormat.ts"
+            ],
+            "file_contains": {
+              "src/utils/dateFormat.ts": [
+                "format",
+                "ago"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW21",
+          "prompt": "read src/App.tsx then add dark mode toggle using React context",
+          "verify": {
+            "file_contains": {
+              "src/App.tsx": [
+                "dark",
+                "theme"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW22",
+          "prompt": "create src/components/ConfirmDialog.tsx for delete confirmation",
+          "verify": {
+            "file_exists": [
+              "src/components/ConfirmDialog.tsx"
+            ],
+            "file_contains": {
+              "src/components/ConfirmDialog.tsx": [
+                "confirm",
+                "delete"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW23",
+          "prompt": "read src/hooks/useTodos.ts then add undo support for delete (keep last deleted, restore on undo)",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "undo",
+                "deleted"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RW24",
+          "prompt": "create src/__tests__/TodoList.test.tsx testing empty state, single item, and multiple items",
+          "verify": {
+            "file_exists": [
+              "src/__tests__/TodoList.test.tsx"
+            ],
+            "file_contains": {
+              "src/__tests__/TodoList.test.tsx": [
+                "render",
+                "test"
+              ]
+            }
+          }
+        }
       ]
     },
     "go-webapp": {
       "fixture": "go-webapp",
       "description": "Go standard library web API",
       "scenarios": [
-        {"id": "GW01", "prompt": "read store/store.go then add a ByPriority(p Priority) method using edit_file"},
-        {"id": "GW02", "prompt": "read model/todo.go then add a DueDate field (time.Time pointer) using edit_file"},
-        {"id": "GW03", "prompt": "read main.go then add a DELETE /todos/{id} handler using edit_file"},
-        {"id": "GW04", "prompt": "read store/store.go, the Delete method does not return error when ID not found. Fix it.", "setup": "sed -i 's/not found//' store/store.go"},
-        {"id": "GW05", "prompt": "read store/store_test.go then add table-driven tests for Search method"},
-        {"id": "GW06", "prompt": "create handler/handler.go extracting HTTP handlers from main.go into a separate package"},
-        {"id": "GW07", "prompt": "read store/store.go and main.go, then add a GET /todos/stats endpoint returning JSON stats"},
-        {"id": "GW08", "prompt": "read model/todo.go then add a Validate() error method that checks title is non-empty"},
-        {"id": "GW09", "prompt": "read store/store.go then extract a Store interface for testability"},
-        {"id": "GW10", "prompt": "read CLAUDE.md and check if all packages have package comments and errors use wrapping"},
-        {"id": "GW11", "prompt": "create store/mock_test.go with a mock store implementation for testing"},
-        {"id": "GW12", "prompt": "read main.go then add middleware for request logging with method, path, and duration"},
-        {"id": "GW13", "prompt": "read store/store.go then add pagination: ListPage(page, perPage int) method"},
-        {"id": "GW14", "prompt": "create handler/handler_test.go with HTTP handler tests using httptest"},
-        {"id": "GW15", "prompt": "thêm một endpoint PATCH /todos/{id}/toggle để đổi trạng thái completed", "note": "Vietnamese"},
-        {"id": "GW16", "prompt": "read store/store.go then add context.Context as first parameter to all methods"},
-        {"id": "GW17", "prompt": "create model/priority.go with Priority type, constants, and UnmarshalJSON method"},
-        {"id": "GW18", "prompt": "read main.go then add graceful shutdown with signal handling"},
-        {"id": "GW19", "prompt": "read all Go files and add missing error wrapping with fmt.Errorf and %w"},
-        {"id": "GW20", "prompt": "create store/export.go with ExportCSV(w io.Writer) and ExportJSON(w io.Writer) methods"},
-        {"id": "GW21", "prompt": "read store/store.go then add a Filter method accepting functional options pattern"},
-        {"id": "GW22", "prompt": "read store/store_test.go then add benchmark tests for Add and List operations"},
-        {"id": "GW23", "prompt": "read main.go then add CORS headers middleware"},
-        {"id": "GW24", "prompt": "create a Makefile with targets: build, test, lint, run"}
+        {
+          "id": "GW01",
+          "prompt": "read store/store.go then add a ByPriority(p Priority) method using edit_file",
+          "verify": {
+            "file_contains": {
+              "store/store.go": [
+                "ByPriority",
+                "Priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW02",
+          "prompt": "read model/todo.go then add a DueDate field (time.Time pointer) using edit_file",
+          "verify": {
+            "file_contains": {
+              "model/todo.go": [
+                "DueDate",
+                "time.Time"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW03",
+          "prompt": "read main.go then add a DELETE /todos/{id} handler using edit_file",
+          "verify": {
+            "file_contains": {
+              "main.go": [
+                "Delete",
+                "DELETE"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW04",
+          "prompt": "read store/store.go, the Delete method does not return error when ID not found. Fix it.",
+          "setup": "sed -i 's/not found//' store/store.go",
+          "verify": {
+            "file_contains": {
+              "store/store.go": [
+                "not found",
+                "error"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW05",
+          "prompt": "read store/store_test.go then add table-driven tests for Search method",
+          "verify": {
+            "file_contains": {
+              "store/store_test.go": [
+                "TestSearch",
+                "test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW06",
+          "prompt": "create handler/handler.go extracting HTTP handlers from main.go into a separate package",
+          "verify": {
+            "file_exists": [
+              "handler/handler.go"
+            ],
+            "file_contains": {
+              "handler/handler.go": [
+                "func",
+                "http"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW07",
+          "prompt": "read store/store.go and main.go, then add a GET /todos/stats endpoint returning JSON stats",
+          "verify": {
+            "file_contains": {
+              "main.go": [
+                "stats",
+                "Stats"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW08",
+          "prompt": "read model/todo.go then add a Validate() error method that checks title is non-empty",
+          "verify": {
+            "file_contains": {
+              "model/todo.go": [
+                "Validate",
+                "error",
+                "empty"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW09",
+          "prompt": "read store/store.go then extract a Store interface for testability",
+          "verify": {
+            "file_contains": {
+              "store/store.go": [
+                "interface",
+                "Store"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW10",
+          "prompt": "read CLAUDE.md and check if all packages have package comments and errors use wrapping",
+          "verify": {}
+        },
+        {
+          "id": "GW11",
+          "prompt": "create store/mock_test.go with a mock store implementation for testing",
+          "verify": {
+            "file_exists": [
+              "store/mock_test.go"
+            ]
+          }
+        },
+        {
+          "id": "GW12",
+          "prompt": "read main.go then add middleware for request logging with method, path, and duration",
+          "verify": {
+            "file_contains": {
+              "main.go": [
+                "log",
+                "middleware"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW13",
+          "prompt": "read store/store.go then add pagination: ListPage(page, perPage int) method",
+          "verify": {
+            "file_contains": {
+              "store/store.go": [
+                "ListPage",
+                "page",
+                "perPage"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW14",
+          "prompt": "create handler/handler_test.go with HTTP handler tests using httptest",
+          "verify": {
+            "file_exists": [
+              "handler/handler_test.go"
+            ],
+            "file_contains": {
+              "handler/handler_test.go": [
+                "httptest",
+                "Test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW15",
+          "prompt": "thêm một endpoint PATCH /todos/{id}/toggle để đổi trạng thái completed",
+          "note": "Vietnamese",
+          "verify": {
+            "file_contains": {
+              "main.go": [
+                "toggle",
+                "PATCH"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW16",
+          "prompt": "read store/store.go then add context.Context as first parameter to all methods",
+          "verify": {
+            "file_contains": {
+              "store/store.go": [
+                "context.Context",
+                "ctx"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW17",
+          "prompt": "create model/priority.go with Priority type, constants, and UnmarshalJSON method",
+          "verify": {
+            "file_exists": [
+              "model/priority.go"
+            ],
+            "file_contains": {
+              "model/priority.go": [
+                "Priority",
+                "const"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW18",
+          "prompt": "read main.go then add graceful shutdown with signal handling",
+          "verify": {
+            "file_contains": {
+              "main.go": [
+                "signal",
+                "Shutdown",
+                "graceful"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW19",
+          "prompt": "read all Go files and add missing error wrapping with fmt.Errorf and %w",
+          "verify": {}
+        },
+        {
+          "id": "GW20",
+          "prompt": "create store/export.go with ExportCSV(w io.Writer) and ExportJSON(w io.Writer) methods",
+          "verify": {
+            "file_exists": [
+              "store/export.go"
+            ],
+            "file_contains": {
+              "store/export.go": [
+                "CSV",
+                "JSON",
+                "io.Writer"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW21",
+          "prompt": "read store/store.go then add a Filter method accepting functional options pattern",
+          "verify": {
+            "file_contains": {
+              "store/store.go": [
+                "Filter",
+                "func"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW22",
+          "prompt": "read store/store_test.go then add benchmark tests for Add and List operations",
+          "verify": {
+            "file_contains": {
+              "store/store_test.go": [
+                "Benchmark",
+                "testing.B"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW23",
+          "prompt": "read main.go then add CORS headers middleware",
+          "verify": {
+            "file_contains": {
+              "main.go": [
+                "CORS",
+                "Access-Control"
+              ]
+            }
+          }
+        },
+        {
+          "id": "GW24",
+          "prompt": "create a Makefile with targets: build, test, lint, run",
+          "verify": {
+            "file_exists": [
+              "Makefile"
+            ],
+            "file_contains": {
+              "Makefile": [
+                "build",
+                "test"
+              ]
+            }
+          }
+        }
       ]
     },
     "python-desktop": {
       "fixture": "python-desktop",
       "description": "Python Tkinter desktop app",
       "scenarios": [
-        {"id": "PD01", "prompt": "read app/store.py then add a by_priority(self, priority: Priority) -> list[Todo] method"},
-        {"id": "PD02", "prompt": "read app/model.py then add a due_date: Optional[datetime] field to Todo dataclass"},
-        {"id": "PD03", "prompt": "read app/ui.py then add a search entry field that filters the listbox in real-time"},
-        {"id": "PD04", "prompt": "read app/store.py, the delete method returns True even when todo not found. Fix it.", "setup": "sed -i 's/is not None/is None/' app/store.py"},
-        {"id": "PD05", "prompt": "read tests/test_store.py then add tests for search and stats methods"},
-        {"id": "PD06", "prompt": "create app/persistence.py with save_to_file and load_from_file using JSON"},
-        {"id": "PD07", "prompt": "read app/ui.py then add a priority dropdown (combobox) when adding todos"},
-        {"id": "PD08", "prompt": "read app/ui.py then add keyboard shortcuts: Enter to add, Delete to remove, Space to toggle"},
-        {"id": "PD09", "prompt": "create app/export.py with export_csv and export_txt functions"},
-        {"id": "PD10", "prompt": "read app/ui.py then add a status bar showing total, completed, and pending counts"},
-        {"id": "PD11", "prompt": "read app/model.py then add a to_dict method and a from_dict classmethod for serialization"},
-        {"id": "PD12", "prompt": "read app/ui.py then add right-click context menu with Toggle, Delete, Edit options"},
-        {"id": "PD13", "prompt": "tạo file app/theme.py với dark mode và light mode color schemes", "note": "Vietnamese"},
-        {"id": "PD14", "prompt": "create tests/test_model.py with tests for Todo dataclass methods"},
-        {"id": "PD15", "prompt": "read app/ui.py then refactor to separate the listbox rendering into a TodoListWidget class"},
-        {"id": "PD16", "prompt": "read all files and add missing docstrings following Google style"},
-        {"id": "PD17", "prompt": "create app/config.py with a Config dataclass for window size, theme, and file path settings"},
-        {"id": "PD18", "prompt": "read app/ui.py then add drag-and-drop reordering in the listbox"},
-        {"id": "PD19", "prompt": "read app/store.py then add undo support: keep history of operations and allow undo"},
-        {"id": "PD20", "prompt": "create app/notifications.py with desktop notification support using tkinter messagebox"},
-        {"id": "PD21", "prompt": "read app/ui.py then add a menu bar with File (Save, Load, Exit) and Edit (Undo, Clear) menus"},
-        {"id": "PD22", "prompt": "read tests/test_store.py then add edge case tests: empty title, duplicate tags"},
-        {"id": "PD23", "prompt": "read app/store.py then add import/export methods for CSV format"},
-        {"id": "PD24", "prompt": "create a README.md with installation instructions, screenshots description, and usage guide"}
+        {
+          "id": "PD01",
+          "prompt": "read app/store.py then add a by_priority(self, priority: Priority) -> list[Todo] method",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "def by_priority",
+                "Priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD02",
+          "prompt": "read app/model.py then add a due_date: Optional[datetime] field to Todo dataclass",
+          "verify": {
+            "file_contains": {
+              "app/model.py": [
+                "due_date",
+                "Optional"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD03",
+          "prompt": "read app/ui.py then add a search entry field that filters the listbox in real-time",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "search",
+                "Entry"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD04",
+          "prompt": "read app/store.py, the delete method returns True even when todo not found. Fix it.",
+          "setup": "sed -i 's/is not None/is None/' app/store.py",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "is not None"
+              ]
+            },
+            "file_not_contains": {
+              "app/store.py": [
+                "is None"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD05",
+          "prompt": "read tests/test_store.py then add tests for search and stats methods",
+          "verify": {
+            "file_contains": {
+              "tests/test_store.py": [
+                "search",
+                "stats"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD06",
+          "prompt": "create app/persistence.py with save_to_file and load_from_file using JSON",
+          "verify": {
+            "file_exists": [
+              "app/persistence.py"
+            ],
+            "file_contains": {
+              "app/persistence.py": [
+                "json",
+                "save",
+                "load"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD07",
+          "prompt": "read app/ui.py then add a priority dropdown (combobox) when adding todos",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "Combobox",
+                "priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD08",
+          "prompt": "read app/ui.py then add keyboard shortcuts: Enter to add, Delete to remove, Space to toggle",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "bind",
+                "Return",
+                "Delete"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD09",
+          "prompt": "create app/export.py with export_csv and export_txt functions",
+          "verify": {
+            "file_exists": [
+              "app/export.py"
+            ],
+            "file_contains": {
+              "app/export.py": [
+                "csv",
+                "export"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD10",
+          "prompt": "read app/ui.py then add a status bar showing total, completed, and pending counts",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "status",
+                "completed"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD11",
+          "prompt": "read app/model.py then add a to_dict method and a from_dict classmethod for serialization",
+          "verify": {
+            "file_contains": {
+              "app/model.py": [
+                "to_dict",
+                "from_dict"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD12",
+          "prompt": "read app/ui.py then add right-click context menu with Toggle, Delete, Edit options",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "Menu",
+                "right",
+                "click"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD13",
+          "prompt": "tạo file app/theme.py với dark mode và light mode color schemes",
+          "note": "Vietnamese",
+          "verify": {
+            "file_exists": [
+              "app/theme.py"
+            ],
+            "file_contains": {
+              "app/theme.py": [
+                "dark",
+                "light"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD14",
+          "prompt": "create tests/test_model.py with tests for Todo dataclass methods",
+          "verify": {
+            "file_exists": [
+              "tests/test_model.py"
+            ],
+            "file_contains": {
+              "tests/test_model.py": [
+                "def test",
+                "Todo"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD15",
+          "prompt": "read app/ui.py then refactor to separate the listbox rendering into a TodoListWidget class",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "TodoListWidget",
+                "class"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD16",
+          "prompt": "read all files and add missing docstrings following Google style",
+          "verify": {}
+        },
+        {
+          "id": "PD17",
+          "prompt": "create app/config.py with a Config dataclass for window size, theme, and file path settings",
+          "verify": {
+            "file_exists": [
+              "app/config.py"
+            ],
+            "file_contains": {
+              "app/config.py": [
+                "Config",
+                "dataclass"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD18",
+          "prompt": "read app/ui.py then add drag-and-drop reordering in the listbox",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "drag"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD19",
+          "prompt": "read app/store.py then add undo support: keep history of operations and allow undo",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "undo",
+                "history"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD20",
+          "prompt": "create app/notifications.py with desktop notification support using tkinter messagebox",
+          "verify": {
+            "file_exists": [
+              "app/notifications.py"
+            ]
+          }
+        },
+        {
+          "id": "PD21",
+          "prompt": "read app/ui.py then add a menu bar with File (Save, Load, Exit) and Edit (Undo, Clear) menus",
+          "verify": {
+            "file_contains": {
+              "app/ui.py": [
+                "Menu",
+                "File",
+                "Save"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD22",
+          "prompt": "read tests/test_store.py then add edge case tests: empty title, duplicate tags",
+          "verify": {
+            "file_contains": {
+              "tests/test_store.py": [
+                "empty",
+                "edge"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD23",
+          "prompt": "read app/store.py then add import/export methods for CSV format",
+          "verify": {
+            "file_contains": {
+              "app/store.py": [
+                "csv",
+                "export"
+              ]
+            }
+          }
+        },
+        {
+          "id": "PD24",
+          "prompt": "create a README.md with installation instructions, screenshots description, and usage guide",
+          "verify": {
+            "file_exists": [
+              "README.md"
+            ]
+          }
+        }
       ]
     },
     "react-mobile": {
       "fixture": "react-mobile",
       "description": "React Native mobile app",
       "scenarios": [
-        {"id": "RM01", "prompt": "read src/hooks/useTodos.ts then add a sortByPriority() method that returns sorted todos"},
-        {"id": "RM02", "prompt": "read src/components/TodoItem.tsx then add swipe-to-delete gesture using Animated API"},
-        {"id": "RM03", "prompt": "create src/screens/AddTodoScreen.tsx with form inputs for title, priority picker, and tags"},
-        {"id": "RM04", "prompt": "read src/hooks/useTodos.ts, the deleteTodo removes wrong item. Fix it.", "setup": "sed -i 's/t.id !== id/t.id === id/' src/hooks/useTodos.ts"},
-        {"id": "RM05", "prompt": "read src/__tests__/useTodos.test.ts then add tests for deleteTodo and edge cases"},
-        {"id": "RM06", "prompt": "create src/components/PriorityBadge.tsx with colored badge (red/yellow/green) for priority"},
-        {"id": "RM07", "prompt": "read src/screens/HomeScreen.tsx then add pull-to-refresh functionality"},
-        {"id": "RM08", "prompt": "create src/hooks/useAsyncStorage.ts for persisting todos to AsyncStorage"},
-        {"id": "RM09", "prompt": "read src/components/TodoItem.tsx then ensure all touchable elements have accessibilityLabel"},
-        {"id": "RM10", "prompt": "read CLAUDE.md and verify all components use StyleSheet.create (no inline styles)"},
-        {"id": "RM11", "prompt": "create src/components/EmptyState.tsx with illustration placeholder and add todo button"},
-        {"id": "RM12", "prompt": "read src/screens/HomeScreen.tsx then add a floating action button (FAB) for adding todos"},
-        {"id": "RM13", "prompt": "create src/hooks/useSearch.ts with debounced search functionality"},
-        {"id": "RM14", "prompt": "read src/components/TodoItem.tsx then add long-press to show action sheet (edit, delete, toggle)"},
-        {"id": "RM15", "prompt": "tạo src/screens/SettingsScreen.tsx với toggle dark mode và clear all todos", "note": "Vietnamese"},
-        {"id": "RM16", "prompt": "create src/__tests__/TodoItem.test.tsx with render and interaction tests"},
-        {"id": "RM17", "prompt": "read src/hooks/useTodos.ts then add editTodo(id, updates) for partial updates"},
-        {"id": "RM18", "prompt": "create src/components/FilterBar.tsx with horizontal scroll chips for priority filtering"},
-        {"id": "RM19", "prompt": "read all component files and add proper TypeScript interfaces for all props"},
-        {"id": "RM20", "prompt": "create src/utils/notifications.ts with local push notification scheduling for due dates"},
-        {"id": "RM21", "prompt": "read src/screens/HomeScreen.tsx then add section headers grouping todos by priority"},
-        {"id": "RM22", "prompt": "create src/components/TodoStats.tsx showing completion progress with animated bar"},
-        {"id": "RM23", "prompt": "read src/hooks/useTodos.ts then add bulk operations: markAllComplete, deleteCompleted"},
-        {"id": "RM24", "prompt": "create src/navigation/AppNavigator.tsx with stack navigation between Home, Add, and Settings screens"}
+        {
+          "id": "RM01",
+          "prompt": "read src/hooks/useTodos.ts then add a sortByPriority() method that returns sorted todos",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "sortByPriority",
+                "sort"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM02",
+          "prompt": "read src/components/TodoItem.tsx then add swipe-to-delete gesture using Animated API",
+          "verify": {
+            "file_contains": {
+              "src/components/TodoItem.tsx": [
+                "Animated",
+                "swipe"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM03",
+          "prompt": "create src/screens/AddTodoScreen.tsx with form inputs for title, priority picker, and tags",
+          "verify": {
+            "file_exists": [
+              "src/screens/AddTodoScreen.tsx"
+            ],
+            "file_contains": {
+              "src/screens/AddTodoScreen.tsx": [
+                "title",
+                "priority",
+                "submit"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM04",
+          "prompt": "read src/hooks/useTodos.ts, the deleteTodo removes wrong item. Fix it.",
+          "setup": "sed -i 's/t.id !== id/t.id === id/' src/hooks/useTodos.ts",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "t.id !== id"
+              ]
+            },
+            "file_not_contains": {
+              "src/hooks/useTodos.ts": [
+                "t.id === id.*filter"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM05",
+          "prompt": "read src/__tests__/useTodos.test.ts then add tests for deleteTodo and edge cases",
+          "verify": {
+            "file_contains": {
+              "src/__tests__/useTodos.test.ts": [
+                "delete",
+                "test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM06",
+          "prompt": "create src/components/PriorityBadge.tsx with colored badge (red/yellow/green) for priority",
+          "verify": {
+            "file_exists": [
+              "src/components/PriorityBadge.tsx"
+            ],
+            "file_contains": {
+              "src/components/PriorityBadge.tsx": [
+                "color",
+                "priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM07",
+          "prompt": "read src/screens/HomeScreen.tsx then add pull-to-refresh functionality",
+          "verify": {
+            "file_contains": {
+              "src/screens/HomeScreen.tsx": [
+                "refresh",
+                "Refresh"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM08",
+          "prompt": "create src/hooks/useAsyncStorage.ts for persisting todos to AsyncStorage",
+          "verify": {
+            "file_exists": [
+              "src/hooks/useAsyncStorage.ts"
+            ],
+            "file_contains": {
+              "src/hooks/useAsyncStorage.ts": [
+                "AsyncStorage",
+                "storage"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM09",
+          "prompt": "read src/components/TodoItem.tsx then ensure all touchable elements have accessibilityLabel",
+          "verify": {
+            "file_contains": {
+              "src/components/TodoItem.tsx": [
+                "accessibilityLabel"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM10",
+          "prompt": "read CLAUDE.md and verify all components use StyleSheet.create (no inline styles)",
+          "verify": {}
+        },
+        {
+          "id": "RM11",
+          "prompt": "create src/components/EmptyState.tsx with illustration placeholder and add todo button",
+          "verify": {
+            "file_exists": [
+              "src/components/EmptyState.tsx"
+            ]
+          }
+        },
+        {
+          "id": "RM12",
+          "prompt": "read src/screens/HomeScreen.tsx then add a floating action button (FAB) for adding todos",
+          "verify": {
+            "file_contains": {
+              "src/screens/HomeScreen.tsx": [
+                "FAB",
+                "floating",
+                "absolute"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM13",
+          "prompt": "create src/hooks/useSearch.ts with debounced search functionality",
+          "verify": {
+            "file_exists": [
+              "src/hooks/useSearch.ts"
+            ],
+            "file_contains": {
+              "src/hooks/useSearch.ts": [
+                "debounce",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM14",
+          "prompt": "read src/components/TodoItem.tsx then add long-press to show action sheet (edit, delete, toggle)",
+          "verify": {
+            "file_contains": {
+              "src/components/TodoItem.tsx": [
+                "long",
+                "press",
+                "action"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM15",
+          "prompt": "tạo src/screens/SettingsScreen.tsx với toggle dark mode và clear all todos",
+          "note": "Vietnamese",
+          "verify": {
+            "file_exists": [
+              "src/screens/SettingsScreen.tsx"
+            ],
+            "file_contains": {
+              "src/screens/SettingsScreen.tsx": [
+                "dark",
+                "clear"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM16",
+          "prompt": "create src/__tests__/TodoItem.test.tsx with render and interaction tests",
+          "verify": {
+            "file_exists": [
+              "src/__tests__/TodoItem.test.tsx"
+            ],
+            "file_contains": {
+              "src/__tests__/TodoItem.test.tsx": [
+                "render",
+                "test"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM17",
+          "prompt": "read src/hooks/useTodos.ts then add editTodo(id, updates) for partial updates",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "editTodo",
+                "update"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM18",
+          "prompt": "create src/components/FilterBar.tsx with horizontal scroll chips for priority filtering",
+          "verify": {
+            "file_exists": [
+              "src/components/FilterBar.tsx"
+            ],
+            "file_contains": {
+              "src/components/FilterBar.tsx": [
+                "filter",
+                "priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM19",
+          "prompt": "read all component files and add proper TypeScript interfaces for all props",
+          "verify": {}
+        },
+        {
+          "id": "RM20",
+          "prompt": "create src/utils/notifications.ts with local push notification scheduling for due dates",
+          "verify": {
+            "file_exists": [
+              "src/utils/notifications.ts"
+            ]
+          }
+        },
+        {
+          "id": "RM21",
+          "prompt": "read src/screens/HomeScreen.tsx then add section headers grouping todos by priority",
+          "verify": {
+            "file_contains": {
+              "src/screens/HomeScreen.tsx": [
+                "section",
+                "priority"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM22",
+          "prompt": "create src/components/TodoStats.tsx showing completion progress with animated bar",
+          "verify": {
+            "file_exists": [
+              "src/components/TodoStats.tsx"
+            ],
+            "file_contains": {
+              "src/components/TodoStats.tsx": [
+                "progress",
+                "completed"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM23",
+          "prompt": "read src/hooks/useTodos.ts then add bulk operations: markAllComplete, deleteCompleted",
+          "verify": {
+            "file_contains": {
+              "src/hooks/useTodos.ts": [
+                "markAllComplete",
+                "deleteCompleted"
+              ]
+            }
+          }
+        },
+        {
+          "id": "RM24",
+          "prompt": "create src/navigation/AppNavigator.tsx with stack navigation between Home, Add, and Settings screens",
+          "verify": {
+            "file_exists": [
+              "src/navigation/AppNavigator.tsx"
+            ],
+            "file_contains": {
+              "src/navigation/AppNavigator.tsx": [
+                "Stack",
+                "Screen",
+                "Navigator"
+              ]
+            }
+          }
+        }
       ]
     }
   }
