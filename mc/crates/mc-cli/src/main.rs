@@ -420,21 +420,13 @@ async fn run_tui(
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let _ = disable_raw_mode();
-        let _ = execute!(
-            io::stdout(),
-            crossterm::event::DisableMouseCapture,
-            LeaveAlternateScreen
-        );
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
         original_hook(info);
     }));
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(
-        stdout,
-        EnterAlternateScreen,
-        crossterm::event::EnableMouseCapture
-    )?;
+    execute!(stdout, EnterAlternateScreen,)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -668,14 +660,7 @@ async fn run_tui(
 
         if event::poll(std::time::Duration::from_millis(30))? {
             match event::read()? {
-                Event::Mouse(mouse) => {
-                    use crossterm::event::MouseEventKind;
-                    match mouse.kind {
-                        MouseEventKind::ScrollUp => app.scroll_up(3),
-                        MouseEventKind::ScrollDown => app.scroll_down(3),
-                        _ => {}
-                    }
-                }
+                Event::Mouse(_) => {}
                 Event::Key(key) => {
                     if app.permission_pending.is_some() {
                         match key.code {
@@ -1590,11 +1575,7 @@ async fn run_tui(
     }
 
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        crossterm::event::DisableMouseCapture,
-        LeaveAlternateScreen
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     Ok(())
 }
 
