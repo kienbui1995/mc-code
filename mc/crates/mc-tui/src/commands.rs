@@ -92,6 +92,7 @@ pub fn handle(app: &mut App, cmd: &str) {
         "/pin" => { app.pending_command = Some(PendingCommand::Pin); app.push("📌 Last message pinned — survives compaction."); }
         "/theme" => { app.theme = if app.theme == "dark" { "light".into() } else { "dark".into() }; app.push(&format!("Theme: {}", app.theme)); }
         "/copy" => cmd_copy(app),
+        "/raw" => { app.pending_command = Some(PendingCommand::ShowRaw); },
         "/version" => app.push(&format!("magic-code v{} ({} {})", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH)),
         "/history" => cmd_history(app),
         "/alias" => cmd_alias(app, arg),

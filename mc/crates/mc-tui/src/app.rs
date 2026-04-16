@@ -119,6 +119,7 @@ pub enum PendingCommand {
     Tokens,
     Context,
     CopyToClipboard(String),
+    ShowRaw,
     Rewind(usize),
     Debug,
     Btw(String),

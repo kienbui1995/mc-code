@@ -1041,6 +1041,29 @@ async fn run_tui(
                         }
                     }
                 }
+                PendingCommand::ShowRaw => {
+                    // Get last response
+                    let last: String = app
+                        .output_lines
+                        .iter()
+                        .rev()
+                        .take_while(|l| !l.starts_with('›'))
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .rev()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    // Leave alternate screen, print, wait for key
+                    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+                    let _ = disable_raw_mode();
+                    println!("\n{last}\n");
+                    println!("--- Press Enter to return to TUI ---");
+                    let _ = std::io::stdin().read_line(&mut String::new());
+                    let _ = enable_raw_mode();
+                    let _ = execute!(terminal.backend_mut(), EnterAlternateScreen);
+                    terminal.clear()?;
+                }
                 PendingCommand::Review => {
                     if let Ok(o) = std::process::Command::new("git")
                         .args(["diff", "HEAD"])
