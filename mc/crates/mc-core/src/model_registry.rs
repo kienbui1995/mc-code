@@ -103,7 +103,7 @@ impl Default for ModelRegistry {
         // Qwen (self-hosted)
         models.insert("qwen3.5-9b".into(), m(262_144, true, 0.0, 0.0));
         models.insert("qwen3.5:9b".into(), m(262_144, true, 0.0, 0.0));
-        models.insert("qwen3.5-27b".into(), m(65_536, true, 0.0, 0.0));
+        models.insert("qwen3.5-27b".into(), m(262_144, true, 0.0, 0.0));
 
         Self { models }
     }
