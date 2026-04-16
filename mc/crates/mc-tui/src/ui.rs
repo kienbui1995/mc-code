@@ -47,7 +47,7 @@ fn draw_output(frame: &mut Frame, app: &App, area: Rect) {
     };
 
     let total_lines = lines.len();
-    let visible = area.height.saturating_sub(2) as usize; // minus borders
+    let visible = area.height.saturating_sub(1) as usize; // minus title line
 
     // Scroll indicator
     let scroll_info = if total_lines > visible {
@@ -79,7 +79,7 @@ fn draw_output(frame: &mut Frame, app: &App, area: Rect) {
         },
     );
     let para = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title(title))
+        .block(Block::default().title(title))
         .wrap(Wrap { trim: false })
         .scroll((app.scroll_offset, 0));
     frame.render_widget(para, area);
