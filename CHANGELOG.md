@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.9.1
+
+### Fixes
+- **TUI: allow text selection** — disabled mouse capture so users can select and copy text normally
+- **Qwen 3.5: auto-continue** — when model reads files but stops without editing, mc-code nudges it to continue
+- **Qwen 3.5 27B: tier 2 promotion** — 27B+ gets 25 tools (edit_plan, batch_edit, subagent, debug) instead of 10
+- **Batch/pipe mode: shared session** — all turns now share context history (previously each turn was isolated)
+- **Qwen prompt: bash restrictions** — explicit rules to use write_file for new files, not bash
+
+### Features
+- **GitHub Models support** — free GPT-4o and Llama 405B via `--base-url https://models.inference.ai.azure.com`
+- **Tier 5 (minimal)** — 5 tools, short prompt for token-limited free providers (GitHub Models, Groq free)
+- **Golden test suite** — 350 test points (154 core + 120 platform + 76 session turns)
+
+### Benchmarks (Qwen 3.5 self-hosted)
+- 9B (RTX 4070 Ti): 59% verified across 5 platforms
+- 27B (A40): 88% verified across 5 platforms (+29%)
+- Gemini 2.5 Pro: ~95% verified (cloud baseline)
+
 ## v1.8.0 (2026-04-16)
 
 ### Headless & Batch Mode

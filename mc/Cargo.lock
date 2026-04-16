@@ -1097,7 +1097,7 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "magic-code"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1129,7 +1129,7 @@ dependencies = [
 
 [[package]]
 name = "mc-code-core"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "async-stream",
  "base64",
@@ -1153,7 +1153,7 @@ dependencies = [
 
 [[package]]
 name = "mc-config"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "serde",
  "thiserror",
@@ -1163,7 +1163,7 @@ dependencies = [
 
 [[package]]
 name = "mc-provider"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "async-stream",
  "futures-core",
@@ -1178,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "mc-tools"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "glob",
  "regex",
@@ -1194,7 +1194,7 @@ dependencies = [
 
 [[package]]
 name = "mc-tui"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "crossterm",
  "ratatui",
