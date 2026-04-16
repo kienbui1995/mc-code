@@ -2317,7 +2317,18 @@ fn model_prompt_tier(model: &str) -> u8 {
     {
         2 // strong
     } else if m.contains("qwen") {
-        4 // qwen-specific (optimized for self-hosted Qwen 3.5)
+        // Qwen 27B+ gets tier 2 (strong) — more capable, more tools
+        // Qwen 9B and smaller gets tier 4 (restricted)
+        if m.contains("27b")
+            || m.contains("32b")
+            || m.contains("72b")
+            || m.contains("235b")
+            || m.contains("coder")
+        {
+            2
+        } else {
+            4
+        }
     } else {
         3 // local/small
     }
