@@ -18,11 +18,19 @@
       ],
       "verify": {
         "file_contains": {
-          "app/models.py": ["due_date"],
-          "app/store.py": ["due_date"],
-          "app/main.py": ["overdue"]
+          "app/models.py": [
+            "due_date"
+          ],
+          "app/store.py": [
+            "due_date"
+          ],
+          "app/main.py": [
+            "overdue"
+          ]
         },
-        "file_exists": ["app/middleware.py"]
+        "file_exists": [
+          "app/middleware.py"
+        ]
       }
     },
     "python-webapp-refactor": {
@@ -39,10 +47,19 @@
         "read all files and verify the refactoring is complete"
       ],
       "verify": {
-        "file_exists": ["app/errors.py", "tests/test_errors.py"],
+        "file_exists": [
+          "app/errors.py",
+          "tests/test_errors.py"
+        ],
         "file_contains": {
-          "app/store.py": ["ABC", "abstractmethod"],
-          "app/main.py": ["exception", "HTTPException"]
+          "app/store.py": [
+            "ABC",
+            "abstractmethod"
+          ],
+          "app/main.py": [
+            "exception",
+            "HTTPException"
+          ]
         }
       }
     },
@@ -67,7 +84,10 @@
           "src/components/Stats.tsx"
         ],
         "file_contains": {
-          "src/App.tsx": ["SearchBar", "FilterBar"]
+          "src/App.tsx": [
+            "SearchBar",
+            "FilterBar"
+          ]
         }
       }
     },
@@ -112,7 +132,11 @@
           "middleware/logging.go"
         ],
         "file_contains": {
-          "handler/handler.go": ["Delete", "Toggle", "func"]
+          "handler/handler.go": [
+            "Delete",
+            "Toggle",
+            "func"
+          ]
         }
       }
     },
@@ -129,9 +153,15 @@
         "create a Makefile with targets: build, test, bench, lint, run"
       ],
       "verify": {
-        "file_exists": ["store/mock_test.go", "Makefile"],
+        "file_exists": [
+          "store/mock_test.go",
+          "Makefile"
+        ],
         "file_contains": {
-          "store/store.go": ["context.Context", "interface"]
+          "store/store.go": [
+            "context.Context",
+            "interface"
+          ]
         }
       }
     },
@@ -155,7 +185,10 @@
           "tests/test_persistence.py"
         ],
         "file_contains": {
-          "app/ui.py": ["Menu", "search"]
+          "app/ui.py": [
+            "Menu",
+            "search"
+          ]
         }
       }
     },
@@ -195,10 +228,15 @@
       ],
       "verify": {
         "file_contains": {
-          "app/store.py": ["is not none", "to_lowercase", "lower"]
+          "app/store.py": [
+            "is not none",
+            "lower"
+          ]
         },
         "file_not_contains": {
-          "app/store.py": ["is none"]
+          "app/store.py": [
+            "is none"
+          ]
         }
       }
     },
@@ -215,9 +253,15 @@
       ],
       "verify": {
         "file_contains": {
-          "app/models.py": ["tag"],
-          "app/store.py": ["tag"],
-          "app/main.py": ["tag"]
+          "app/models.py": [
+            "tag"
+          ],
+          "app/store.py": [
+            "tag"
+          ],
+          "app/main.py": [
+            "tag"
+          ]
         }
       }
     }

@@ -345,6 +345,7 @@ impl ConversationRuntime {
         let mut turn_usage = TokenUsage::default();
         let mut iterations = 0;
         let mut recent_patterns: Vec<(usize, Vec<String>)> = Vec::new();
+        let mut last_iter_read_only = false;
 
         loop {
             if cancel.is_cancelled() {
@@ -371,6 +372,19 @@ impl ConversationRuntime {
             self.store_response(&text_buf, &thinking_buf, &pending_tools, &mut final_text);
 
             if pending_tools.is_empty() {
+                // Auto-continue: if previous iteration only read files and model stopped
+                // without making changes, nudge it to continue
+                if last_iter_read_only && iterations < MAX_ITERATIONS - 1 && iterations < 4 {
+                    tracing::debug!(
+                        "auto-continue: previous iteration was read-only, nudging to continue"
+                    );
+                    self.session.messages.push(ConversationMessage::user(
+                        "Now continue and make the changes.",
+                    ));
+                    last_iter_read_only = false;
+                    continue;
+                }
+
                 // Auto-continue: if output appears cut off by token limit
                 let trimmed = text_buf.trim_end();
                 let looks_cut_off = !trimmed.is_empty()
@@ -396,6 +410,20 @@ impl ConversationRuntime {
                 }
                 break;
             }
+
+            // Track if this iteration was read-only (no writes)
+            let iter_tool_names: Vec<&str> = pending_tools.iter().map(|t| t.1.as_str()).collect();
+            last_iter_read_only = !iter_tool_names.is_empty()
+                && iter_tool_names.iter().all(|t| {
+                    matches!(
+                        *t,
+                        "read_file"
+                            | "glob_search"
+                            | "grep_search"
+                            | "codebase_search"
+                            | "memory_read"
+                    )
+                });
 
             // Diminishing returns detection
             let pattern = (

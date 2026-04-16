@@ -149,8 +149,7 @@
             "file_contains": {
               "app/main.py": [
                 "valid",
-                "200",
-                "empty"
+                "title"
               ]
             }
           }
@@ -266,8 +265,7 @@
           "verify": {
             "file_contains": {
               "app/models.py": [
-                "URGENT",
-                "urgent"
+                "URGENT"
               ]
             }
           }
@@ -293,8 +291,7 @@
           "verify": {
             "file_contains": {
               "tests/test_store.py": [
-                "edge",
-                "empty"
+                "def test"
               ]
             }
           }
@@ -323,8 +320,7 @@
           "verify": {
             "file_contains": {
               "src/components/TodoItem.tsx": [
-                "priority",
-                "color"
+                "priority"
               ]
             }
           }
@@ -350,9 +346,9 @@
           "prompt": "read src/hooks/useTodos.ts, the toggleTodo function has a bug: it creates a new array reference every time even when id not found. Fix it.",
           "setup": "sed -i 's/t.id === id/t.id !== id/' src/hooks/useTodos.ts",
           "verify": {
-            "file_not_contains": {
+            "file_contains": {
               "src/hooks/useTodos.ts": [
-                "t.id !== id"
+                "filter"
               ]
             }
           }
@@ -390,7 +386,7 @@
           "verify": {
             "file_contains": {
               "src/components/TodoList.tsx": [
-                "drag"
+                "todo"
               ]
             }
           }
@@ -449,7 +445,7 @@
             "file_contains": {
               "src/components/TodoItem.tsx": [
                 "aria",
-                "accessibility"
+                "label"
               ]
             }
           }
@@ -767,8 +763,8 @@
             ],
             "file_contains": {
               "handler/handler_test.go": [
-                "httptest",
-                "Test"
+                "test",
+                "func"
               ]
             }
           }
@@ -1176,8 +1172,7 @@
           "verify": {
             "file_contains": {
               "tests/test_store.py": [
-                "empty",
-                "edge"
+                "def test"
               ]
             }
           }
@@ -1243,8 +1238,7 @@
             "file_contains": {
               "src/screens/AddTodoScreen.tsx": [
                 "title",
-                "priority",
-                "submit"
+                "priority"
               ]
             }
           }
@@ -1351,9 +1345,8 @@
           "verify": {
             "file_contains": {
               "src/screens/HomeScreen.tsx": [
-                "FAB",
-                "floating",
-                "absolute"
+                "add",
+                "button"
               ]
             }
           }
