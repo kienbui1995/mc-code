@@ -1,0 +1,225 @@
+{
+  "version": "1.0",
+  "description": "Multi-turn session scenarios — realistic vibe coding workflows",
+  "sessions": {
+    "python-webapp-feature": {
+      "fixture": "python-webapp",
+      "description": "Add due_date feature to FastAPI app (9 turns)",
+      "turns": [
+        "read all source files and explain the project architecture",
+        "add a due_date field (Optional[str]) to the Todo class in app/models.py",
+        "update app/store.py add() method to accept due_date parameter",
+        "add a GET /todos/overdue endpoint to app/main.py that returns todos with due_date before today",
+        "read tests/test_store.py then add tests for the due_date feature",
+        "read CLAUDE.md and check if we are following all conventions",
+        "add input validation to the create_todo endpoint: title must not be empty and max 200 chars",
+        "create app/middleware.py with request logging that logs method, path, and response time",
+        "read all modified files and summarize what we changed in this session"
+      ],
+      "verify": {
+        "file_contains": {
+          "app/models.py": ["due_date"],
+          "app/store.py": ["due_date"],
+          "app/main.py": ["overdue"]
+        },
+        "file_exists": ["app/middleware.py"]
+      }
+    },
+    "python-webapp-refactor": {
+      "fixture": "python-webapp",
+      "description": "Refactor and improve code quality (8 turns)",
+      "turns": [
+        "read all source files and identify code quality issues",
+        "refactor app/store.py to use an abstract base class (ABC) as interface",
+        "add proper error handling: create app/errors.py with custom exception classes",
+        "update app/main.py to use the custom exceptions with proper HTTP status codes",
+        "add type hints to any functions missing them",
+        "add docstrings to all public functions following Google style",
+        "create tests/test_errors.py with tests for error handling",
+        "read all files and verify the refactoring is complete"
+      ],
+      "verify": {
+        "file_exists": ["app/errors.py", "tests/test_errors.py"],
+        "file_contains": {
+          "app/store.py": ["ABC", "abstractmethod"],
+          "app/main.py": ["exception", "HTTPException"]
+        }
+      }
+    },
+    "react-webapp-feature": {
+      "fixture": "react-webapp",
+      "description": "Add search and filter to React app (8 turns)",
+      "turns": [
+        "read all source files and explain the component structure",
+        "create src/components/SearchBar.tsx with a controlled input that calls onSearch prop",
+        "create src/hooks/useFilter.ts with filter state for priority, completion, and search query",
+        "create src/components/FilterBar.tsx with priority filter buttons (All, Low, Medium, High)",
+        "update src/App.tsx to integrate SearchBar and FilterBar with the todo list",
+        "create src/components/Stats.tsx showing total, completed, pending counts",
+        "create src/__tests__/SearchBar.test.tsx with render and interaction tests",
+        "read all modified files and check TypeScript types are correct"
+      ],
+      "verify": {
+        "file_exists": [
+          "src/components/SearchBar.tsx",
+          "src/hooks/useFilter.ts",
+          "src/components/FilterBar.tsx",
+          "src/components/Stats.tsx"
+        ],
+        "file_contains": {
+          "src/App.tsx": ["SearchBar", "FilterBar"]
+        }
+      }
+    },
+    "react-webapp-refactor": {
+      "fixture": "react-webapp",
+      "description": "Refactor React app for better architecture (7 turns)",
+      "turns": [
+        "read src/App.tsx — it has too much logic. plan how to split it",
+        "create src/hooks/useLocalStorage.ts for persisting todos to localStorage",
+        "update src/hooks/useTodos.ts to use useLocalStorage for persistence",
+        "create src/components/AddTodoForm.tsx extracting the form from App.tsx",
+        "update src/App.tsx to use AddTodoForm component",
+        "add dark mode: create src/context/ThemeContext.tsx with toggle",
+        "read all files and verify no TypeScript errors in the refactoring"
+      ],
+      "verify": {
+        "file_exists": [
+          "src/hooks/useLocalStorage.ts",
+          "src/components/AddTodoForm.tsx",
+          "src/context/ThemeContext.tsx"
+        ]
+      }
+    },
+    "go-webapp-feature": {
+      "fixture": "go-webapp",
+      "description": "Add REST endpoints and middleware to Go app (9 turns)",
+      "turns": [
+        "read all Go files and explain the project structure",
+        "create handler/handler.go extracting HTTP handlers from main.go into a Handler struct",
+        "add a DELETE /todos/{id} endpoint to handler.go",
+        "add a PATCH /todos/{id}/toggle endpoint to handler.go",
+        "create middleware/logging.go with request logging middleware",
+        "update main.go to use the handler package and logging middleware",
+        "add a GET /health endpoint returning JSON with status and todo count",
+        "create handler/handler_test.go with table-driven tests using httptest",
+        "read all files and verify the refactoring compiles"
+      ],
+      "verify": {
+        "file_exists": [
+          "handler/handler.go",
+          "handler/handler_test.go",
+          "middleware/logging.go"
+        ],
+        "file_contains": {
+          "handler/handler.go": ["Delete", "Toggle", "func"]
+        }
+      }
+    },
+    "go-webapp-quality": {
+      "fixture": "go-webapp",
+      "description": "Improve Go code quality (7 turns)",
+      "turns": [
+        "read store/store.go and identify improvements needed",
+        "add context.Context as first parameter to all Store methods",
+        "extract a Store interface for testability",
+        "add proper error wrapping with fmt.Errorf and %w to all error returns",
+        "create store/mock_test.go with a mock implementation of the Store interface",
+        "add benchmark tests for Add and List operations in store_test.go",
+        "create a Makefile with targets: build, test, bench, lint, run"
+      ],
+      "verify": {
+        "file_exists": ["store/mock_test.go", "Makefile"],
+        "file_contains": {
+          "store/store.go": ["context.Context", "interface"]
+        }
+      }
+    },
+    "python-desktop-feature": {
+      "fixture": "python-desktop",
+      "description": "Add persistence and UI features to Tkinter app (8 turns)",
+      "turns": [
+        "read all source files and explain the MVC architecture",
+        "create app/persistence.py with save_to_file and load_from_file using JSON",
+        "update app/ui.py to add File menu with Save and Load options",
+        "add keyboard shortcuts: Enter to add, Delete to remove, Space to toggle",
+        "create app/theme.py with dark and light color schemes",
+        "update app/ui.py to support theme switching via a menu option",
+        "add a search entry field that filters the listbox in real-time",
+        "create tests/test_persistence.py with tests for save and load"
+      ],
+      "verify": {
+        "file_exists": [
+          "app/persistence.py",
+          "app/theme.py",
+          "tests/test_persistence.py"
+        ],
+        "file_contains": {
+          "app/ui.py": ["Menu", "search"]
+        }
+      }
+    },
+    "react-mobile-feature": {
+      "fixture": "react-mobile",
+      "description": "Add screens and navigation to React Native app (8 turns)",
+      "turns": [
+        "read all source files and explain the app structure",
+        "create src/screens/AddTodoScreen.tsx with form for title, priority picker",
+        "create src/navigation/AppNavigator.tsx with stack navigation between Home and AddTodo",
+        "create src/components/PriorityBadge.tsx with colored badge for each priority level",
+        "update src/screens/HomeScreen.tsx to add a floating action button for navigation to AddTodo",
+        "create src/hooks/useAsyncStorage.ts for persisting todos",
+        "add pull-to-refresh to HomeScreen",
+        "create src/__tests__/HomeScreen.test.tsx with render tests"
+      ],
+      "verify": {
+        "file_exists": [
+          "src/screens/AddTodoScreen.tsx",
+          "src/navigation/AppNavigator.tsx",
+          "src/components/PriorityBadge.tsx",
+          "src/hooks/useAsyncStorage.ts"
+        ]
+      }
+    },
+    "debug-session": {
+      "fixture": "python-webapp",
+      "description": "Debug and fix multiple issues (6 turns)",
+      "setup": "sed -i 's/is not None/is None/' app/store.py && sed -i 's/to_lowercase/to_uppercase/' app/store.py",
+      "turns": [
+        "there are bugs in this project. read app/store.py and find them",
+        "fix the delete method — it returns True when the todo does not exist",
+        "fix the search method — it should be case-insensitive but it is not working",
+        "read tests/test_store.py and run the tests to verify the fixes",
+        "add more tests to cover the edge cases we just fixed",
+        "read all files and confirm everything is working correctly"
+      ],
+      "verify": {
+        "file_contains": {
+          "app/store.py": ["is not none", "to_lowercase", "lower"]
+        },
+        "file_not_contains": {
+          "app/store.py": ["is none"]
+        }
+      }
+    },
+    "plan-then-execute": {
+      "fixture": "python-webapp",
+      "description": "Plan feature then implement (6 turns)",
+      "turns": [
+        "I want to add a tagging system to this todo app. Read the code and create a plan. Do NOT implement yet.",
+        "the plan looks good. start with step 1: update the Todo model to support tags",
+        "now implement step 2: add tag management methods to the store",
+        "implement step 3: add API endpoints for managing tags",
+        "write tests for the tagging feature",
+        "review all changes and make sure everything is consistent"
+      ],
+      "verify": {
+        "file_contains": {
+          "app/models.py": ["tag"],
+          "app/store.py": ["tag"],
+          "app/main.py": ["tag"]
+        }
+      }
+    }
+  }
+}
