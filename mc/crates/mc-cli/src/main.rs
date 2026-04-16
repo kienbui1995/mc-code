@@ -191,6 +191,15 @@ fn main() -> Result<()> {
         cli.provider.clone()
     };
     let mut system = build_system_prompt(&project, &model);
+    // Token-limited free providers: override to minimal prompt
+    let free_provider_tier5 = cli.base_url.as_deref().is_some_and(|u| {
+        u.contains("models.inference.ai.azure.com")
+            || u.contains("api.groq.com")
+            || u.contains("api-inference.huggingface.co")
+    });
+    if free_provider_tier5 {
+        system = PROMPT_MINIMAL.to_string();
+    }
     if config.managed_agents.enabled {
         system.push_str(&build_managed_agent_prompt(&config.managed_agents));
     }
@@ -1606,6 +1615,12 @@ async fn run_single(
     let cancel = CancellationToken::new();
     let mut runtime =
         mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
+    runtime.tool_tier =
+        if system.starts_with("You are magic-code, a coding assistant with file tools.") {
+            5
+        } else {
+            model_prompt_tier(model)
+        };
     let mut tool_registry = mc_tools::ToolRegistry::new()
         .with_workspace_root(std::env::current_dir().unwrap_or_default());
     for dir in extra_dirs {
@@ -1806,6 +1821,12 @@ async fn run_pipe_with_prompts(
     let cancel = CancellationToken::new();
     let mut runtime =
         mc_core::ConversationRuntime::new(model.to_string(), max_tokens, system.to_string());
+    runtime.tool_tier =
+        if system.starts_with("You are magic-code, a coding assistant with file tools.") {
+            5
+        } else {
+            model_prompt_tier(model)
+        };
     let mut tool_registry = mc_tools::ToolRegistry::new()
         .with_workspace_root(std::env::current_dir().unwrap_or_default());
     for dir in extra_dirs {
@@ -2300,6 +2321,17 @@ Always use tools when you need to read, write, or search files. Do not guess fil
 - Do not use bash for file operations. bash is ONLY for: cargo test, npm test, go test, git commands.\n\
 - Do not make up file contents. Always read first.\n\
 - Be concise. Write code, not explanations.";
+/// Tier 5: Minimal — for token-limited free providers (GitHub Models, Groq free).
+/// Only 5 tools, very short prompt to fit within 8K token limit.
+const PROMPT_MINIMAL: &str = "\
+You are magic-code, a coding assistant with file tools.\n\
+- `read_file`: Read a file. Params: path.\n\
+- `write_file`: Create/replace a file. Params: path, content.\n\
+- `edit_file`: Edit part of a file. Params: path, old_string, new_string. Read first.\n\
+- `glob_search`: Find files. Params: pattern.\n\
+- `grep_search`: Search text. Params: pattern, path.\n\
+Read files before editing. Use write_file for new files. Be concise.";
+
 fn model_prompt_tier(model: &str) -> u8 {
     let m = model.to_lowercase();
     if m.contains("opus")
@@ -2340,6 +2372,7 @@ fn build_system_prompt(project: &mc_config::ProjectContext, model: &str) -> Stri
         1 => PROMPT_TIER1.to_string(),
         2 => PROMPT_TIER2.to_string(),
         4 => PROMPT_QWEN.to_string(),
+        5 => PROMPT_MINIMAL.to_string(),
         _ => PROMPT_TIER3.to_string(),
     }];
     parts.push(format!("Working directory: {}", project.cwd.display()));

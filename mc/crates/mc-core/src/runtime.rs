@@ -1785,6 +1785,11 @@ fn tool_allowed_for_tier(tool: &str, tier: u8) -> bool {
                 | "memory_read"
                 | "memory_write"
         ),
+        // Tier 5: minimal — for token-limited free providers (GitHub Models, Groq free)
+        5 => matches!(
+            tool,
+            "read_file" | "write_file" | "edit_file" | "glob_search" | "grep_search"
+        ),
         _ => true,
     }
 }

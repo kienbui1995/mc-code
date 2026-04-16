@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.8.0 (2026-04-16)
+
+### Headless & Batch Mode
+- **Headless mode** — NDJSON streaming, batch processing, exit codes (#70)
+- **`--batch` and `--pipe` share session** across turns (multi-turn pipelines)
+- **Auto-continue** for read-only turns + relaxed verify rules
+
+### Context Engineering
+- **Selective tools** — only inject relevant tools per turn, reducing prompt size (#69)
+- **Adaptive compaction** — smarter context window management (#69)
+
+### Model-Tier Prompt Profiles
+- **Per-model prompt adaptation** — tier 1–4 profiles match model capability (#68)
+- **Qwen 3.5 9B** added to model registry (256K context, self-hosted)
+- **Qwen 3.5 27B** promoted to tier 2 with optimized prompts
+- **Qwen fixes**: disable thinking during tool calling (vLLM compat), context window 256K, tier 4 prompt improvements
+
+### Golden Test Suite
+- **LLM intelligence evaluation** — golden test suite for benchmarking
+- **154 scenarios** across 22 categories (x2 enrichment)
+- **Platform-specific tests** — 120 scenarios across 5 platforms
+- **L1/L2 verification** levels
+- **Multi-turn session tests** — 10 sessions, 76 turns
+- **Parallel test runner** (`--parallel N`)
+
+### crates.io Publishing
+- **Enable crates.io publishing** — versioned path deps (#565ff5a)
+- **Rename mc-core → mc-code-core** (mc-core taken on crates.io)
+- **Add metadata** (description, license, repository) to all crates
+
+### Bug Fixes
+- Fix `allOf` in debug tool schema (Anthropic API rejects it)
+- Fix friendly onboarding when API key missing (#67)
+
+### Community & Docs
+- **Community polish** — examples, badges, discussions, topics (#72)
+- **Blog post**: "Building magic-code: honest benchmarks and self-hosted AI coding"
+
+## v1.7.1 (2026-04-14)
+
+- Fix GLIBC compatibility — use musl static binary for Linux x86_64 (#66)
+- SonarCloud integration + CodeQL upgrade (#65)
+- Bump rand 0.9.2 → 0.9.4
+
 ## v1.7.0 (2026-04-14)
 
 ### Memory System v2 (Claude Code inspired)

@@ -1,5 +1,44 @@
 # What's New
 
+## Version 1.8.0
+
+### 🎉 Highlights
+- **Headless mode** — NDJSON streaming, batch processing, proper exit codes for CI/CD
+- **Context engineering** — selective tools + adaptive compaction = smaller prompts, better results
+- **Model-tier profiles** — prompts auto-adapt to model capability (tier 1–4)
+- **Qwen 3.5 support** — 9B and 27B models, fully self-hosted with 256K context
+- **Golden test suite** — 154 scenarios to benchmark LLM intelligence
+
+### 🤖 Headless & Batch
+- `--batch` and `--pipe` now share session across turns — multi-turn pipelines work
+- Auto-continue for read-only turns (no more stuck sessions)
+- NDJSON output for machine-readable streaming
+
+### 🧠 Smarter Prompts
+- Only relevant tools injected per turn (reduces prompt bloat)
+- Adaptive compaction keeps important context longer
+- Per-model prompt profiles: tier 1 (GPT-4/Claude) through tier 4 (small local models)
+
+### 🏠 Self-Hosted Models
+- **Qwen 3.5 9B** — 256K context, works with vLLM
+- **Qwen 3.5 27B** — promoted to tier 2, optimized prompts
+- Fixed thinking mode conflicts during tool calling
+
+### 📦 crates.io
+- All crates now publishable on crates.io
+- `mc-core` renamed to `mc-code-core` (name conflict)
+
+### 🧪 Testing
+- Golden test suite: 154 scenarios, 22 categories, 5 platforms
+- Multi-turn session tests: 10 sessions, 76 turns
+- Parallel test runner: `--parallel N`
+- L1/L2 verification levels
+
+### 🐛 Fixes
+- Friendly onboarding when API key is missing
+- Anthropic API compatibility (debug tool schema)
+- Qwen context window and prompt improvements
+
 ## Version 1.1.0
 
 ### 🎉 Highlights

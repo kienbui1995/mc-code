@@ -179,7 +179,11 @@ async fn send_with_retry_generic(
     body: &serde_json::Value,
 ) -> Result<reqwest::Response, ProviderError> {
     let mut last_err: Option<ProviderError> = None;
-    let url = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
+    let url = if base_url.contains("models.inference.ai.azure.com") {
+        format!("{}/chat/completions", base_url.trim_end_matches('/'))
+    } else {
+        format!("{}/v1/chat/completions", base_url.trim_end_matches('/'))
+    };
     for attempt in 0..=max_retries {
         let mut req = http.post(&url).header("content-type", "application/json");
         if let Some(key) = api_key {
