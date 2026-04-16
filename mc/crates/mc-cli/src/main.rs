@@ -1776,7 +1776,15 @@ async fn run_pipe(
     }
     let refs: Vec<&str> = prompts.iter().map(|s| s.as_str()).collect();
     run_pipe_with_prompts(
-        model, max_tokens, system, provider, policy, hooks, json_output, extra_dirs, mcp_servers,
+        model,
+        max_tokens,
+        system,
+        provider,
+        policy,
+        hooks,
+        json_output,
+        extra_dirs,
+        mcp_servers,
         refs,
     )
     .await
@@ -1807,8 +1815,15 @@ async fn run_pipe_with_prompts(
         }
     }
     for mcp in mcp_servers {
-        let env: Vec<(String, String)> = mcp.env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-        match tool_registry.add_mcp_server(&mcp.name, &mcp.command, &mcp.args, &env).await {
+        let env: Vec<(String, String)> = mcp
+            .env
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        match tool_registry
+            .add_mcp_server(&mcp.name, &mcp.command, &mcp.args, &env)
+            .await
+        {
             Ok(n) => tracing::info!(server = %mcp.name, tools = n, "MCP connected"),
             Err(e) => tracing::warn!(server = %mcp.name, "MCP connect failed: {e}"),
         }
@@ -1844,7 +1859,11 @@ async fn run_pipe_with_prompts(
 
     for (i, prompt) in prompts.iter().enumerate() {
         if ndjson {
-            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"turn_start","turn":i+1,"prompt":prompt}));
+            let _ = writeln!(
+                stdout,
+                "{}",
+                serde_json::json!({"type":"turn_start","turn":i+1,"prompt":prompt})
+            );
             let _ = stdout.flush();
         } else {
             eprintln!("[turn {}/{}] {}", i + 1, prompts.len(), prompt);
@@ -1852,11 +1871,18 @@ async fn run_pipe_with_prompts(
 
         let result = runtime
             .run_turn(
-                provider, prompt, policy, &mut None,
+                provider,
+                prompt,
+                policy,
+                &mut None,
                 &mut |event| match event {
                     mc_provider::ProviderEvent::TextDelta(text) => {
                         if ndjson {
-                            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"text","content":text}));
+                            let _ = writeln!(
+                                stdout,
+                                "{}",
+                                serde_json::json!({"type":"text","content":text})
+                            );
                         } else {
                             let _ = write!(stdout, "{text}");
                         }
@@ -1864,13 +1890,21 @@ async fn run_pipe_with_prompts(
                     }
                     mc_provider::ProviderEvent::ToolOutputDelta(text) => {
                         if ndjson {
-                            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"tool_output","content":text}));
+                            let _ = writeln!(
+                                stdout,
+                                "{}",
+                                serde_json::json!({"type":"tool_output","content":text})
+                            );
                         }
                         let _ = stdout.flush();
                     }
                     mc_provider::ProviderEvent::ToolUse { name, input, .. } => {
                         if ndjson {
-                            let _ = writeln!(stdout, "{}", serde_json::json!({"type":"tool_call","name":name,"input":input}));
+                            let _ = writeln!(
+                                stdout,
+                                "{}",
+                                serde_json::json!({"type":"tool_call","name":name,"input":input})
+                            );
                             let _ = stdout.flush();
                         }
                     }
@@ -1882,14 +1916,18 @@ async fn run_pipe_with_prompts(
             .context("turn failed")?;
 
         if ndjson {
-            let _ = writeln!(stdout, "{}", serde_json::json!({
-                "type": "turn_end",
-                "turn": i + 1,
-                "input_tokens": result.usage.input_tokens,
-                "output_tokens": result.usage.output_tokens,
-                "iterations": result.iterations,
-                "tool_calls": result.tool_calls,
-            }));
+            let _ = writeln!(
+                stdout,
+                "{}",
+                serde_json::json!({
+                    "type": "turn_end",
+                    "turn": i + 1,
+                    "input_tokens": result.usage.input_tokens,
+                    "output_tokens": result.usage.output_tokens,
+                    "iterations": result.iterations,
+                    "tool_calls": result.tool_calls,
+                })
+            );
             let _ = stdout.flush();
         }
         println!();
