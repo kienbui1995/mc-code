@@ -21,9 +21,11 @@ mc-tools = { path = "../mc-tools", version = "1.7.0" }
 mc-config = { path = "../mc-config", version = "1.7.0" }
 anyhow.workspace = true
 arboard = "3"
+async-stream.workspace = true
 clap.workspace = true
 clap_complete = "4"
 crossterm.workspace = true
+futures-core.workspace = true
 reqwest.workspace = true
 ratatui.workspace = true
 serde_json.workspace = true

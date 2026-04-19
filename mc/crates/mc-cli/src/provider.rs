@@ -19,11 +19,35 @@ impl FallbackProvider {
 
 impl LlmProvider for FallbackProvider {
     fn stream(&self, request: &mc_provider::CompletionRequest) -> mc_provider::ProviderStream {
-        // TODO: true stream-level fallback needs tokio-stream
-        // For now: try primary, fall back on connection error
-        let _fallback = &self.fallback; // used when stream fallback is implemented
-        self.primary.stream(request)
+        let primary = Arc::clone(&self.primary);
+        let fallback = Arc::clone(&self.fallback);
+        let req = request.clone();
+        Box::pin(async_stream::stream! {
+            let mut primary_stream = primary.stream(&req);
+            match next_item(&mut primary_stream).await {
+                Some(Err(e)) if e.is_retryable() => {
+                    drop(primary_stream);
+                    let mut fb_stream = fallback.stream(&req);
+                    while let Some(item) = next_item(&mut fb_stream).await {
+                        yield item;
+                    }
+                }
+                Some(item) => {
+                    yield item;
+                    while let Some(item) = next_item(&mut primary_stream).await {
+                        yield item;
+                    }
+                }
+                None => {}
+            }
+        })
     }
+}
+
+async fn next_item(
+    stream: &mut mc_provider::ProviderStream,
+) -> Option<Result<mc_provider::ProviderEvent, mc_provider::ProviderError>> {
+    std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)).await
 }
 
 /// Auto-detect provider from model name.
@@ -259,5 +283,153 @@ pub fn create_provider(
                 bail!("unknown provider '{name}'. Set base_url in config or use --base-url flag.")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mc_provider::{CompletionRequest, ProviderError, ProviderEvent, ProviderStream};
+    use std::collections::VecDeque;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
+
+    struct MockProvider {
+        scripts: Mutex<VecDeque<Vec<Result<ProviderEvent, ProviderError>>>>,
+        calls: AtomicUsize,
+    }
+
+    impl MockProvider {
+        fn new(scripts: Vec<Vec<Result<ProviderEvent, ProviderError>>>) -> Self {
+            Self {
+                scripts: Mutex::new(scripts.into()),
+                calls: AtomicUsize::new(0),
+            }
+        }
+
+        fn call_count(&self) -> usize {
+            self.calls.load(Ordering::Relaxed)
+        }
+    }
+
+    impl LlmProvider for MockProvider {
+        fn stream(&self, _request: &CompletionRequest) -> ProviderStream {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            let events = self
+                .scripts
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or_else(|| vec![Ok(ProviderEvent::MessageStop)]);
+            Box::pin(async_stream::stream! {
+                for ev in events {
+                    yield ev;
+                }
+            })
+        }
+    }
+
+    fn empty_request() -> CompletionRequest {
+        CompletionRequest {
+            model: "test".into(),
+            max_tokens: 16,
+            system_prompt: None,
+            messages: Vec::new(),
+            tools: Vec::new(),
+            tool_choice: None,
+            thinking_budget: None,
+            response_format: None,
+        }
+    }
+
+    async fn collect(stream: ProviderStream) -> Vec<Result<ProviderEvent, ProviderError>> {
+        let mut stream = stream;
+        let mut out = Vec::new();
+        while let Some(item) = next_item(&mut stream).await {
+            out.push(item);
+        }
+        out
+    }
+
+    fn retryable_api_err() -> ProviderError {
+        ProviderError::Api {
+            status: 503,
+            error_type: None,
+            message: "overloaded".into(),
+            retryable: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn fallback_used_when_primary_errors_first() {
+        let primary = Arc::new(MockProvider::new(vec![vec![Err(retryable_api_err())]]));
+        let fallback = Arc::new(MockProvider::new(vec![vec![
+            Ok(ProviderEvent::TextDelta("from-fallback".into())),
+            Ok(ProviderEvent::MessageStop),
+        ]]));
+        let fp = FallbackProvider {
+            primary: primary.clone() as Arc<dyn LlmProvider>,
+            fallback: fallback.clone() as Arc<dyn LlmProvider>,
+        };
+        let events = collect(fp.stream(&empty_request())).await;
+        let texts: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                Ok(ProviderEvent::TextDelta(s)) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, vec!["from-fallback"]);
+        assert_eq!(primary.call_count(), 1);
+        assert_eq!(fallback.call_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn primary_used_when_it_succeeds() {
+        let primary = Arc::new(MockProvider::new(vec![vec![
+            Ok(ProviderEvent::TextDelta("from-primary".into())),
+            Ok(ProviderEvent::MessageStop),
+        ]]));
+        let fallback = Arc::new(MockProvider::new(vec![vec![Ok(ProviderEvent::TextDelta(
+            "should-not-appear".into(),
+        ))]]));
+        let fp = FallbackProvider {
+            primary: primary.clone() as Arc<dyn LlmProvider>,
+            fallback: fallback.clone() as Arc<dyn LlmProvider>,
+        };
+        let events = collect(fp.stream(&empty_request())).await;
+        let texts: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                Ok(ProviderEvent::TextDelta(s)) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, vec!["from-primary"]);
+        assert_eq!(primary.call_count(), 1);
+        assert_eq!(fallback.call_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn non_retryable_error_propagates() {
+        let primary = Arc::new(MockProvider::new(vec![vec![Err(
+            ProviderError::MissingApiKey {
+                env_var: "NONE".into(),
+            },
+        )]]));
+        let fallback = Arc::new(MockProvider::new(vec![vec![Ok(ProviderEvent::TextDelta(
+            "should-not-appear".into(),
+        ))]]));
+        let fp = FallbackProvider {
+            primary: primary.clone() as Arc<dyn LlmProvider>,
+            fallback: fallback.clone() as Arc<dyn LlmProvider>,
+        };
+        let events = collect(fp.stream(&empty_request())).await;
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            events[0],
+            Err(ProviderError::MissingApiKey { .. })
+        ));
+        assert_eq!(fallback.call_count(), 0);
     }
 }

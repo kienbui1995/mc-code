@@ -1101,9 +1101,11 @@ version = "1.9.1"
 dependencies = [
  "anyhow",
  "arboard",
+ "async-stream",
  "clap",
  "clap_complete",
  "crossterm",
+ "futures-core",
  "mc-code-core",
  "mc-config",
  "mc-provider",
