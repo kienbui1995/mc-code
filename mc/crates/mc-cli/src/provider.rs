@@ -26,6 +26,7 @@ impl LlmProvider for FallbackProvider {
             let mut primary_stream = primary.stream(&req);
             match next_item(&mut primary_stream).await {
                 Some(Err(e)) if e.is_retryable() => {
+                    tracing::warn!(error = %e, "primary provider failed with retryable error; switching to fallback");
                     drop(primary_stream);
                     let mut fb_stream = fallback.stream(&req);
                     while let Some(item) = next_item(&mut fb_stream).await {
